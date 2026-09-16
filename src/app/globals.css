@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+
+/*
+  スマートフォンで毎日開かれることを前提にしたトークン。
+  将来 iOS / Android の WebView に載せても破綻しないよう、
+  色・角丸・余白はすべてここに集約している。
+*/
+:root {
+  --bg: #f7f5f2;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #efece7;
+  --fg: #1c1a17;
+  --fg-muted: #6b6560;
+  --border: #e2ddd6;
+  --accent: #d95f27;
+  --accent-soft: #fbeade;
+  --accent-fg: #ffffff;
+  --coach-bubble: #ffffff;
+  --user-bubble: #2a2724;
+  --user-bubble-fg: #f7f5f2;
+  --warn: #b3541e;
+  --warn-soft: #fdf0e4;
+  --good: #2f7d52;
+  --good-soft: #e6f2ea;
+  --radius: 18px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14120f;
+    --bg-elevated: #1f1c18;
+    --bg-sunken: #100e0c;
+    --fg: #f2efe9;
+    --fg-muted: #a09a91;
+    --border: #322d27;
+    --accent: #f07a3c;
+    --accent-soft: #3a2116;
+    --accent-fg: #14120f;
+    --coach-bubble: #221e1a;
+    --user-bubble: #f07a3c;
+    --user-bubble-fg: #14120f;
+    --warn: #f0a36c;
+    --warn-soft: #3a2415;
+    --good: #7cc79b;
+    --good-soft: #17301f;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-elevated: var(--bg-elevated);
+  --color-sunken: var(--bg-sunken);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Yu Gothic', Meiryo, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* iOS でスクロールが body に伝播してアドレスバーが跳ねるのを防ぐ。 */
+  overscroll-behavior-y: none;
+}
+
+/* 入力欄が 16px 未満だと iOS Safari が自動でズームしてしまう。 */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 0.5rem);
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@keyframes coach-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: coach-rise 0.28s ease-out both;
+}
+
+@keyframes coach-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.animate-blink {
+  animation: coach-blink 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-blink {
+    animation: none;
+  }
+}
+
+/* スクロールバーは主役ではない。 */
+.scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
