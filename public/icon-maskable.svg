@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="伝説のランニングコーチ">
+  <rect width="192" height="192" fill="#14120f"/>
+  <path d="M80 128 L96 98 L84 86 L91 68" fill="none" stroke="#f7f5f2" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 98 L118 105 L123 128" fill="none" stroke="#f7f5f2" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="106" cy="60" r="11" fill="#f07a3c"/>
+</svg>
