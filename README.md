@@ -66,6 +66,8 @@ Gemini の function calling を使い、会話から拾った事実をコーチ�
 
 ## セットアップ
 
+必要なもの: Node.js 20.9 以上と、Gemini API キー。
+
 ```bash
 npm install
 cp .env.example .env.local   # GEMINI_API_KEY を記入する

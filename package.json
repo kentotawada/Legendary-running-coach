@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "ランナー一人ひとりの人生に寄り添う、伝説のパーソナルコーチAI",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
