@@ -7,6 +7,8 @@ import { MAX_IMAGES, MAX_TOTAL_BYTES } from '@/lib/images';
 export interface ComposerApi {
   /** クイックボタンからも画像選択を開けるようにする。 */
   openPicker: () => void;
+  /** 相談アイデアから質問文を差し込む。送信はせず、書き換えられる状態で置く。 */
+  setText: (text: string) => void;
 }
 
 interface Props {
@@ -27,7 +29,21 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  if (apiRef) apiRef.current = { openPicker: () => fileRef.current?.click() };
+  if (apiRef) {
+    apiRef.current = {
+      openPicker: () => fileRef.current?.click(),
+      setText: (text) => {
+        setValue(text);
+        // 差し込んだ直後に、続きを書き足せる位置へカーソルを置く。
+        requestAnimationFrame(() => {
+          const el = textRef.current;
+          if (!el) return;
+          el.focus();
+          el.setSelectionRange(text.length, text.length);
+        });
+      },
+    };
+  }
 
   // 入力量に合わせて高さを伸ばす。上限を超えたら中でスクロールさせる。
   useLayoutEffect(() => {

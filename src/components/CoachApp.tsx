@@ -6,6 +6,7 @@ import MessageBubble from './MessageBubble';
 import Composer, { type ComposerApi } from './Composer';
 import QuickCheckIn from './QuickCheckIn';
 import ProfileSheet from './ProfileSheet';
+import IdeaSheet from './IdeaSheet';
 import PhaseBadge from './PhaseBadge';
 
 export default function CoachApp() {
@@ -26,6 +27,7 @@ export default function CoachApp() {
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
@@ -130,6 +132,7 @@ export default function CoachApp() {
         <QuickCheckIn
           onPick={(message) => void send(message)}
           onPickImage={() => composerRef.current?.openPicker()}
+          onOpenIdeas={() => setIdeasOpen(true)}
           disabled={busy || !ready}
         />
         <Composer
@@ -139,6 +142,16 @@ export default function CoachApp() {
           disabled={busy || !ready}
         />
       </footer>
+
+      {ideasOpen && (
+        <IdeaSheet
+          onPick={(question) => {
+            composerRef.current?.setText(question);
+            setIdeasOpen(false);
+          }}
+          onClose={() => setIdeasOpen(false)}
+        />
+      )}
 
       {sheetOpen && (
         <ProfileSheet

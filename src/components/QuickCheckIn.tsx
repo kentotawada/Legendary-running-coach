@@ -6,9 +6,11 @@
  */
 type Chip =
   | { label: string; kind: 'message'; message: string; tone?: 'warn' }
-  | { label: string; kind: 'image'; tone?: 'accent' };
+  | { label: string; kind: 'image'; tone?: 'accent' }
+  | { label: string; kind: 'ideas'; tone?: 'accent' };
 
 const CHIPS: Chip[] = [
+  { label: '💡 何を相談する？', kind: 'ideas' },
   { label: '📊 Garminデータを送る', kind: 'image', tone: 'accent' },
   { label: '🔥 ポイント練習の報告', kind: 'message', message: '今日のポイント練習について報告します。' },
   { label: '🦵 膝・足の違和感', kind: 'message', message: '膝（または足）に違和感があります。', tone: 'warn' },
@@ -20,6 +22,7 @@ const CHIPS: Chip[] = [
 interface Props {
   onPick: (message: string) => void;
   onPickImage: () => void;
+  onOpenIdeas: () => void;
   disabled?: boolean;
 }
 
@@ -28,15 +31,21 @@ const TONE_CLASS: Record<string, string> = {
   accent: 'border-[color:var(--accent)] bg-accent-soft text-accent',
 };
 
-export default function QuickCheckIn({ onPick, onPickImage, disabled = false }: Props) {
+export default function QuickCheckIn({ onPick, onPickImage, onOpenIdeas, disabled = false }: Props) {
+  const handle = (chip: Chip) => {
+    if (chip.kind === 'image') return onPickImage();
+    if (chip.kind === 'ideas') return onOpenIdeas();
+    return onPick(chip.message);
+  };
+
   return (
     <div className="scroll-area flex gap-2 overflow-x-auto px-4 pb-2 pt-3">
       {CHIPS.map((chip) => (
         <button
           key={chip.label}
           type="button"
-          disabled={disabled}
-          onClick={() => (chip.kind === 'image' ? onPickImage() : onPick(chip.message))}
+          disabled={disabled && chip.kind !== 'ideas'}
+          onClick={() => handle(chip)}
           className={[
             'shrink-0 rounded-full border px-3.5 py-2 text-[13px] font-medium transition',
             'active:scale-[0.97] disabled:opacity-40',

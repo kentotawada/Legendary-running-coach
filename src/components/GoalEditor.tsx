@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import type { GoalKind, RunnerProfile } from '@/lib/types';
-import { GOAL_PRESETS, marathonPaceSeconds, parseDuration, trainingPaces } from '@/lib/goals';
+import {
+  formatDuration,
+  marathonPaceSeconds,
+  parseDuration,
+  summaryForTargetTime,
+  targetTimeOptions,
+  trainingPaces,
+  vdotForTarget,
+} from '@/lib/goals';
 
 export interface ProfileEdit {
   goal: {
@@ -55,6 +63,15 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
   const needsTime = kind === 'time' || kind === 'race';
   const timeIsValid = !targetTime.trim() || parseDuration(targetTime) !== undefined;
 
+  const options = useMemo(() => targetTimeOptions(), []);
+  const normalizedTime = useMemo(() => {
+    const seconds = parseDuration(targetTime);
+    return seconds === undefined ? '' : formatDuration(seconds);
+  }, [targetTime]);
+  // 選択肢に無いタイム（自由入力）を選んでいるかどうか。
+  const isCustomTime = Boolean(targetTime.trim()) && !options.some((o) => o.value === normalizedTime);
+  const [customTime, setCustomTime] = useState(isCustomTime);
+
   // 目標タイムを入れた瞬間に、コーチが使う基準が見えるようにする。
   const derived = useMemo(() => {
     if (!needsTime) return null;
@@ -63,14 +80,25 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
     return trainingPaces(seconds);
   }, [needsTime, targetTime]);
 
-  const applyPreset = (presetId: string) => {
-    const preset = GOAL_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
-    setKind(preset.kind);
-    setSummary(preset.summary);
-    setTargetTime(preset.targetTime ?? '');
-    setTargetPace('');
+  const vdot = useMemo(() => (needsTime ? vdotForTarget(targetTime) : undefined), [needsTime, targetTime]);
+
+  const pickTime = (value: string) => {
+    if (value === 'custom') {
+      setCustomTime(true);
+      return;
+    }
+    setCustomTime(false);
+    setTargetTime(value);
+    const seconds = parseDuration(value);
+    // 目標名は選んだタイムから自動で作る。気に入らなければ下の欄で書き換えられる。
+    if (seconds !== undefined) setSummary(summaryForTargetTime(seconds));
   };
+
+  const KINDS: { value: GoalKind; label: string }[] = [
+    { value: 'time', label: 'タイムを狙う' },
+    { value: 'race', label: '完走したい' },
+    { value: 'health', label: '健康維持・習慣化' },
+  ];
 
   const submit = () => {
     if (!timeIsValid) return;
@@ -92,24 +120,30 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
-      <Field label="目標" hint="選ぶと、コーチが使う基準ペースがそれに合わせて切り替わります">
+      <Field label="何を目指しますか" hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">
         <div className="flex flex-wrap gap-2">
-          {GOAL_PRESETS.map((preset) => {
-            const active = summary === preset.summary;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyPreset(preset.id)}
-                className={[
-                  'rounded-full border px-3 py-1.5 text-[13px] transition active:scale-[0.97]',
-                  active ? 'border-[color:var(--accent)] bg-accent-soft text-accent' : 'border-line bg-bg text-fg',
-                ].join(' ')}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
+          {KINDS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => {
+                setKind(item.value);
+                // 目標名が空のままにならないよう、種類に合わせた既定を入れておく。
+                if (!summary.trim()) {
+                  if (item.value === 'race') setSummary('フルマラソン完走');
+                  if (item.value === 'health') setSummary('健康維持と走る習慣の定着');
+                }
+              }}
+              className={[
+                'rounded-full border px-3.5 py-2 text-[13px] transition active:scale-[0.97]',
+                kind === item.value
+                  ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                  : 'border-line bg-bg text-fg',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </Field>
 
@@ -124,17 +158,35 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
       {needsTime && (
         <>
-          <Field label="目標タイム" hint="時:分:秒 で入力（例 3:29:59）。プリセット以外の目標も設定できます">
-            <input
-              className={inputClass}
-              value={targetTime}
-              onChange={(e) => setTargetTime(e.target.value)}
-              placeholder="3:29:59"
-              inputMode="numeric"
-            />
+          <Field label="目標タイム" hint="1時間55分から5時間30分まで5分刻み。スクロールして選べます">
+            <select
+              className={`${inputClass} appearance-none`}
+              value={customTime ? 'custom' : normalizedTime}
+              onChange={(e) => pickTime(e.target.value)}
+              aria-label="目標タイム"
+            >
+              <option value="">選んでください</option>
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              <option value="custom">その他（自由入力）</option>
+            </select>
+
+            {customTime && (
+              <input
+                className={`${inputClass} mt-2`}
+                value={targetTime}
+                onChange={(e) => setTargetTime(e.target.value)}
+                placeholder="2:48:30 のように 時:分:秒 で"
+                inputMode="numeric"
+              />
+            )}
+
             {!timeIsValid && (
               <span className="mt-1 block text-[12px] text-warn">
-                「3:29:59」のように、時:分:秒 の形で入力してください。
+                「2:48:30」のように、時:分:秒 の形で入力してください。
               </span>
             )}
           </Field>
@@ -144,6 +196,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
               <p className="font-medium text-fg">この目標での基準ペース</p>
               <p>レースペース {derived.marathon} / 閾値走 {derived.threshold} / インターバル {derived.interval}</p>
               <p>イージー {derived.easyFrom} 〜 {derived.easyTo}</p>
+              {vdot !== undefined && <p>必要な VDOT ≒ {vdot.toFixed(1)}</p>}
             </div>
           )}
 

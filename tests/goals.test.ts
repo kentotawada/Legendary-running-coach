@@ -6,7 +6,10 @@ import {
   marathonPaceSeconds,
   parseDuration,
   resolveTargetPace,
+  summaryForTargetTime,
+  targetTimeOptions,
   trainingPaces,
+  vdotForTarget,
   volumeGuide,
 } from '@/lib/goals';
 import { createDefaultProfile } from '@/lib/types';
@@ -137,6 +140,104 @@ describe('goalDoctrine', () => {
     for (const preset of GOAL_PRESETS) {
       if (!preset.targetTime) continue;
       expect(marathonPaceSeconds(preset.targetTime)).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('世界記録水準のランナー', () => {
+  it('VDOTを目標タイムから推定できる', () => {
+    // Daniels の表と厳密に一致はしない（表は距離ごとに補正が入っている）が、
+    // 強度の物差しとしては十分な精度で、サブ3は50台前半、2時間05分は80前後に来る。
+    const sub3 = vdotForTarget('3:00:00') as number;
+    const sub4 = vdotForTarget('4:00:00') as number;
+    const elite = vdotForTarget('2:05:00') as number;
+
+    expect(sub3).toBeGreaterThan(52);
+    expect(sub3).toBeLessThan(55);
+    expect(sub4).toBeGreaterThan(36);
+    expect(sub4).toBeLessThan(39);
+    expect(elite).toBeGreaterThan(78);
+    expect(elite).toBeLessThan(86);
+  });
+
+  it('速い目標ほど高い VDOT になる', () => {
+    const times = ['5:00:00', '4:00:00', '3:00:00', '2:30:00', '2:05:00'];
+    const values = times.map((t) => vdotForTarget(t) as number);
+
+    for (let i = 1; i < values.length; i += 1) {
+      expect(values[i]).toBeGreaterThan(values[i - 1]);
+    }
+  });
+
+  it('キロ2分台・3分台の練習ペースを正しく出す', () => {
+    const paces = trainingPaces(marathonPaceSeconds('2:05:00') as number);
+
+    expect(paces.marathon).toBe('2:57/km');
+    expect(paces.threshold).toBe('2:49/km');
+    expect(paces.interval).toBe('2:37/km');
+    // エリートでもイージーは3〜4分台。ここが速すぎるのは市民ランナーと同じ失敗。
+    expect(paces.easyFrom).toBe('3:42/km');
+    expect(paces.easyTo).toBe('4:08/km');
+  });
+
+  it('練習量の目安がサブ3で頭打ちにならない', () => {
+    const elite = volumeGuide({ kind: 'time', summary: '', targetTime: '2:10:00' });
+    const sub3 = volumeGuide({ kind: 'time', summary: '', targetTime: '2:59:00' });
+
+    expect(elite.weeklyKm).toContain('160〜220km');
+    expect(sub3.weeklyKm).toContain('60〜80km');
+  });
+
+  it('この水準では、一般論を当てないよう釘を刺す', () => {
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1'),
+      { goal: { kind: 'time', summary: 'サブ2.5', targetTime: '2:25:00' } },
+      NOW,
+    );
+    const text = goalDoctrine(profile);
+
+    expect(text).toContain('世界記録に近い水準');
+    expect(text).toContain('VDOT');
+  });
+
+  it('市民ランナーには、その注意書きを出さない', () => {
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1'),
+      { goal: { kind: 'time', summary: 'サブ4', targetTime: '4:00:00' } },
+      NOW,
+    );
+    expect(goalDoctrine(profile)).not.toContain('世界記録に近い水準');
+  });
+});
+
+describe('目標タイムの選択肢', () => {
+  it('1時間55分から5時間30分まで5分刻みで並ぶ', () => {
+    const options = targetTimeOptions();
+
+    expect(options[0].value).toBe('1:55:00');
+    expect(options.at(-1)?.value).toBe('5:30:00');
+    expect(options[1].seconds - options[0].seconds).toBe(300);
+  });
+
+  it('よく使われる目標には呼び名を添える', () => {
+    const options = targetTimeOptions();
+    const labelOf = (value: string) => options.find((o) => o.value === value)?.label;
+
+    expect(labelOf('3:00:00')).toBe('3時間00分（サブ3）');
+    expect(labelOf('2:30:00')).toBe('2時間30分（サブ2.5）');
+    expect(labelOf('2:35:00')).toBe('2時間35分');
+  });
+
+  it('選んだタイムから、そのまま目標名を作れる', () => {
+    expect(summaryForTargetTime(180 * 60)).toBe('フルマラソン 3時間00分切り（サブ3）');
+    expect(summaryForTargetTime(155 * 60)).toBe('フルマラソン 2時間35分切り');
+  });
+
+  it('すべての選択肢で基準ペースを計算できる', () => {
+    for (const option of targetTimeOptions()) {
+      const pace = marathonPaceSeconds(option.value);
+      expect(pace).toBeGreaterThan(0);
+      expect(trainingPaces(pace as number).marathon).toMatch(/^\d:\d\d\/km$/);
     }
   });
 });

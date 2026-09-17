@@ -17,6 +17,68 @@ export interface GoalPreset {
   summary: string;
 }
 
+/**
+ * 目標タイムの選択肢。1時間55分から5時間30分まで5分刻み。
+ * 下限を2時間より手前に置いているのは、世界記録水準のランナーが設定できるようにするため。
+ */
+export const TARGET_TIME_MIN_SECONDS = 115 * 60;
+export const TARGET_TIME_MAX_SECONDS = 330 * 60;
+export const TARGET_TIME_STEP_SECONDS = 5 * 60;
+
+/** 日本で広く使われている呼び名。それ以外は素直に「○時間○分」と出す。 */
+const WELL_KNOWN_LABELS: Record<number, string> = {
+  [120 * 60]: 'サブ2',
+  [150 * 60]: 'サブ2.5',
+  [180 * 60]: 'サブ3',
+  [210 * 60]: 'サブ3.5',
+  [240 * 60]: 'サブ4',
+  [270 * 60]: 'サブ4.5',
+  [300 * 60]: 'サブ5',
+};
+
+export interface TargetTimeOption {
+  /** "3:00:00" 形式。 */
+  value: string;
+  /** "3時間00分（サブ3）" のような表示。 */
+  label: string;
+  seconds: number;
+}
+
+export function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h}:${`${m}`.padStart(2, '0')}:${`${s}`.padStart(2, '0')}`;
+}
+
+/** 目標タイムから、そのまま目標名として使える表現を作る。 */
+export function summaryForTargetTime(seconds: number): string {
+  const known = WELL_KNOWN_LABELS[seconds];
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const base = `フルマラソン ${h}時間${`${m}`.padStart(2, '0')}分切り`;
+  return known ? `${base}（${known}）` : base;
+}
+
+export function targetTimeOptions(): TargetTimeOption[] {
+  const options: TargetTimeOption[] = [];
+  for (
+    let seconds = TARGET_TIME_MIN_SECONDS;
+    seconds <= TARGET_TIME_MAX_SECONDS;
+    seconds += TARGET_TIME_STEP_SECONDS
+  ) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const known = WELL_KNOWN_LABELS[seconds];
+    options.push({
+      value: formatDuration(seconds),
+      seconds,
+      label: `${h}時間${`${m}`.padStart(2, '0')}分${known ? `（${known}）` : ''}`,
+    });
+  }
+  return options;
+}
+
 export const GOAL_PRESETS: GoalPreset[] = [
   { id: 'sub3', label: 'サブ3', kind: 'time', targetTime: '2:59:59', summary: 'フルマラソン サブ3（3時間切り）' },
   { id: 'sub315', label: 'サブ3.25', kind: 'time', targetTime: '3:14:59', summary: 'フルマラソン 3時間15分切り' },
@@ -57,6 +119,32 @@ export function marathonPaceSeconds(targetTime: string | undefined): number | un
   const seconds = parseDuration(targetTime);
   if (seconds === undefined || seconds <= 0) return undefined;
   return seconds / MARATHON_KM;
+}
+
+/**
+ * Daniels の式による VDOT（走能力の推定値）。
+ * 目標タイムだけで強度の絶対値が決まるため、
+ * サブ5でも世界記録水準でも同じ物差しで話せるようになる。
+ *
+ *   VO2   = -4.60 + 0.182258·v + 0.000104·v²      (v は m/分)
+ *   %VO2max = 0.8 + 0.1894393·e^(-0.012778·t) + 0.2989558·e^(-0.1932605·t)  (t は分)
+ */
+export function estimateVdot(distanceMeters: number, seconds: number): number | undefined {
+  if (!(distanceMeters > 0) || !(seconds > 0)) return undefined;
+  const minutes = seconds / 60;
+  const velocity = distanceMeters / minutes;
+  const vo2 = -4.6 + 0.182258 * velocity + 0.000104 * velocity * velocity;
+  const percentMax =
+    0.8 + 0.1894393 * Math.exp(-0.012778 * minutes) + 0.2989558 * Math.exp(-0.1932605 * minutes);
+  if (percentMax <= 0) return undefined;
+  return vo2 / percentMax;
+}
+
+/** 目標タイムからの VDOT。 */
+export function vdotForTarget(targetTime: string | undefined): number | undefined {
+  const seconds = parseDuration(targetTime);
+  if (seconds === undefined) return undefined;
+  return estimateVdot(MARATHON_KM * 1000, seconds);
 }
 
 export interface TrainingPaces {
@@ -101,6 +189,19 @@ export function volumeGuide(goal: RunnerGoal | undefined): VolumeGuide {
   const seconds = parseDuration(goal.targetTime);
   if (seconds === undefined) {
     return { weeklyKm: '週25〜35km', pointSessions: '週1回（距離への耐性づくりを優先）' };
+  }
+  // サブ3で頭打ちにすると、2時間台のランナーに現実離れした少なさを勧めてしまう。
+  if (seconds < 2.25 * 3600) {
+    return {
+      weeklyKm: '週160〜220km（プロ／実業団水準。1日2部練習が前提）',
+      pointSessions: '週2〜3回。ポイント間にジョグを厚く挟み、総量で支える',
+    };
+  }
+  if (seconds < 2.5 * 3600) {
+    return { weeklyKm: '週130〜180km（1日2部練習を含む）', pointSessions: '週2〜3回' };
+  }
+  if (seconds < 2.75 * 3600) {
+    return { weeklyKm: '週100〜140km', pointSessions: '週2〜3回' };
   }
   if (seconds < 3 * 3600) return { weeklyKm: '週60〜80km（月間250〜350km）', pointSessions: '週2回まで、中2日空ける' };
   if (seconds < 3.5 * 3600) return { weeklyKm: '週50〜70km', pointSessions: '週2回まで、中2日空ける' };
@@ -157,6 +258,8 @@ export function goalDoctrine(profile: RunnerProfile): string {
 
   if (derived !== undefined) {
     const paces = trainingPaces(derived);
+    const vdot = vdotForTarget(goal.targetTime);
+
     lines.push(
       `- **目標ペース（M）= ${paceOverride ?? paces.marathon}**。すべての練習をこの基準との距離で評価する。`,
       `- イージー（E）: ${paces.easyFrom} 〜 ${paces.easyTo}。鼻呼吸で会話できる強度。遅すぎることを恐れさせない。`,
@@ -164,6 +267,23 @@ export function goalDoctrine(profile: RunnerProfile): string {
       `- インターバル（I）: ${paces.interval} 前後で3〜5分×5本程度。レース前の一時期に限定する。`,
       `- レースペース走（M）: ${paceOverride ?? paces.marathon}。ロング走の後半に入れると本番の再現度が上がる。`,
     );
+
+    if (vdot !== undefined) {
+      lines.push(
+        `- **この目標に必要な VDOT ≒ ${vdot.toFixed(1)}**（Daniels の推定値）。`,
+        '  実走データから推定した現在の VDOT と比べ、開きがあるならどの能力が不足しているかを specific に指摘する。',
+      );
+    }
+
+    // 2時間30分を切る水準では、市民ランナー向けの前提がそのままでは通用しない。
+    if (derived < 215) {
+      lines.push(
+        '- **このランナーは世界記録に近い水準にいる。** 市民ランナー向けの一般論をそのまま当てないこと。',
+        '  1日2部練習、ジョグの絶対量、鉄・フェリチンを含む血液指標、体重管理の許容幅の狭さ、',
+        '  シューズとレース選択、ペーサーの有無まで含めて、この水準の文脈で話すこと。',
+        '  この領域では「もっと追い込む」より「回復と総量の管理」が伸びしろになることが多い。',
+      );
+    }
   } else if (paceOverride) {
     lines.push(`- **目標ペース（M）= ${paceOverride}**。すべての練習をこの基準との距離で評価する。`);
   } else {
