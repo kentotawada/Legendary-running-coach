@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import type { RunnerProfile } from '@/lib/types';
+import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
 import PhaseBadge from './PhaseBadge';
 
 interface Props {
   profile: RunnerProfile | null;
+  build: BuildInfo | null;
   onClose: () => void;
   onReset: () => void;
 }
@@ -33,7 +35,7 @@ const TYPE_LABEL: Record<string, string> = {
  * コーチが何を覚えているかを、本人がいつでも確認・削除できる画面。
  * 「勝手に学習されている」不安を残さないための装置でもある。
  */
-export default function ProfileSheet({ profile, onClose, onReset }: Props) {
+export default function ProfileSheet({ profile, build, onClose, onReset }: Props) {
   const [confirming, setConfirming] = useState(false);
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
@@ -146,6 +148,18 @@ export default function ProfileSheet({ profile, onClose, onReset }: Props) {
                 </Row>
               )}
             </dl>
+          )}
+
+          {build && (
+            <div className="mt-6 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+              <p className="font-medium">このアプリの状態</p>
+              <p>
+                ビルド {build.commit} / {build.environment} / モデル {build.model}（思考 {build.thinkingLevel}）
+              </p>
+              <p>
+                APIキー: {build.hasApiKey ? (build.apiKeyLooksValid ? '設定済み' : '設定済み（形式が怪しい）') : '未設定'}
+              </p>
+            </div>
           )}
 
           <div className="mt-6 border-t border-line pt-4">

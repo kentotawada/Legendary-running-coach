@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { buildSystemInstruction } from '@/lib/prompt';
 import { createEmptyProfile } from '@/lib/types';
 import { applyProfileUpdate, setPhase, upsertPain } from '@/lib/profile';
 import { trimHistory } from '@/lib/store';
+import { cleanEnv, getBuildInfo } from '@/lib/build-info';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
 
@@ -92,5 +93,41 @@ describe('trimHistory', () => {
   it('上限内ならそのまま返す', () => {
     const history = [{ role: 'user', parts: [{ text: 'a' }] }];
     expect(trimHistory(history, 10)).toBe(history);
+  });
+});
+
+describe('cleanEnv', () => {
+  it('引用符や空白ごと貼り付けられた環境変数を救う', () => {
+    expect(cleanEnv('"AIzaSyABC"')).toBe('AIzaSyABC');
+    expect(cleanEnv("  'AIzaSyABC'  ")).toBe('AIzaSyABC');
+    expect(cleanEnv('AIzaSyABC\n')).toBe('AIzaSyABC');
+    expect(cleanEnv(undefined)).toBe('');
+  });
+});
+
+describe('getBuildInfo', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('キーの値は絶対に返さず、状態だけを返す', () => {
+    process.env.GEMINI_API_KEY = 'AIzaSy0123456789012345678901234567890';
+    const info = getBuildInfo();
+
+    expect(JSON.stringify(info)).not.toContain('AIzaSy0123456789012345678901234567890');
+    expect(info.hasApiKey).toBe(true);
+    expect(info.apiKeyLooksValid).toBe(true);
+  });
+
+  it('形の壊れたキーを設定ミスとして見分ける', () => {
+    process.env.GEMINI_API_KEY = 'your-api-key-here';
+    expect(getBuildInfo().apiKeyLooksValid).toBe(false);
+  });
+
+  it('コミットが分からない場合は local と答える', () => {
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    delete process.env.COACH_COMMIT_SHA;
+    expect(getBuildInfo().commit).toBe('local');
   });
 });

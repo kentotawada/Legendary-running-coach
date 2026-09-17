@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
+import type { BuildInfo } from '@/lib/build-info';
 
 interface DoneEvent {
   type: 'done';
@@ -22,6 +23,8 @@ export interface CoachChat {
   error: string | null;
   /** 原因の切り分けに使う、サーバー側が受け取った生のエラー文。 */
   errorDetail: string | null;
+  /** どのビルドを見ているか。古いデプロイを見続けている事故を切り分けるため。 */
+  build: BuildInfo | null;
   send: (text: string) => Promise<void>;
   reset: () => Promise<void>;
 }
@@ -34,6 +37,7 @@ export function useCoachChat(): CoachChat {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [build, setBuild] = useState<BuildInfo | null>(null);
   const counter = useRef(0);
   const started = useRef(false);
 
@@ -137,13 +141,22 @@ export function useCoachChat(): CoachChat {
           messages: ChatMessage[];
           profile: RunnerProfile;
           hasApiKey: boolean;
+          build?: BuildInfo;
         };
         setMessages(data.messages.map((m) => ({ ...m, id: `server-${m.id}` })));
         setProfile(data.profile);
+        setBuild(data.build ?? null);
         setReady(true);
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
           return;
+        }
+        if (data.build && !data.build.apiKeyLooksValid) {
+          // 引用符や改行ごと貼り付けてしまう事故は、実際に呼ぶ前に気づけた方がいい。
+          setError(
+            'GEMINI_API_KEY の形が Google AI Studio のキー（AIza… で始まる文字列）と違います。' +
+              '引用符や改行が混ざっていないか確認してください。',
+          );
         }
         if (data.messages.length === 0) await turn('');
       } catch {
@@ -163,5 +176,5 @@ export function useCoachChat(): CoachChat {
     await turn('');
   }, [turn]);
 
-  return { messages, streamingText, profile, busy, ready, error, errorDetail, send, reset };
+  return { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset };
 }

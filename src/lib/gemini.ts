@@ -10,6 +10,7 @@ import {
   mentionsDiscomfort,
 } from './safety';
 import { trimHistory } from './store';
+import { cleanEnv } from './build-info';
 
 const DEFAULT_MODEL = 'gemini-3-pro-preview';
 /** 既定のモデルがそのキーで使えない時に、黙って倒れないための退避先。 */
@@ -102,14 +103,15 @@ function candidateModels(): string[] {
 }
 
 function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
+  // 環境変数に引用符や改行が紛れ込んでいても、そこで転ばないようにする。
+  const apiKey = cleanEnv(process.env.GEMINI_API_KEY);
   if (!apiKey) throw new MissingApiKeyError();
   if (!client) client = new GoogleGenAI({ apiKey });
   return client;
 }
 
 function modelName(): string {
-  return process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  return cleanEnv(process.env.GEMINI_MODEL) || DEFAULT_MODEL;
 }
 
 function baseConfig(systemInstruction: string, model: string): GenerateContentConfig {
@@ -121,7 +123,7 @@ function baseConfig(systemInstruction: string, model: string): GenerateContentCo
 
   // thinkingLevel は Gemini 3 系のパラメータ。それ以外のモデルには送らない。
   if (model.startsWith('gemini-3')) {
-    const level = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
+    const level = (cleanEnv(process.env.GEMINI_THINKING_LEVEL) || 'LOW').toUpperCase();
     config.thinkingConfig = { thinkingLevel: level as never };
   }
 

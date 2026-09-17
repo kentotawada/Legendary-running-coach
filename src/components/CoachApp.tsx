@@ -9,7 +9,8 @@ import ProfileSheet from './ProfileSheet';
 import PhaseBadge from './PhaseBadge';
 
 export default function CoachApp() {
-  const { messages, streamingText, profile, busy, ready, error, errorDetail, send, reset } = useCoachChat();
+  const { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset } =
+    useCoachChat();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -117,7 +118,12 @@ export default function CoachApp() {
       </footer>
 
       {sheetOpen && (
-        <ProfileSheet profile={profile} onClose={() => setSheetOpen(false)} onReset={() => void reset()} />
+        <ProfileSheet
+          profile={profile}
+          build={build}
+          onClose={() => setSheetOpen(false)}
+          onReset={() => void reset()}
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
 import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
+import { getBuildInfo } from '@/lib/build-info';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,11 +15,13 @@ export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const { userId, isNew } = resolveUserId(request);
   const state = await getStore().load(userId);
+  const build = getBuildInfo();
   return Response.json(
     {
       messages: toDisplayMessages(state.history),
       profile: state.profile,
-      hasApiKey: Boolean(process.env.GEMINI_API_KEY),
+      hasApiKey: build.hasApiKey,
+      build,
     },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );
@@ -82,10 +85,12 @@ export async function POST(request: NextRequest) {
           send({ type: 'error', message: error.message, detail: error.detail });
         } else {
           console.error('[coach] turn failed', error);
+          // detail が空だと画面に詳細が出ず、原因の切り分けができなくなる。必ず何か入れる。
+          const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           send({
             type: 'error',
             message: 'コーチへの接続がうまくいきませんでした。少し時間をおいて、もう一度話しかけてください。',
-            detail: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+            detail: (raw.trim() || '詳細不明のエラー').slice(0, 500),
           });
         }
       } finally {
