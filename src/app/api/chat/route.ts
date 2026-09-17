@@ -3,10 +3,12 @@ import { getStore } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
-import { MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
+import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// 思考ありのモデルはひと呼吸置くことがある。既定の短い上限で切られないようにする。
+export const maxDuration = 60;
 
 /** 画面の初期表示用。これまでの会話とカルテを返す。 */
 export async function GET(request: NextRequest) {
@@ -72,12 +74,20 @@ export async function POST(request: NextRequest) {
           meta: { usedTools: result.usedTools, rewrites: result.rewrites },
         });
       } catch (error) {
-        const message =
-          error instanceof MissingApiKeyError
-            ? error.message
-            : 'コーチへの接続がうまくいきませんでした。少し時間をおいて、もう一度話しかけてください。';
-        if (!(error instanceof MissingApiKeyError)) console.error('[coach] turn failed', error);
-        send({ type: 'error', message });
+        if (error instanceof MissingApiKeyError) {
+          send({ type: 'error', message: error.message });
+        } else if (error instanceof CoachApiError) {
+          // 原因が分からないまま詰まるのが一番困る。翻訳した理由と生のメッセージを両方返す。
+          console.error('[coach] turn failed', error.status, error.detail);
+          send({ type: 'error', message: error.message, detail: error.detail });
+        } else {
+          console.error('[coach] turn failed', error);
+          send({
+            type: 'error',
+            message: 'コーチへの接続がうまくいきませんでした。少し時間をおいて、もう一度話しかけてください。',
+            detail: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+          });
+        }
       } finally {
         controller.close();
       }

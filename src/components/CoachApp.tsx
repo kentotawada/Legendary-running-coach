@@ -9,7 +9,7 @@ import ProfileSheet from './ProfileSheet';
 import PhaseBadge from './PhaseBadge';
 
 export default function CoachApp() {
-  const { messages, streamingText, profile, busy, ready, error, send, reset } = useCoachChat();
+  const { messages, streamingText, profile, busy, ready, error, errorDetail, send, reset } = useCoachChat();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -90,7 +90,15 @@ export default function CoachApp() {
 
         {error && (
           <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3 text-[13px] leading-relaxed text-warn">
-            {error}
+            <p>{error}</p>
+            {errorDetail && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[12px] opacity-80">エラーの詳細を表示</summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-sunken px-3 py-2 text-[11px] leading-relaxed text-fg">
+                  {errorDetail}
+                </pre>
+              </details>
+            )}
           </div>
         )}
 

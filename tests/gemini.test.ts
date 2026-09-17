@@ -9,7 +9,7 @@ vi.mock('@google/genai', () => ({
   },
 }));
 
-import { runCoachTurn } from '@/lib/gemini';
+import { CoachApiError, describeGeminiError, runCoachTurn } from '@/lib/gemini';
 import { createEmptyProfile } from '@/lib/types';
 import { upsertPain } from '@/lib/profile';
 import type { CoachState } from '@/lib/types';
@@ -156,5 +156,106 @@ describe('runCoachTurn', () => {
     await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
       /GEMINI_API_KEY/,
     );
+  });
+});
+
+function apiError(message: string, status?: number): Error {
+  return Object.assign(new Error(message), status === undefined ? {} : { status });
+}
+
+describe('describeGeminiError', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+  });
+
+  it('キーが無効なら、キーを作り直せと言う', () => {
+    const error = describeGeminiError(apiError('API key not valid. Please pass a valid API key.', 400), 'm');
+    expect(error.message).toContain('GEMINI_API_KEY が無効です');
+  });
+
+  it('権限エラーなら、キーの制限と API の有効化を疑わせる', () => {
+    const error = describeGeminiError(apiError('PERMISSION_DENIED', 403), 'm');
+    expect(error.message).toContain('制限');
+  });
+
+  it('モデルが無ければ、差し替え先を具体的に示す', () => {
+    const error = describeGeminiError(apiError('models/foo is not found', 404), 'foo');
+    expect(error.message).toContain('モデル「foo」');
+    expect(error.message).toContain('GEMINI_MODEL');
+  });
+
+  it('レート制限とサーバー側の不調を区別する', () => {
+    expect(describeGeminiError(apiError('RESOURCE_EXHAUSTED', 429), 'm').message).toContain('利用上限');
+    expect(describeGeminiError(apiError('internal', 503), 'm').message).toContain('一時的な問題');
+  });
+
+  it('メッセージに API キーが混ざっていても外へ出さない', () => {
+    const error = describeGeminiError(apiError('bad key AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q'), 'm');
+    expect(error.detail).not.toContain('AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
+    expect(error.detail).toContain('AIza***');
+  });
+
+  it('翻訳済みのエラーは二重に包まない', () => {
+    const original = new CoachApiError('もう訳してある', 'detail');
+    expect(describeGeminiError(original, 'm')).toBe(original);
+  });
+});
+
+describe('モデルの退避', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    delete process.env.GEMINI_MODEL;
+    generateContentStream.mockReset();
+  });
+
+  it('既定のモデルが使えなければ、退避先のモデルで続行する', async () => {
+    generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
+      if (model === 'gemini-3-pro-preview') throw apiError('models/gemini-3-pro-preview is not found', 404);
+      return (async function* stream() {
+        for (const chunk of chunksOf([{ text: 'こんにちは！' }])) yield chunk;
+      })();
+    });
+
+    const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+
+    expect(result.text).toBe('こんにちは！');
+    expect(generateContentStream.mock.calls.map((c) => c[0].model)).toEqual([
+      'gemini-3-pro-preview',
+      'gemini-3-flash-preview',
+    ]);
+  });
+
+  it('上位モデルの割り当てが無い(429)時も、軽いモデルで一度試す', async () => {
+    generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
+      if (model === 'gemini-3-pro-preview') throw apiError('RESOURCE_EXHAUSTED', 429);
+      return (async function* stream() {
+        for (const chunk of chunksOf([{ text: 'いけました' }])) yield chunk;
+      })();
+    });
+
+    const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+    expect(result.text).toBe('いけました');
+  });
+
+  it('退避先も駄目なら、最後のエラーの理由をそのまま伝える', async () => {
+    generateContentStream.mockImplementation(async () => {
+      throw apiError('RESOURCE_EXHAUSTED', 429);
+    });
+
+    await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
+      /利用上限/,
+    );
+    expect(generateContentStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('モデルの問題でなければ退避せず、理由を持って失敗する', async () => {
+    generateContentStream.mockImplementation(async () => {
+      throw apiError('API key not valid', 400);
+    });
+
+    await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
+      /GEMINI_API_KEY が無効です/,
+    );
+    expect(generateContentStream).toHaveBeenCalledTimes(1);
   });
 });

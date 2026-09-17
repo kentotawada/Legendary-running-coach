@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { CoachState, RunnerProfile } from './types';
 import { createEmptyProfile } from './types';
@@ -110,10 +111,17 @@ let store: CoachStore | null = null;
 
 function dataDir(): string {
   const configured = process.env.COACH_DATA_DIR;
-  if (!configured) return path.join(process.cwd(), '.data');
-  if (path.isAbsolute(configured)) return configured;
-  // 設定値は実行時にしか決まらないので、ビルド時のファイル追跡からは外す。
-  return path.join(/* turbopackIgnore: true */ process.cwd(), configured);
+  if (configured) {
+    if (path.isAbsolute(configured)) return configured;
+    // 設定値は実行時にしか決まらないので、ビルド時のファイル追跡からは外す。
+    return path.join(/* turbopackIgnore: true */ process.cwd(), configured);
+  }
+  // Vercel などサーバーレス環境では、アプリのディレクトリは読み取り専用。
+  // 書ける場所は /tmp だけなので、そこを既定にする（インスタンスが入れ替わると消える）。
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join(os.tmpdir(), 'legendary-running-coach');
+  }
+  return path.join(process.cwd(), '.data');
 }
 
 export function getStore(): CoachStore {

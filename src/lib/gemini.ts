@@ -12,6 +12,8 @@ import {
 import { trimHistory } from './store';
 
 const DEFAULT_MODEL = 'gemini-3-pro-preview';
+/** 既定のモデルがそのキーで使えない時に、黙って倒れないための退避先。 */
+const FALLBACK_MODEL = 'gemini-3-flash-preview';
 /** ツール呼び出し込みの1ターンで回す上限。無限ループを防ぐ。 */
 const MAX_STEPS = 6;
 /** 走行メニュー混入を検知した時に、書き直させる回数。 */
@@ -26,6 +28,79 @@ export class MissingApiKeyError extends Error {
   }
 }
 
+/**
+ * Gemini 側の失敗を、原因が分かる形に翻訳したもの。
+ * 汎用の「うまくいきませんでした」で潰してしまうと、
+ * デプロイ先で何が起きているのか誰にも分からなくなる。
+ */
+export class CoachApiError extends Error {
+  constructor(
+    message: string,
+    readonly detail: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'CoachApiError';
+  }
+}
+
+/** 万一メッセージにキーが混ざっても外へ出さない。 */
+function redactKeys(text: string): string {
+  return text.replace(/AIza[0-9A-Za-z_-]{10,}/g, 'AIza***');
+}
+
+function statusOf(error: unknown): number | undefined {
+  const status = (error as { status?: unknown })?.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+/** そのモデルがこのキーで使えない、という類の失敗か。 */
+function isModelUnavailable(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message : String(error);
+  return statusOf(error) === 404 || /NOT_FOUND|not found|is not supported|not supported for/i.test(raw);
+}
+
+/**
+ * 退避先のモデルを試す価値があるか。
+ * 無料枠では上位モデルの割り当てが 0 で、404 ではなく 429 で返ることがある。
+ * どちらも「このキーではそのモデルを使えない」と同じ意味なので、軽いモデルで一度試す。
+ */
+function shouldTryFallback(error: unknown): boolean {
+  return isModelUnavailable(error) || statusOf(error) === 429;
+}
+
+export function describeGeminiError(error: unknown, model: string): CoachApiError {
+  if (error instanceof CoachApiError) return error;
+
+  const status = statusOf(error);
+  const raw = redactKeys(error instanceof Error ? error.message : String(error));
+
+  let message: string;
+  if (/API[_ ]?key not valid|API_KEY_INVALID/i.test(raw)) {
+    message =
+      'GEMINI_API_KEY が無効です。Google AI Studio でキーを作り直し、環境変数を更新してから再デプロイしてください。';
+  } else if (status === 403 || /PERMISSION_DENIED/i.test(raw)) {
+    message =
+      'この API キーでは Gemini API を呼び出せません。キーに制限（HTTPリファラ / IP）がかかっていないか、Generative Language API が有効かを確認してください。';
+  } else if (isModelUnavailable(error)) {
+    message = `モデル「${model}」がこのキーでは利用できません。環境変数 GEMINI_MODEL に ${FALLBACK_MODEL} を設定してみてください。`;
+  } else if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(raw)) {
+    message = 'Gemini API の利用上限に達しました。少し時間をおいてから、もう一度話しかけてください。';
+  } else if (status !== undefined && status >= 500) {
+    message = 'Gemini API 側で一時的な問題が起きています。少し時間をおいて、もう一度試してください。';
+  } else {
+    message = 'コーチへの接続がうまくいきませんでした。';
+  }
+
+  return new CoachApiError(message, raw.slice(0, 500), status);
+}
+
+/** 実際に使うモデルの候補。既定モデルが駄目なら退避先を試す。 */
+function candidateModels(): string[] {
+  const primary = modelName();
+  return primary === FALLBACK_MODEL ? [primary] : [primary, FALLBACK_MODEL];
+}
+
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new MissingApiKeyError();
@@ -37,7 +112,7 @@ function modelName(): string {
   return process.env.GEMINI_MODEL || DEFAULT_MODEL;
 }
 
-function baseConfig(systemInstruction: string): GenerateContentConfig {
+function baseConfig(systemInstruction: string, model: string): GenerateContentConfig {
   const config: GenerateContentConfig = {
     systemInstruction,
     temperature: 0.8,
@@ -45,7 +120,7 @@ function baseConfig(systemInstruction: string): GenerateContentConfig {
   };
 
   // thinkingLevel は Gemini 3 系のパラメータ。それ以外のモデルには送らない。
-  if (modelName().startsWith('gemini-3')) {
+  if (model.startsWith('gemini-3')) {
     const level = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
     config.thinkingConfig = { thinkingLevel: level as never };
   }
@@ -64,15 +139,17 @@ interface StepResult {
  * 1回分の生成。ストリームで受けつつ、履歴用に parts を組み立て直す。
  * onDelta が undefined の時は、検査してから一括で出すために外へ流さない。
  */
-async function generateStep(
+async function streamOnce(
+  model: string,
   contents: Content[],
   systemInstruction: string,
+  emitted: { value: boolean },
   onDelta?: (delta: string) => void,
 ): Promise<StepResult> {
   const stream = await getClient().models.generateContentStream({
-    model: modelName(),
+    model,
     contents,
-    config: baseConfig(systemInstruction),
+    config: baseConfig(systemInstruction, model),
   });
 
   const parts: Part[] = [];
@@ -109,11 +186,43 @@ async function generateStep(
         parts.push({ ...part });
       }
       text += part.text;
+      emitted.value = true;
       onDelta?.(part.text);
     }
   }
 
   return { parts, text, calls };
+}
+
+/**
+ * 既定のモデルが使えない時だけ、退避先のモデルで1度やり直す。
+ * すでに本文を流し始めた後は、二重に届いてしまうのでやり直さない。
+ */
+async function generateStep(
+  contents: Content[],
+  systemInstruction: string,
+  onDelta?: (delta: string) => void,
+): Promise<StepResult> {
+  const models = candidateModels();
+  const emitted = { value: false };
+
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index];
+    try {
+      return await streamOnce(model, contents, systemInstruction, emitted, onDelta);
+    } catch (error) {
+      // キー未設定はモデルの問題ではない。翻訳せず、そのまま理由を伝える。
+      if (error instanceof MissingApiKeyError) throw error;
+
+      const isLast = index === models.length - 1;
+      if (isLast || emitted.value || !shouldTryFallback(error)) {
+        throw describeGeminiError(error, model);
+      }
+      console.warn(`[coach] モデル ${model} が使えないため ${models[index + 1]} で再試行します`);
+    }
+  }
+
+  throw new CoachApiError('利用できるモデルがありませんでした。', 'no candidate model succeeded');
 }
 
 export interface CoachTurnInput {

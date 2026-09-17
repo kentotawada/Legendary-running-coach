@@ -8,7 +8,10 @@ interface DoneEvent {
   profile: RunnerProfile;
   meta?: { usedTools: string[]; rewrites: number };
 }
-type StreamEvent = { type: 'delta'; text: string } | DoneEvent | { type: 'error'; message: string };
+type StreamEvent =
+  | { type: 'delta'; text: string }
+  | DoneEvent
+  | { type: 'error'; message: string; detail?: string };
 
 export interface CoachChat {
   messages: ChatMessage[];
@@ -17,6 +20,8 @@ export interface CoachChat {
   busy: boolean;
   ready: boolean;
   error: string | null;
+  /** 原因の切り分けに使う、サーバー側が受け取った生のエラー文。 */
+  errorDetail: string | null;
   send: (text: string) => Promise<void>;
   reset: () => Promise<void>;
 }
@@ -28,6 +33,7 @@ export function useCoachChat(): CoachChat {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const counter = useRef(0);
   const started = useRef(false);
 
@@ -49,6 +55,7 @@ export function useCoachChat(): CoachChat {
         setProfile(event.profile);
       } else {
         setError(event.message);
+        setErrorDetail(event.detail ?? null);
       }
     };
 
@@ -85,6 +92,7 @@ export function useCoachChat(): CoachChat {
     async (text: string) => {
       setBusy(true);
       setError(null);
+      setErrorDetail(null);
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -98,6 +106,7 @@ export function useCoachChat(): CoachChat {
         await consume(response);
       } catch (e) {
         setError(e instanceof Error ? e.message : '通信に失敗しました。');
+        setErrorDetail(null);
         setStreamingText(null);
       } finally {
         setBusy(false);
@@ -150,8 +159,9 @@ export function useCoachChat(): CoachChat {
     setProfile(null);
     setStreamingText(null);
     setError(null);
+    setErrorDetail(null);
     await turn('');
   }, [turn]);
 
-  return { messages, streamingText, profile, busy, ready, error, send, reset };
+  return { messages, streamingText, profile, busy, ready, error, errorDetail, send, reset };
 }
