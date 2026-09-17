@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_IMAGES, base64Bytes, validateImages } from '@/lib/images';
+import { MAX_IMAGES, MAX_TOTAL_BYTES, base64Bytes, validateImages } from '@/lib/images';
+import { budgetForCount } from '@/lib/downscale';
 import { stripInlineData } from '@/lib/store';
 import { IMAGE_MARKER } from '@/lib/markers';
 import { toDisplayMessages } from '@/lib/profile';
@@ -91,5 +92,25 @@ describe('stripInlineData', () => {
     expect(toDisplayMessages(stripped)).toEqual([
       { id: '0', role: 'user', text: '今日の練習です', attachmentCount: 1 },
     ]);
+  });
+});
+
+describe('枚数に応じた圧縮の割り当て', () => {
+  it('10枚まで添付できる', () => {
+    expect(MAX_IMAGES).toBe(10);
+  });
+
+  it('枚数が増えるほど、1枚に割ける容量が小さくなる', () => {
+    expect(budgetForCount(10)).toBeLessThan(budgetForCount(3));
+    expect(budgetForCount(3)).toBeLessThan(budgetForCount(1));
+  });
+
+  it('上限いっぱいの10枚でも、合計が送信上限を超えない', () => {
+    expect(budgetForCount(MAX_IMAGES) * MAX_IMAGES).toBeLessThanOrEqual(MAX_TOTAL_BYTES);
+  });
+
+  it('1枚だけの時は、必要以上に劣化させない', () => {
+    // 10枚割り当ての数倍の容量を1枚に使える。
+    expect(budgetForCount(1)).toBeGreaterThan(budgetForCount(10) * 3);
   });
 });

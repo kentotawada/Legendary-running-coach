@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   addActivity,
   applyProfileUpdate,
+  replaceInjuryHistory,
+  setGoal,
   setPhase,
   setPlan,
   summarizeProfile,
   toDisplayMessages,
   upsertPain,
 } from '@/lib/profile';
-import { createBlankProfile, createDefaultProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 import { INTERNAL_PREFIX } from '@/lib/prompt';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
@@ -55,7 +57,7 @@ describe('applyProfileUpdate', () => {
 
 describe('upsertPain', () => {
   it('同じ部位は上書きし、増やさない', () => {
-    const first = upsertPain(createBlankProfile('u1'), { site: '右膝 外側', severity: 3 }, NOW);
+    const first = upsertPain(createDefaultProfile('u1'), { site: '右膝 外側', severity: 3 }, NOW);
     const second = upsertPain(first, { site: '右膝外側', severity: 1, status: 'improving' }, NOW);
 
     expect(second.pains).toHaveLength(1);
@@ -63,19 +65,19 @@ describe('upsertPain', () => {
   });
 
   it('severity 0 は解消として扱う', () => {
-    const profile = upsertPain(createBlankProfile('u1'), { site: '右膝', severity: 0 }, NOW);
+    const profile = upsertPain(createDefaultProfile('u1'), { site: '右膝', severity: 0 }, NOW);
     expect(profile.pains[0].status).toBe('resolved');
   });
 
   it('範囲外の severity は 0-5 に丸める', () => {
-    const profile = upsertPain(createBlankProfile('u1'), { site: '腰', severity: 9 }, NOW);
+    const profile = upsertPain(createDefaultProfile('u1'), { site: '腰', severity: 9 }, NOW);
     expect(profile.pains[0].severity).toBe(5);
   });
 });
 
 describe('setPhase', () => {
   it('変化した時だけ履歴を残す', () => {
-    const toGoal = setPhase(createBlankProfile('u1'), 'goal', 'フルマラソンに申し込んだ', NOW);
+    const toGoal = setPhase(createDefaultProfile('u1'), 'goal', 'フルマラソンに申し込んだ', NOW);
     const again = setPhase(toGoal, 'goal', '同じ', NOW);
 
     expect(toGoal.phaseHistory).toHaveLength(1);
@@ -104,12 +106,12 @@ describe('setPlan', () => {
 
 describe('summarizeProfile', () => {
   it('目標をまだ言葉にしていない人には、走力を聞き出すところから始めさせる', () => {
-    const summary = summarizeProfile(createBlankProfile('u1'), NOW);
+    const summary = summarizeProfile(createDefaultProfile('u1'), NOW);
     expect(summary).toContain('走力を聞き出し');
   });
 
   it('心拍の基準値が無ければ、推測せず尋ねるよう明記する', () => {
-    expect(summarizeProfile(createBlankProfile('u1'), NOW)).toContain('推測せず最大心拍かLTHRを尋ねる');
+    expect(summarizeProfile(createDefaultProfile('u1'), NOW)).toContain('推測せず最大心拍かLTHRを尋ねる');
   });
 
   it('レースまでの残り日数を計算して渡す', () => {
@@ -146,5 +148,36 @@ describe('toDisplayMessages', () => {
       { id: '1', role: 'coach', text: 'はじめまして！' },
       { id: '2', role: 'user', text: 'よろしくお願いします' },
     ]);
+  });
+});
+
+describe('本人による設定変更', () => {
+  it('目標を差し替えると、前の目標の情報は残らない', () => {
+    const sub3 = setGoal(
+      createDefaultProfile('u1'),
+      { kind: 'time', summary: 'サブ3', targetTime: '2:59:59', raceName: '東京マラソン' },
+      NOW,
+    );
+    const sub4 = setGoal(sub3, { kind: 'time', summary: 'サブ4', targetTime: '3:59:59' }, NOW);
+
+    expect(sub4.goal).toEqual({ kind: 'time', summary: 'サブ4', targetTime: '3:59:59' });
+    expect(sub4.goal?.raceName).toBeUndefined();
+  });
+
+  it('故障歴は追記ではなく置き換え（間違えた項目を消せるように）', () => {
+    const first = replaceInjuryHistory(createDefaultProfile('u1'), ['右膝', '左足底'], NOW);
+    const corrected = replaceInjuryHistory(first, ['右膝'], NOW);
+
+    expect(corrected.injuryHistory).toEqual(['右膝']);
+  });
+
+  it('空にすれば故障歴を消せる', () => {
+    const withInjury = replaceInjuryHistory(createDefaultProfile('u1'), ['右膝'], NOW);
+    expect(replaceInjuryHistory(withInjury, [], NOW).injuryHistory).toBeUndefined();
+  });
+
+  it('空行や空白だけの行は落とす', () => {
+    const profile = replaceInjuryHistory(createDefaultProfile('u1'), ['  右膝  ', '', '   '], NOW);
+    expect(profile.injuryHistory).toEqual(['右膝']);
   });
 });

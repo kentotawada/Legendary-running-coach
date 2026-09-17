@@ -4,20 +4,20 @@ import {
   containsRunningPrescription,
   mentionsDiscomfort,
 } from '@/lib/safety';
-import { createBlankProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 import { upsertPain } from '@/lib/profile';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
 
 describe('assessSafety', () => {
   it('痛みが無ければ走行を止めない', () => {
-    const result = assessSafety(createBlankProfile('u1'), NOW);
+    const result = assessSafety(createDefaultProfile('u1'), NOW);
     expect(result.runningForbidden).toBe(false);
     expect(result.directives).toHaveLength(0);
   });
 
   it('痛みが1でもあれば走行を禁止し、強制指示を出す', () => {
-    const profile = upsertPain(createBlankProfile('u1'), { site: '右膝の外側', severity: 1 }, NOW);
+    const profile = upsertPain(createDefaultProfile('u1'), { site: '右膝の外側', severity: 1 }, NOW);
     const result = assessSafety(profile, NOW);
 
     expect(result.runningForbidden).toBe(true);
@@ -27,7 +27,7 @@ describe('assessSafety', () => {
 
   it('回復傾向でも痛みが残っていれば走らせない', () => {
     const profile = upsertPain(
-      createBlankProfile('u1'),
+      createDefaultProfile('u1'),
       { site: '左アキレス腱', severity: 2, status: 'improving' },
       NOW,
     );
@@ -35,13 +35,13 @@ describe('assessSafety', () => {
   });
 
   it('解消済みの痛みは制限に数えない', () => {
-    const profile = upsertPain(createBlankProfile('u1'), { site: '右膝', severity: 0 }, NOW);
+    const profile = upsertPain(createDefaultProfile('u1'), { site: '右膝', severity: 0 }, NOW);
     expect(assessSafety(profile, NOW).runningForbidden).toBe(false);
   });
 
   it('記録が古い痛みには、状態を聞き直すよう促す', () => {
     const stale = upsertPain(
-      createBlankProfile('u1'),
+      createDefaultProfile('u1'),
       { site: '右膝', severity: 2 },
       new Date('2026-08-01T09:00:00Z'),
     );

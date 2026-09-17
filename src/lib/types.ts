@@ -33,6 +33,8 @@ export interface RunnerGoal {
   raceDate?: string;
   /** "2:59:59" のような目標タイム。 */
   targetTime?: string;
+  /** 目標ペース。未設定なら目標タイムから計算する。手動設定があればそちらを優先。 */
+  targetPace?: string;
   /** 動機。ここが変わった時が、指導スタイルを変えるタイミング。 */
   why?: string;
 }
@@ -181,8 +183,13 @@ export interface ChatMessage {
   attachmentCount?: number;
 }
 
-/** 何も入っていないプロフィール。前提を持たせたくない場面で使う。 */
-export function createBlankProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
+/**
+ * 新しいランナーのカルテ。
+ * 目標も故障歴も、最初は空にしておく。
+ * 「サブ3を目指しているはず」と決めつけて始めると、それ以外の人の現在地を見誤る。
+ * 目標は対話の中で聞き出すか、カルテ画面から本人が設定する。
+ */
+export function createDefaultProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
   return {
     id,
     phase: 'unknown',
@@ -193,34 +200,5 @@ export function createBlankProfile(id: string, now: string = new Date().toISOStr
     plans: [],
     createdAt: now,
     updatedAt: now,
-  };
-}
-
-/**
- * このアプリの対象は「フルマラソン サブ3 を目指すシリアスランナー」。
- * 毎回ゼロから素性を聞き出すのではなく、その前提を最初から持って対話を始める。
- * 膝の故障歴も前提に含めるが、現在の痛みとしては扱わない（resolved）。
- * ここを active にすると、痛みが無いのに永遠に走らせないコーチになってしまう。
- */
-export function createDefaultProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
-  return {
-    ...createBlankProfile(id, now),
-    phase: 'goal',
-    goal: {
-      kind: 'time',
-      summary: 'フルマラソン サブ3（2時間59分59秒）達成',
-      targetTime: '2:59:59',
-    },
-    injuryHistory: ['膝の痛み（再発しやすい箇所として、負荷を上げる時は必ず確認する）'],
-    pains: [
-      {
-        id: 'seed-knee',
-        site: '膝',
-        severity: 0,
-        status: 'resolved',
-        description: '過去に痛みを経験。現在は解消しているが、再発しやすい箇所。',
-        updatedAt: now,
-      },
-    ],
   };
 }

@@ -1,0 +1,221 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import type { GoalKind, RunnerProfile } from '@/lib/types';
+import { GOAL_PRESETS, marathonPaceSeconds, parseDuration, trainingPaces } from '@/lib/goals';
+
+export interface ProfileEdit {
+  goal: {
+    kind: GoalKind;
+    summary: string;
+    targetTime?: string;
+    targetPace?: string;
+    raceName?: string;
+    raceDate?: string;
+  } | null;
+  injuryHistory: string[];
+  maxHr?: string;
+  lthr?: string;
+  restingHr?: string;
+}
+
+interface Props {
+  profile: RunnerProfile | null;
+  saving: boolean;
+  onSave: (edit: ProfileEdit) => void;
+  onCancel: () => void;
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="block py-2">
+      <span className="text-[13px] font-medium">{label}</span>
+      {hint && <span className="block text-[11px] text-muted">{hint}</span>}
+      <div className="mt-1.5">{children}</div>
+    </label>
+  );
+}
+
+const inputClass =
+  'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]';
+
+export default function GoalEditor({ profile, saving, onSave, onCancel }: Props) {
+  const goal = profile?.goal;
+  const [kind, setKind] = useState<GoalKind>(goal?.kind ?? 'time');
+  const [summary, setSummary] = useState(goal?.summary ?? '');
+  const [targetTime, setTargetTime] = useState(goal?.targetTime ?? '');
+  const [targetPace, setTargetPace] = useState(goal?.targetPace ?? '');
+  const [raceName, setRaceName] = useState(goal?.raceName ?? '');
+  const [raceDate, setRaceDate] = useState(goal?.raceDate ?? '');
+  const [injuries, setInjuries] = useState((profile?.injuryHistory ?? []).join('\n'));
+  const [maxHr, setMaxHr] = useState(profile?.maxHr ? String(profile.maxHr) : '');
+  const [lthr, setLthr] = useState(profile?.lthr ? String(profile.lthr) : '');
+  const [restingHr, setRestingHr] = useState(profile?.restingHr ? String(profile.restingHr) : '');
+
+  const needsTime = kind === 'time' || kind === 'race';
+  const timeIsValid = !targetTime.trim() || parseDuration(targetTime) !== undefined;
+
+  // 目標タイムを入れた瞬間に、コーチが使う基準が見えるようにする。
+  const derived = useMemo(() => {
+    if (!needsTime) return null;
+    const seconds = marathonPaceSeconds(targetTime);
+    if (seconds === undefined) return null;
+    return trainingPaces(seconds);
+  }, [needsTime, targetTime]);
+
+  const applyPreset = (presetId: string) => {
+    const preset = GOAL_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    setKind(preset.kind);
+    setSummary(preset.summary);
+    setTargetTime(preset.targetTime ?? '');
+    setTargetPace('');
+  };
+
+  const submit = () => {
+    if (!timeIsValid) return;
+    onSave({
+      goal: {
+        kind,
+        summary: summary.trim() || '目標',
+        targetTime: needsTime ? targetTime.trim() || undefined : undefined,
+        targetPace: needsTime ? targetPace.trim() || undefined : undefined,
+        raceName: raceName.trim() || undefined,
+        raceDate: raceDate.trim() || undefined,
+      },
+      injuryHistory: injuries.split('\n').map((line) => line.trim()).filter(Boolean),
+      maxHr,
+      lthr,
+      restingHr,
+    });
+  };
+
+  return (
+    <div className="pb-4">
+      <Field label="目標" hint="選ぶと、コーチが使う基準ペースがそれに合わせて切り替わります">
+        <div className="flex flex-wrap gap-2">
+          {GOAL_PRESETS.map((preset) => {
+            const active = summary === preset.summary;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset.id)}
+                className={[
+                  'rounded-full border px-3 py-1.5 text-[13px] transition active:scale-[0.97]',
+                  active ? 'border-[color:var(--accent)] bg-accent-soft text-accent' : 'border-line bg-bg text-fg',
+                ].join(' ')}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
+      <Field label="目標の表現" hint="自分の言葉に変えても構いません">
+        <input
+          className={inputClass}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="例: 来年の東京マラソンでサブ4"
+        />
+      </Field>
+
+      {needsTime && (
+        <>
+          <Field label="目標タイム" hint="時:分:秒 で入力（例 3:29:59）。プリセット以外の目標も設定できます">
+            <input
+              className={inputClass}
+              value={targetTime}
+              onChange={(e) => setTargetTime(e.target.value)}
+              placeholder="3:29:59"
+              inputMode="numeric"
+            />
+            {!timeIsValid && (
+              <span className="mt-1 block text-[12px] text-warn">
+                「3:29:59」のように、時:分:秒 の形で入力してください。
+              </span>
+            )}
+          </Field>
+
+          {derived && (
+            <div className="my-2 rounded-xl bg-sunken px-3 py-2.5 text-[12px] leading-relaxed text-muted">
+              <p className="font-medium text-fg">この目標での基準ペース</p>
+              <p>レースペース {derived.marathon} / 閾値走 {derived.threshold} / インターバル {derived.interval}</p>
+              <p>イージー {derived.easyFrom} 〜 {derived.easyTo}</p>
+            </div>
+          )}
+
+          <Field label="目標ペース（任意）" hint="空欄なら目標タイムから自動計算します">
+            <input
+              className={inputClass}
+              value={targetPace}
+              onChange={(e) => setTargetPace(e.target.value)}
+              placeholder={derived ? derived.marathon : '5:41/km'}
+            />
+          </Field>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Field label="大会名（任意）">
+                <input className={inputClass} value={raceName} onChange={(e) => setRaceName(e.target.value)} placeholder="東京マラソン" />
+              </Field>
+            </div>
+            <div className="flex-1">
+              <Field label="本番の日（任意）">
+                <input className={inputClass} type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        </>
+      )}
+
+      <Field label="故障歴・気になる部位" hint="1行に1件。負荷を上げる判断のたびにコーチが必ず考慮します">
+        <textarea
+          className={`${inputClass} min-h-[88px] resize-y`}
+          value={injuries}
+          onChange={(e) => setInjuries(e.target.value)}
+          placeholder={'右膝の外側（腸脛靭帯炎、2年前）\n左アキレス腱が張りやすい'}
+        />
+      </Field>
+
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Field label="最大心拍">
+            <input className={inputClass} value={maxHr} onChange={(e) => setMaxHr(e.target.value)} placeholder="189" inputMode="numeric" />
+          </Field>
+        </div>
+        <div className="flex-1">
+          <Field label="LTHR">
+            <input className={inputClass} value={lthr} onChange={(e) => setLthr(e.target.value)} placeholder="172" inputMode="numeric" />
+          </Field>
+        </div>
+        <div className="flex-1">
+          <Field label="安静時">
+            <input className={inputClass} value={restingHr} onChange={(e) => setRestingHr(e.target.value)} placeholder="44" inputMode="numeric" />
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || !timeIsValid}
+          className="flex-1 rounded-full bg-accent px-4 py-3 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+        >
+          {saving ? '保存しています…' : '保存する'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="flex-1 rounded-full border border-line px-4 py-3 text-[14px]"
+        >
+          やめる
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -1,8 +1,8 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { prepareImage, type PreparedImage } from '@/lib/downscale';
-import { MAX_IMAGES } from '@/lib/images';
+import { prepareImages, type PreparedImage } from '@/lib/downscale';
+import { MAX_IMAGES, MAX_TOTAL_BYTES } from '@/lib/images';
 
 export interface ComposerApi {
   /** クイックボタンからも画像選択を開けるようにする。 */
@@ -20,6 +20,8 @@ const MAX_HEIGHT = 140;
 
 export default function Composer({ onSend, onError, apiRef, disabled = false }: Props) {
   const [value, setValue] = useState('');
+  // 元のファイルも持っておく。枚数が変わるたびに圧縮率を計算し直すため。
+  const [files, setFiles] = useState<File[]>([]);
   const [images, setImages] = useState<PreparedImage[]>([]);
   const [preparing, setPreparing] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -35,21 +37,22 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
   }, [value]);
 
-  const addFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const room = MAX_IMAGES - images.length;
-    if (room <= 0) {
-      onError(`画像は一度に${MAX_IMAGES}枚までです。`);
-      return;
-    }
-
+  /**
+   * 枚数が決まってから圧縮する。
+   * 10枚送る時と1枚送る時では、1枚に割ける容量が10倍違うため、
+   * 追加・削除のたびに全部作り直している。
+   */
+  const rebuild = async (nextFiles: File[]) => {
     setPreparing(true);
     try {
-      const prepared: PreparedImage[] = [];
-      for (const file of Array.from(files).slice(0, room)) {
-        prepared.push(await prepareImage(file));
+      const prepared = await prepareImages(nextFiles);
+      const total = prepared.reduce((sum, image) => sum + image.bytes, 0);
+      if (total > MAX_TOTAL_BYTES) {
+        onError('画像の合計サイズが大きすぎます。枚数を減らすか、何回かに分けて送ってください。');
+        return;
       }
-      setImages((prev) => [...prev, ...prepared]);
+      setFiles(nextFiles);
+      setImages(prepared);
     } catch (error) {
       onError(error instanceof Error ? error.message : '画像を読み込めませんでした。');
     } finally {
@@ -58,11 +61,24 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
     }
   };
 
+  const addFiles = async (selected: FileList | null) => {
+    if (!selected || selected.length === 0) return;
+    const room = MAX_IMAGES - files.length;
+    if (room <= 0) {
+      onError(`画像は一度に${MAX_IMAGES}枚までです。`);
+      return;
+    }
+    const dropped = selected.length - room;
+    if (dropped > 0) onError(`画像は一度に${MAX_IMAGES}枚までです。${dropped}枚は追加されませんでした。`);
+    await rebuild([...files, ...Array.from(selected).slice(0, room)]);
+  };
+
   const submit = () => {
     const text = value.trim();
     if (disabled || preparing) return;
     if (!text && images.length === 0) return;
     setValue('');
+    setFiles([]);
     setImages([]);
     onSend(text, images);
   };
@@ -72,7 +88,13 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
   return (
     <div className="px-4 pb-2">
       {images.length > 0 && (
-        <div className="mb-2 flex gap-2 overflow-x-auto">
+        <p className="mb-1.5 text-[12px] text-muted">
+          {images.length} / {MAX_IMAGES} 枚
+        </p>
+      )}
+
+      {images.length > 0 && (
+        <div className="scroll-area mb-2 flex gap-2 overflow-x-auto pt-1.5">
           {images.map((image, index) => (
             <div key={image.preview.slice(-24)} className="relative shrink-0">
               {/* 縮小済みの data URL を出すだけなので next/image は使わない */}
@@ -85,7 +107,7 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
               <button
                 type="button"
                 aria-label={`添付画像 ${index + 1} を外す`}
-                onClick={() => setImages((prev) => prev.filter((_, i) => i !== index))}
+                onClick={() => void rebuild(files.filter((_, i) => i !== index))}
                 className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--user-bubble)] text-[13px] text-[var(--user-bubble-fg)]"
               >
                 ×

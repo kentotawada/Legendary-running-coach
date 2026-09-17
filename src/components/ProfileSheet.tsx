@@ -5,10 +5,14 @@ import type { RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
 import PhaseBadge from './PhaseBadge';
+import GoalEditor, { type ProfileEdit } from './GoalEditor';
+import { resolveTargetPace } from '@/lib/goals';
 
 interface Props {
   profile: RunnerProfile | null;
   build: BuildInfo | null;
+  saving: boolean;
+  onSave: (edit: ProfileEdit) => void;
   onClose: () => void;
   onReset: () => void;
 }
@@ -35,8 +39,10 @@ const TYPE_LABEL: Record<string, string> = {
  * コーチが何を覚えているかを、本人がいつでも確認・削除できる画面。
  * 「勝手に学習されている」不安を残さないための装置でもある。
  */
-export default function ProfileSheet({ profile, build, onClose, onReset }: Props) {
+export default function ProfileSheet({ profile, build, saving, onSave, onClose, onReset }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const targetPace = resolveTargetPace(profile?.goal);
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
   const plan = profile?.plans.at(-1);
@@ -50,13 +56,34 @@ export default function ProfileSheet({ profile, build, onClose, onReset }: Props
             <h2 className="text-[16px] font-bold">コーチのカルテ</h2>
             {profile && <PhaseBadge phase={profile.phase} />}
           </div>
-          <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
-            閉じる
-          </button>
+          <div className="flex items-center gap-1">
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded-full border border-line px-3 py-1.5 text-[13px] font-medium"
+              >
+                編集
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
+              閉じる
+            </button>
+          </div>
         </div>
 
         <div className="px-5 pb-8 pt-2">
-          {!profile ? (
+          {editing ? (
+            <GoalEditor
+              profile={profile}
+              saving={saving}
+              onSave={(edit) => {
+                onSave(edit);
+                setEditing(false);
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : !profile ? (
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
             <dl className="divide-y divide-[color:var(--border)]">
@@ -66,11 +93,19 @@ export default function ProfileSheet({ profile, build, onClose, onReset }: Props
                 {profile.goal && profile.goal.kind !== 'none' ? (
                   <>
                     <span className="font-medium">{profile.goal.summary}</span>
-                    {profile.goal.raceDate && <span className="block text-muted">本番: {profile.goal.raceDate}</span>}
                     {profile.goal.targetTime && <span className="block text-muted">目標タイム: {profile.goal.targetTime}</span>}
+                    {targetPace && <span className="block text-muted">目標ペース: {targetPace}</span>}
+                    {profile.goal.raceName && <span className="block text-muted">大会: {profile.goal.raceName}</span>}
+                    {profile.goal.raceDate && <span className="block text-muted">本番: {profile.goal.raceDate}</span>}
                   </>
                 ) : (
-                  <span className="text-muted">まだ設定していません（それで大丈夫です）</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                  >
+                    目標を設定する
+                  </button>
                 )}
               </Row>
               {profile.experience && <Row label="経験">{profile.experience}</Row>}
@@ -97,6 +132,28 @@ export default function ProfileSheet({ profile, build, onClose, onReset }: Props
                   </ul>
                 </Row>
               ) : null}
+              {profile.injuryHistory?.length ? (
+                <Row label="故障歴">
+                  <ul className="list-disc space-y-1 pl-4">
+                    {profile.injuryHistory.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </Row>
+              ) : null}
+              <Row label="心拍">
+                {profile.maxHr || profile.lthr || profile.restingHr ? (
+                  [
+                    profile.maxHr ? `最大 ${profile.maxHr}` : null,
+                    profile.lthr ? `LTHR ${profile.lthr}` : null,
+                    profile.restingHr ? `安静時 ${profile.restingHr}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' / ')
+                ) : (
+                  <span className="text-muted">未設定（ゾーン評価には最大心拍かLTHRが必要です）</span>
+                )}
+              </Row>
               <Row label="体の状態">
                 {pains.length > 0 ? (
                   <ul className="space-y-1">
@@ -150,7 +207,7 @@ export default function ProfileSheet({ profile, build, onClose, onReset }: Props
             </dl>
           )}
 
-          {build && (
+          {!editing && build && (
             <div className="mt-6 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
               <p className="font-medium">このアプリの状態</p>
               <p>
@@ -162,7 +219,7 @@ export default function ProfileSheet({ profile, build, onClose, onReset }: Props
             </div>
           )}
 
-          <div className="mt-6 border-t border-line pt-4">
+          <div className={`mt-6 border-t border-line pt-4 ${editing ? 'hidden' : ''}`}>
             {confirming ? (
               <div className="space-y-3">
                 <p className="text-[13px] text-muted">

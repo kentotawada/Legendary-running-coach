@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildSystemInstruction } from '@/lib/prompt';
-import { createBlankProfile, createDefaultProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 import { applyProfileUpdate, setPhase, upsertPain } from '@/lib/profile';
 import { assessSafety } from '@/lib/safety';
 import { trimHistory } from '@/lib/store';
@@ -10,7 +10,7 @@ const NOW = new Date('2026-09-16T09:00:00Z');
 
 describe('buildSystemInstruction', () => {
   it('痛みがある時は、走行禁止の強制指示を必ず含める', () => {
-    const profile = upsertPain(createBlankProfile('u1'), { site: '右膝', severity: 2 }, NOW);
+    const profile = upsertPain(createDefaultProfile('u1'), { site: '右膝', severity: 2 }, NOW);
     const prompt = buildSystemInstruction(profile, NOW);
 
     expect(prompt).toContain('安全のための強制指示');
@@ -37,7 +37,7 @@ describe('buildSystemInstruction', () => {
   });
 
   it('習慣づくりの人には、数字とノルマを禁じる', () => {
-    const profile = setPhase(createBlankProfile('u1'), 'habit', '目標はないが続けたい', NOW);
+    const profile = setPhase(createDefaultProfile('u1'), 'habit', '目標はないが続けたい', NOW);
     const prompt = buildSystemInstruction(profile, NOW);
 
     expect(prompt).toContain('習慣づくりモード');
@@ -45,7 +45,7 @@ describe('buildSystemInstruction', () => {
   });
 
   it('習慣づくりから目標へ移った人には、まず一緒に喜ぶよう指示する', () => {
-    const habit = setPhase(createBlankProfile('u1'), 'habit', '今は気楽に走りたい', NOW);
+    const habit = setPhase(createDefaultProfile('u1'), 'habit', '今は気楽に走りたい', NOW);
     const goal = setPhase(habit, 'goal', '同僚に誘われて10kmレースに申し込んだ', NOW);
     const prompt = buildSystemInstruction(goal, NOW);
 
@@ -55,7 +55,7 @@ describe('buildSystemInstruction', () => {
   });
 
   it('痛みは、モデルが置いたフェーズより常に優先される', () => {
-    const goal = setPhase(createBlankProfile('u1'), 'goal', 'サブスリー', NOW);
+    const goal = setPhase(createDefaultProfile('u1'), 'goal', 'サブスリー', NOW);
     const hurt = upsertPain(goal, { site: '足底', severity: 1 }, NOW);
 
     expect(buildSystemInstruction(hurt, NOW)).toContain('回復最優先モード');
@@ -63,9 +63,9 @@ describe('buildSystemInstruction', () => {
 
   it('責めない・推測しないという原則は、どのフェーズでも消えない', () => {
     for (const profile of [
-      createBlankProfile('u1'),
-      setPhase(createBlankProfile('u2'), 'habit', 'a', NOW),
-      setPhase(createBlankProfile('u3'), 'goal', 'b', NOW),
+      createDefaultProfile('u1'),
+      setPhase(createDefaultProfile('u2'), 'habit', 'a', NOW),
+      setPhase(createDefaultProfile('u3'), 'goal', 'b', NOW),
     ]) {
       const prompt = buildSystemInstruction(profile, NOW);
       expect(prompt).toContain('決して責めない');
@@ -133,18 +133,27 @@ describe('getBuildInfo', () => {
   });
 });
 
-describe('サブ3コーチとしての前提', () => {
-  it('新しいランナーは、サブ3の目標と膝の故障歴を持って始まる', () => {
+describe('目標に合わせて基準が変わる', () => {
+  it('新しいランナーには目標を決めつけない', () => {
     const profile = createDefaultProfile('u1', NOW.toISOString());
 
-    expect(profile.phase).toBe('goal');
-    expect(profile.goal?.targetTime).toBe('2:59:59');
-    expect(profile.injuryHistory?.join()).toContain('膝');
+    expect(profile.goal).toBeUndefined();
+    expect(profile.phase).toBe('unknown');
+    expect(profile.injuryHistory).toBeUndefined();
   });
 
-  it('故障歴は「過去のもの」であって、走行を禁止しない', () => {
+  it('目標が決まるまでは、ペース基準を出させない', () => {
+    const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
+    expect(prompt).toContain('ペース基準を出す前に、まず目標を尋ねること');
+  });
+
+  it('申告された故障歴は「過去のもの」であって、走行を禁止しない', () => {
     // ここを取り違えると、痛みが無いのに永遠に走らせないコーチになる。
-    const profile = createDefaultProfile('u1', NOW.toISOString());
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1', NOW.toISOString()),
+      { injuryHistory: ['膝の痛み（2年前）'] },
+      NOW,
+    );
     const safety = assessSafety(profile, NOW);
 
     expect(safety.runningForbidden).toBe(false);
@@ -152,18 +161,44 @@ describe('サブ3コーチとしての前提', () => {
   });
 
   it('カルテには故障歴が残り、負荷を上げる時の判断材料になる', () => {
-    const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1', NOW.toISOString()),
+      { injuryHistory: ['右腸脛靭帯炎'] },
+      NOW,
+    );
+    const prompt = buildSystemInstruction(profile, NOW);
+
     expect(prompt).toContain('故障歴');
-    expect(prompt).toContain('膝');
+    expect(prompt).toContain('右腸脛靭帯炎');
   });
 
-  it('サブ3の具体的な基準を、コーチが持っている', () => {
+  it('レベルに依らない原則は、常にコーチが持っている', () => {
     const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
 
-    expect(prompt).toContain('4分15秒');
     expect(prompt).toContain('週の8割はイージー');
     expect(prompt).toContain('180spm');
     expect(prompt).toContain('オーバーストライド');
+    expect(prompt).toContain('前週比10%以内');
+  });
+
+  it('基準の数字は、その人の目標に合わせて切り替わる', () => {
+    const sub3 = applyProfileUpdate(
+      createDefaultProfile('u1', NOW.toISOString()),
+      { goal: { kind: 'time', summary: 'サブ3', targetTime: '2:59:59' } },
+      NOW,
+    );
+    const sub4 = applyProfileUpdate(
+      createDefaultProfile('u2', NOW.toISOString()),
+      { goal: { kind: 'time', summary: 'サブ4', targetTime: '3:59:59' } },
+      NOW,
+    );
+
+    expect(buildSystemInstruction(sub3, NOW)).toContain('4:15/km');
+    expect(buildSystemInstruction(sub4, NOW)).toContain('5:41/km');
+    // 分析の観点そのものは、どちらでも変わらない。
+    for (const profile of [sub3, sub4]) {
+      expect(buildSystemInstruction(profile, NOW)).toContain('週の8割はイージー');
+    }
   });
 
   it('心拍の基準値が無ければゾーン評価をさせない', () => {

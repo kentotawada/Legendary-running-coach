@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { coachTools, executeTool } from '@/lib/tools';
-import { createBlankProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
-const base = () => createBlankProfile('u1', NOW.toISOString());
+const base = () => createDefaultProfile('u1', NOW.toISOString());
 
 describe('coachTools', () => {
   it('コーチが学習に使う道具が一式そろっている', () => {

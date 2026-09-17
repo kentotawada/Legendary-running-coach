@@ -192,6 +192,35 @@ export function setPlan(
   };
 }
 
+/**
+ * 本人がカルテから目標を編集した時は、既存の値と混ぜずに置き換える。
+ * 「サブ3 → サブ4」に変えたのに古いレース情報が残る、といった事故を避けるため。
+ */
+export function setGoal(
+  profile: RunnerProfile,
+  goal: RunnerGoal | undefined,
+  now: Date = new Date(),
+): RunnerProfile {
+  return { ...profile, goal, updatedAt: now.toISOString() };
+}
+
+/**
+ * 故障歴も本人が編集する項目なので、追記ではなく置き換える。
+ * 追記しかできないと、間違って入れた項目を消せなくなる。
+ */
+export function replaceInjuryHistory(
+  profile: RunnerProfile,
+  injuries: string[],
+  now: Date = new Date(),
+): RunnerProfile {
+  const cleaned = injuries.map((item) => item.trim()).filter(Boolean);
+  return {
+    ...profile,
+    injuryHistory: cleaned.length > 0 ? cleaned : undefined,
+    updatedAt: now.toISOString(),
+  };
+}
+
 export function setPhase(
   profile: RunnerProfile,
   phase: CoachingPhase,

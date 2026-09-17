@@ -5,6 +5,7 @@ import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import type { PreparedImage } from '@/lib/downscale';
 import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
+import type { ProfileEdit } from '@/components/GoalEditor';
 
 interface DoneEvent {
   type: 'done';
@@ -29,6 +30,9 @@ export interface CoachChat {
   build: BuildInfo | null;
   send: (text: string, images?: PreparedImage[]) => Promise<void>;
   reset: () => Promise<void>;
+  /** カルテ画面からの設定変更。 */
+  updateProfile: (edit: ProfileEdit) => Promise<void>;
+  savingProfile: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
   reportError: (message: string) => void;
 }
@@ -42,6 +46,7 @@ export function useCoachChat(): CoachChat {
   const [error, setError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
 
@@ -193,6 +198,28 @@ export function useCoachChat(): CoachChat {
     await turn('');
   }, [turn]);
 
+  const updateProfile = useCallback(async (edit: ProfileEdit) => {
+    setSavingProfile(true);
+    setError(null);
+    setErrorDetail(null);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(edit),
+      });
+      const data = (await response.json()) as { profile?: RunnerProfile; error?: string };
+      if (!response.ok || !data.profile) {
+        throw new Error(data.error ?? '設定を保存できませんでした。');
+      }
+      setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '設定を保存できませんでした。');
+    } finally {
+      setSavingProfile(false);
+    }
+  }, []);
+
   const reportError = useCallback((message: string) => {
     setError(message);
     setErrorDetail(null);
@@ -210,5 +237,7 @@ export function useCoachChat(): CoachChat {
     send,
     reset,
     reportError,
+    updateProfile,
+    savingProfile,
   };
 }

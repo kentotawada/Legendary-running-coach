@@ -10,15 +10,24 @@ export const DEFAULT_IMAGE_MESSAGE = '練習データのスクリーンショッ
 /** Gemini が扱える形式だけを通す。 */
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
-/** 1回に添付できる枚数。ラップ画面と概要画面で2枚、程度を想定。 */
-export const MAX_IMAGES = 3;
+/**
+ * 1回に添付できる枚数。
+ * Garmin の心拍・ペース・ピッチ・高度・ラップなど、詳細画面をまとめて送れるようにしている。
+ */
+export const MAX_IMAGES = 10;
 
 /**
- * サーバーが受け取る合計サイズの上限。
- * クライアント側で縮小してから送るので、通常は数百KBに収まる。
- * これを超える場合は縮小に失敗しているので、黙って重いリクエストを投げるより弾く。
+ * クライアントが縮小時に狙う合計サイズ（デコード後）。
+ * base64 にすると約1.33倍に膨らむため、これを 2.5MB に置くと本文は 3.3MB ほど。
+ * サーバーレスのリクエスト上限（およそ4.5MB）に対して余裕がある。
  */
-export const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+export const TOTAL_IMAGE_BUDGET_BYTES = 2_500_000;
+
+/**
+ * サーバーが受け取る合計サイズの上限（デコード後）。
+ * 縮小に失敗した重いリクエストを、黙って通さずここで弾く。
+ */
+export const MAX_TOTAL_BYTES = 3_000_000;
 
 export interface ImageValidation {
   images: ImageAttachment[];

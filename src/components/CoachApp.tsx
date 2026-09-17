@@ -9,8 +9,21 @@ import ProfileSheet from './ProfileSheet';
 import PhaseBadge from './PhaseBadge';
 
 export default function CoachApp() {
-  const { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset, reportError } =
-    useCoachChat();
+  const {
+    messages,
+    streamingText,
+    profile,
+    busy,
+    ready,
+    error,
+    errorDetail,
+    build,
+    send,
+    reset,
+    reportError,
+    updateProfile,
+    savingProfile,
+  } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -131,6 +144,8 @@ export default function CoachApp() {
         <ProfileSheet
           profile={profile}
           build={build}
+          saving={savingProfile}
+          onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}
         />
