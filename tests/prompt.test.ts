@@ -201,9 +201,39 @@ describe('目標に合わせて基準が変わる', () => {
     }
   });
 
-  it('心拍の基準値が無ければゾーン評価をさせない', () => {
+  it('心拍の基準値が無ければゾーン評価をさせず、尋ねさせる', () => {
     const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
-    expect(prompt).toContain('推測せずに必ず尋ねること');
+
+    expect(prompt).toContain('推測した心拍で語ってはならない');
+    expect(prompt).toContain('220−年齢');
+  });
+
+  it('最大心拍だけでも、計算済みのゾーンをコーチに渡す', () => {
+    const profile = applyProfileUpdate(createDefaultProfile('u1', NOW.toISOString()), { maxHr: 190 }, NOW);
+    const prompt = buildSystemInstruction(profile, NOW);
+
+    // LTHR も安静時も空欄だが、止まらずにゾーンが出ている。
+    expect(prompt).toContain('Z2 イージー: 124〜142 bpm');
+    expect(prompt).toContain('空欄を理由に「分かりません」で終わらせない');
+    expect(prompt).toContain('推定値');
+  });
+
+  it('LTHR まで分かっていれば、そちらを基準にする', () => {
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1', NOW.toISOString()),
+      { maxHr: 190, lthr: 172 },
+      NOW,
+    );
+    expect(buildSystemInstruction(profile, NOW)).toContain('LTHR 172 bpm を基準に算出');
+  });
+
+  it('メニューとゾーンをカードで出す書き方を指示している', () => {
+    const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
+
+    expect(prompt).toContain('```menu');
+    expect(prompt).toContain('```zones');
+    expect(prompt).toContain('表（|）は使わない');
+    expect(prompt).toContain('アスタリスクは画面に出ず');
   });
 
   it('画像からは、読み取れなかった項目を推測で埋めさせない', () => {

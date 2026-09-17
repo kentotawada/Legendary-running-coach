@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@/lib/types';
+import RichText from './RichText';
 
 interface Props {
   message: ChatMessage;
@@ -12,7 +13,8 @@ export default function MessageBubble({ message, pending = false }: Props) {
     <div className={`flex w-full animate-rise ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
-          'max-w-[85%] whitespace-pre-wrap break-words rounded-[var(--radius)] px-4 py-3 text-[15px] leading-[1.75]',
+          'max-w-[85%] break-words rounded-[var(--radius)] px-4 py-3 text-[15px] leading-[1.75]',
+          isUser ? 'whitespace-pre-wrap' : '',
           isUser
             ? 'rounded-br-md bg-[var(--user-bubble)] text-[var(--user-bubble-fg)]'
             : 'rounded-bl-md border border-line bg-[var(--coach-bubble)] text-fg shadow-sm',
@@ -35,7 +37,7 @@ export default function MessageBubble({ message, pending = false }: Props) {
         {!message.imagePreviews && message.attachmentCount ? (
           <p className="mb-1 text-[12px] opacity-70">📷 スクリーンショット{message.attachmentCount}枚を送信</p>
         ) : null}
-        {message.text}
+        {isUser ? message.text : <RichText text={message.text} />}
         {pending && <span className="ml-0.5 inline-block animate-blink text-accent">●</span>}
       </div>
     </div>

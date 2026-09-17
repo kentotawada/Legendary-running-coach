@@ -6,7 +6,8 @@ import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
 import PhaseBadge from './PhaseBadge';
 import GoalEditor, { type ProfileEdit } from './GoalEditor';
-import { resolveTargetPace } from '@/lib/goals';
+import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
+import { heartRateZones } from '@/lib/zones';
 
 interface Props {
   profile: RunnerProfile | null;
@@ -43,6 +44,8 @@ export default function ProfileSheet({ profile, build, saving, onSave, onClose, 
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const targetPace = resolveTargetPace(profile?.goal);
+  const vdot = vdotForTarget(profile?.goal?.targetTime);
+  const zones = profile ? heartRateZones(profile) : null;
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
   const plan = profile?.plans.at(-1);
@@ -141,17 +144,28 @@ export default function ProfileSheet({ profile, build, saving, onSave, onClose, 
                   </ul>
                 </Row>
               ) : null}
+              {vdot !== undefined && (
+                <Row label="VDOT">
+                  <span className="font-medium">{vdot.toFixed(1)}</span>
+                  <span className="block text-[12px] text-muted">目標タイムから自動計算される走力指標です</span>
+                </Row>
+              )}
               <Row label="心拍">
                 {profile.maxHr || profile.lthr || profile.restingHr ? (
-                  [
-                    profile.maxHr ? `最大 ${profile.maxHr}` : null,
-                    profile.lthr ? `LTHR ${profile.lthr}` : null,
-                    profile.restingHr ? `安静時 ${profile.restingHr}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' / ')
+                  <>
+                    {[
+                      profile.maxHr ? `最大 ${profile.maxHr}` : null,
+                      profile.lthr ? `LTHR ${profile.lthr}` : null,
+                      profile.restingHr ? `安静時 ${profile.restingHr}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' / ')}
+                    {zones && zones.zones.length > 0 && (
+                      <span className="mt-1 block text-[12px] text-muted">{zones.basisLabel}</span>
+                    )}
+                  </>
                 ) : (
-                  <span className="text-muted">未設定（ゾーン評価には最大心拍かLTHRが必要です）</span>
+                  <span className="text-muted">未設定（ゾーン評価には最大心拍数が必要です）</span>
                 )}
               </Row>
               <Row label="体の状態">

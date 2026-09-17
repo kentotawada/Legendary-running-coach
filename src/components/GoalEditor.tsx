@@ -34,11 +34,33 @@ interface Props {
   onCancel: () => void;
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  required,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  /** 必須なら true、任意なら false。省略した項目にはラベルを付けない。 */
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block py-2">
-      <span className="text-[13px] font-medium">{label}</span>
-      {hint && <span className="block text-[11px] text-muted">{hint}</span>}
+      <span className="text-[13px] font-medium">
+        {label}
+        {required !== undefined && (
+          <span
+            className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+              required ? 'bg-accent-soft text-accent' : 'bg-sunken text-muted'
+            }`}
+          >
+            {required ? '必須' : '任意'}
+          </span>
+        )}
+      </span>
+      {hint && <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{hint}</span>}
       <div className="mt-1.5">{children}</div>
     </label>
   );
@@ -120,7 +142,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
-      <Field label="何を目指しますか" hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">
+      <Field label="何を目指しますか" required hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">
         <div className="flex flex-wrap gap-2">
           {KINDS.map((item) => (
             <button
@@ -147,7 +169,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         </div>
       </Field>
 
-      <Field label="目標の表現" hint="自分の言葉に変えても構いません">
+      <Field label="目標の表現" required={false} hint="自分の言葉に変えても構いません。空欄なら目標タイムから自動で作ります">
         <input
           className={inputClass}
           value={summary}
@@ -158,7 +180,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
       {needsTime && (
         <>
-          <Field label="目標タイム" hint="1時間55分から5時間30分まで5分刻み。スクロールして選べます">
+          <Field label="目標タイム" required hint="1時間55分から5時間30分まで5分刻み。スクロールして選べます">
             <select
               className={`${inputClass} appearance-none`}
               value={customTime ? 'custom' : normalizedTime}
@@ -196,11 +218,16 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
               <p className="font-medium text-fg">この目標での基準ペース</p>
               <p>レースペース {derived.marathon} / 閾値走 {derived.threshold} / インターバル {derived.interval}</p>
               <p>イージー {derived.easyFrom} 〜 {derived.easyTo}</p>
-              {vdot !== undefined && <p>必要な VDOT ≒ {vdot.toFixed(1)}</p>}
+              {vdot !== undefined && (
+                <p className="mt-1">
+                  必要な VDOT ≒ <span className="font-semibold text-fg">{vdot.toFixed(1)}</span>
+                  <span className="block text-[11px]">目標タイムから自動計算される走力指標です</span>
+                </p>
+              )}
             </div>
           )}
 
-          <Field label="目標ペース（任意）" hint="空欄なら目標タイムから自動計算します">
+          <Field label="目標ペース" required={false} hint="空欄なら目標タイムから自動計算します">
             <input
               className={inputClass}
               value={targetPace}
@@ -211,12 +238,12 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <Field label="大会名（任意）">
+              <Field label="大会名" required={false}>
                 <input className={inputClass} value={raceName} onChange={(e) => setRaceName(e.target.value)} placeholder="東京マラソン" />
               </Field>
             </div>
             <div className="flex-1">
-              <Field label="本番の日（任意）">
+              <Field label="本番の日" required={false}>
                 <input className={inputClass} type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)} />
               </Field>
             </div>
@@ -224,7 +251,11 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         </>
       )}
 
-      <Field label="故障歴・気になる部位" hint="1行に1件。負荷を上げる判断のたびにコーチが必ず考慮します">
+      <Field
+        label="故障歴・気になる部位"
+        required={false}
+        hint="1行に1件。負荷を上げる判断のたびにコーチが必ず考慮します"
+      >
         <textarea
           className={`${inputClass} min-h-[88px] resize-y`}
           value={injuries}
@@ -233,23 +264,52 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         />
       </Field>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Field label="最大心拍">
-            <input className={inputClass} value={maxHr} onChange={(e) => setMaxHr(e.target.value)} placeholder="189" inputMode="numeric" />
-          </Field>
-        </div>
-        <div className="flex-1">
-          <Field label="LTHR">
-            <input className={inputClass} value={lthr} onChange={(e) => setLthr(e.target.value)} placeholder="172" inputMode="numeric" />
-          </Field>
-        </div>
-        <div className="flex-1">
-          <Field label="安静時">
-            <input className={inputClass} value={restingHr} onChange={(e) => setRestingHr(e.target.value)} placeholder="44" inputMode="numeric" />
-          </Field>
-        </div>
-      </div>
+      <Field
+        label="最大心拍数"
+        required
+        hint="Garmin等で計測した最高心拍数。不明なら「220 − 年齢」が目安です"
+      >
+        <input
+          className={inputClass}
+          value={maxHr}
+          onChange={(e) => setMaxHr(e.target.value)}
+          placeholder="189"
+          inputMode="numeric"
+        />
+        {!maxHr.trim() && (
+          <span className="mt-1 block text-[11px] leading-relaxed text-warn">
+            未設定でも保存できますが、心拍ゾーンの評価ができません。
+          </span>
+        )}
+      </Field>
+
+      <Field
+        label="LTHR（乳酸閾値心拍数）"
+        required={false}
+        hint="分からない場合は空欄でOK。最大心拍数から推定して計算します"
+      >
+        <input
+          className={inputClass}
+          value={lthr}
+          onChange={(e) => setLthr(e.target.value)}
+          placeholder={maxHr.trim() ? `${Math.round(Number(maxHr) * 0.89) || ''}（推定値）` : '172'}
+          inputMode="numeric"
+        />
+      </Field>
+
+      <Field
+        label="安静時心拍数"
+        required={false}
+        hint="睡眠時・起床時の心拍数。分からない場合は空欄でOK。入力するとゾーンの精度が上がります"
+      >
+        <input
+          className={inputClass}
+          value={restingHr}
+          onChange={(e) => setRestingHr(e.target.value)}
+          placeholder="44"
+          inputMode="numeric"
+        />
+      </Field>
 
       <div className="mt-4 flex gap-2">
         <button
