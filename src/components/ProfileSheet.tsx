@@ -13,6 +13,10 @@ import { heartRateZones } from '@/lib/zones';
 
 interface Props {
   profile: RunnerProfile | null;
+  /** 記録がどこに保存されているかを示すために使う。 */
+  signedInAs?: string;
+  authAvailable?: boolean;
+  onOpenAuth?: () => void;
   build: BuildInfo | null;
   saving: boolean;
   onSave: (edit: ProfileEdit) => void;
@@ -42,7 +46,17 @@ const TYPE_LABEL: Record<string, string> = {
  * コーチが何を覚えているかを、本人がいつでも確認・削除できる画面。
  * 「勝手に学習されている」不安を残さないための装置でもある。
  */
-export default function ProfileSheet({ profile, build, saving, onSave, onClose, onReset }: Props) {
+export default function ProfileSheet({
+  profile,
+  build,
+  saving,
+  signedInAs,
+  authAvailable,
+  onOpenAuth,
+  onClose,
+  onSave,
+  onReset,
+}: Props) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const targetPace = resolveTargetPace(profile?.goal);
@@ -92,6 +106,29 @@ export default function ProfileSheet({ profile, build, saving, onSave, onClose, 
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
             <dl className="divide-y divide-[color:var(--border)]">
+              {authAvailable && (
+                <Row label="保存先">
+                  {signedInAs ? (
+                    <>
+                      <span className="font-medium">{signedInAs}</span>
+                      <span className="block text-[12px] text-muted">
+                        どの端末から開いても同じ記録が表示されます
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted">この端末にのみ保存されています</span>
+                      <button
+                        type="button"
+                        onClick={onOpenAuth}
+                        className="mt-1.5 rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                      >
+                        ログインして引き継ぐ
+                      </button>
+                    </>
+                  )}
+                </Row>
+              )}
               <Row label="コーチ">
                 <span className="flex items-center gap-2">
                   <CoachAvatar character={findCharacter(profile.characterId)} size={26} />
@@ -242,6 +279,9 @@ export default function ProfileSheet({ profile, build, saving, onSave, onClose, 
               </p>
               <p>
                 APIキー: {build.hasApiKey ? (build.apiKeyLooksValid ? '設定済み' : '設定済み（形式が怪しい）') : '未設定'}
+              </p>
+              <p>
+                保存先: {build.storage === 'supabase' ? 'Supabase（永続）' : 'この端末・インスタンス限り'}
               </p>
             </div>
           )}

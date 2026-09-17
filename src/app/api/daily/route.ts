@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { getStore } from '@/lib/store';
+import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { dailyStatus, logWeight, markOpened } from '@/lib/daily';
 
@@ -8,8 +8,9 @@ export const dynamic = 'force-dynamic';
 
 /** 今日の状態を返すだけ。 */
 export async function GET(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
-  const state = await getStore().load(userId);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
+  const state = await loadForSession(session);
   return Response.json(
     { daily: dailyStatus(state.profile) },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
@@ -18,12 +19,13 @@ export async function GET(request: NextRequest) {
 
 /** アプリを開いたことを記録する。画面のロード時に一度だけ呼ばれる。 */
 export async function POST(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
   const store = getStore();
-  const state = await store.load(userId);
+  const state = await loadForSession(session);
   const profile = markOpened(state.profile);
 
-  if (profile !== state.profile) await store.save(userId, { ...state, profile });
+  if (profile !== state.profile) await store.save(userId, { ...state, profile }, session.authUserId);
 
   return Response.json(
     { daily: dailyStatus(profile) },
@@ -33,7 +35,8 @@ export async function POST(request: NextRequest) {
 
 /** 体重の記録。 */
 export async function PATCH(request: NextRequest) {
-  const { userId } = resolveUserId(request);
+  const session = await resolveUserId(request);
+  const { userId } = session;
   const store = getStore();
 
   let body: { weightKg?: unknown };
@@ -48,10 +51,10 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: '体重は 20〜250kg の範囲で入力してください。' }, { status: 400 });
   }
 
-  const state = await store.load(userId);
+  const state = await loadForSession(session);
   // 小数第1位まで。体重計の表示より細かく持っても意味がない。
   const profile = logWeight(state.profile, Math.round(raw * 10) / 10);
-  await store.save(userId, { ...state, profile });
+  await store.save(userId, { ...state, profile }, session.authUserId);
 
   return Response.json({ daily: dailyStatus(profile), profile });
 }

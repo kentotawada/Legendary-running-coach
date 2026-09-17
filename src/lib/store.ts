@@ -5,6 +5,8 @@ import type { CoachState, RunnerProfile } from './types';
 import { createDefaultProfile } from './types';
 import type { Content, Part } from '@google/genai';
 import { imagePlaceholder } from './markers';
+import { createSupabaseAdminClient } from './supabase';
+import { SupabaseCoachStore } from './store-supabase';
 
 /**
  * 保存層。いまは JSON ファイルだが、
@@ -13,8 +15,14 @@ import { imagePlaceholder } from './markers';
  */
 export interface CoachStore {
   load(userId: string): Promise<CoachState>;
-  save(userId: string, state: CoachState): Promise<void>;
+  /** authUserId はログイン済みの場合のみ渡す。保存層が持ち主を記録できるようにするため。 */
+  save(userId: string, state: CoachState, authUserId?: string): Promise<void>;
   reset(userId: string): Promise<void>;
+  /**
+   * 未ログインで貯めた記録を、ログイン後のアカウントへ引き継ぐ。
+   * 引き継いだら true。引き継ぎ先にすでに記録がある場合は、上書きせず false。
+   */
+  adopt(fromUserId: string, toUserId: string, authUserId?: string): Promise<boolean>;
 }
 
 /** モデルに渡す会話の上限。これを超えたら古い順に落とす。 */
@@ -125,6 +133,21 @@ class FileCoachStore implements CoachStore {
       await fs.rm(this.file(userId), { force: true }).catch(() => undefined);
     });
   }
+
+  async adopt(fromUserId: string, toUserId: string): Promise<boolean> {
+    if (fromUserId === toUserId) return false;
+
+    const target = await this.load(toUserId);
+    // すでに会話が始まっているアカウントには、匿名の記録を被せない。
+    if (target.history.length > 0) return false;
+
+    const source = await this.load(fromUserId);
+    if (source.history.length === 0) return false;
+
+    await this.save(toUserId, { profile: { ...source.profile, id: toUserId }, history: source.history });
+    await this.reset(fromUserId);
+    return true;
+  }
 }
 
 let store: CoachStore | null = null;
@@ -145,8 +168,36 @@ function dataDir(): string {
 }
 
 export function getStore(): CoachStore {
-  if (!store) store = new FileCoachStore(dataDir());
+  if (store) return store;
+
+  // Supabase が設定されていればそちらへ。設定が無ければファイル保存のまま動かす。
+  // 「まだデータベースを用意していないと何も動かない」という状態を作らないため。
+  const client = createSupabaseAdminClient();
+  store = client ? new SupabaseCoachStore(client) : new FileCoachStore(dataDir());
   return store;
+}
+
+/**
+ * セッションに対応する状態を読む。
+ * ログイン直後で、未ログイン時の記録が残っていれば、ここで引き継ぐ。
+ */
+export async function loadForSession(session: {
+  userId: string;
+  anonymousId?: string;
+  authUserId?: string;
+}): Promise<CoachState> {
+  const current = getStore();
+
+  if (session.authUserId && session.anonymousId && session.anonymousId !== session.userId) {
+    try {
+      await current.adopt(session.anonymousId, session.userId, session.authUserId);
+    } catch (error) {
+      // 引き継ぎに失敗しても、対話そのものは続けられた方がよい。
+      console.error('[coach] 匿名データの引き継ぎに失敗', error);
+    }
+  }
+
+  return current.load(session.userId);
 }
 
 /** テスト用。 */

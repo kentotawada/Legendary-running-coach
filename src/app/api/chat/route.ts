@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { getStore } from '@/lib/store';
+import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
@@ -7,6 +7,7 @@ import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
 import { getBuildInfo } from '@/lib/build-info';
 import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
 import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,8 +16,9 @@ export const maxDuration = 60;
 
 /** 画面の初期表示用。これまでの会話とカルテを返す。 */
 export async function GET(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
-  const state = await getStore().load(userId);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
+  const state = await loadForSession(session);
   const build = getBuildInfo();
   return Response.json(
     {
@@ -26,6 +28,11 @@ export async function GET(request: NextRequest) {
       build,
       // リンクはサーバー側で組み立てる。モデルにURLを書かせない。
       gear: resolveGearCatalog(affiliateConfigFromEnv()),
+      auth: {
+        available: isSupabaseConfigured(),
+        isAuthenticated: session.isAuthenticated,
+        email: session.email,
+      },
     },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );
@@ -43,7 +50,8 @@ interface ChatRequestBody {
  *  {"type":"error","message":"..."}
  */
 export async function POST(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
   const store = getStore();
 
   let body: ChatRequestBody;
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: imageError }, { status: 400 });
   }
 
-  const state = await store.load(userId);
+  const state = await loadForSession(session);
   const message = (body.message ?? '').trim();
 
   // 初回だけ、こちらから声をかける。
@@ -84,7 +92,7 @@ export async function POST(request: NextRequest) {
           images,
           onDelta: (delta) => send({ type: 'delta', text: delta }),
         });
-        await store.save(userId, result.state);
+        await store.save(userId, result.state, session.authUserId);
         send({
           type: 'done',
           profile: result.state.profile,

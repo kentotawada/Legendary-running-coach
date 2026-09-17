@@ -13,6 +13,10 @@ export interface BuildInfo {
   /** キーの形が Google AI Studio のものらしいか。引用符や改行の混入を見つけるため。 */
   apiKeyLooksValid: boolean;
   environment: string;
+  /** 記録の保存先。supabase なら永続、file ならこのインスタンス限り。 */
+  storage: 'supabase' | 'file';
+  /** ログイン機能が使えるか。 */
+  authAvailable: boolean;
 }
 
 /** 環境変数に紛れ込んだ引用符や空白を落とす。貼り付け事故がここで死なないように。 */
@@ -23,6 +27,12 @@ export function cleanEnv(value: string | undefined): string {
 
 export function getBuildInfo(): BuildInfo {
   const key = cleanEnv(process.env.GEMINI_API_KEY);
+  const supabaseUrl = cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey =
+    cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+    cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  const supabaseServiceKey =
+    cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY) || cleanEnv(process.env.SUPABASE_SECRET_KEY);
   const commit = cleanEnv(process.env.VERCEL_GIT_COMMIT_SHA) || cleanEnv(process.env.COACH_COMMIT_SHA);
 
   return {
@@ -32,5 +42,8 @@ export function getBuildInfo(): BuildInfo {
     hasApiKey: key.length > 0,
     apiKeyLooksValid: /^AIza[0-9A-Za-z_-]{30,}$/.test(key),
     environment: cleanEnv(process.env.VERCEL_ENV) || process.env.NODE_ENV || 'development',
+    // service_role キーが無いと読み書きできないので、保存先の判定はこれで行う。
+    storage: supabaseUrl && supabaseServiceKey ? 'supabase' : 'file',
+    authAvailable: Boolean(supabaseUrl && supabaseAnonKey),
   };
 }

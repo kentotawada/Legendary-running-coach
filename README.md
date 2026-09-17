@@ -305,6 +305,9 @@ src/
     ├── characters.ts          コーチのキャラクター（話し方のみ）
     ├── daily.ts               毎日のスタンプ・連続日数・体重
     ├── gear.ts                道具のカタログとアフィリエイトリンク
+    ├── supabase.ts            Supabase クライアント（認証用 / 管理用）
+    ├── store-supabase.ts      Supabase への保存と、匿名記録の引き継ぎ
+    └── site-url.ts            ログイン後の戻り先の決定
     ├── profile.ts             カルテの更新ロジック（純関数）
     ├── gemini.ts              エージェントループ（ツール実行 + 書き直し）
     └── store.ts               保存層（JSON ファイル / メモリ）
@@ -323,6 +326,10 @@ src/
 | `PATCH /api/profile` | 目標・目標ペース・故障歴・心拍・キャラクターの設定変更 |
 | `POST /api/daily` | 「今日開いた」の記録（起動時に一度） |
 | `PATCH /api/daily` | 体重の記録 |
+| `POST /api/auth/magic-link` | メールにログインリンクを送る |
+| `GET /api/auth/google` | Google ログインを開始する |
+| `GET /api/auth/callback` | ログイン後の戻り先 |
+| `POST /api/auth/signout` | ログアウト |
 | `DELETE /api/profile` | 会話とカルテの全消去 |
 
 Web UI 側は PWA として作ってあり（`public/manifest.webmanifest`）、
@@ -389,10 +396,95 @@ https://<あなたのデプロイURL>/api/health
 
 サーバー側のログ（Vercel なら Runtime Logs）にも `[coach] turn failed` として同じ内容が出ます。
 
+## Supabase のセットアップ（データベース＋ログイン）
+
+**未設定でもアプリは動きます。** その場合の保存先はこの端末・インスタンス限りで、
+Vercel 上ではしばらくすると記録が消えます。永続化とログインが必要になったら、以下を設定してください。
+
+### 1. Supabase プロジェクトを作る
+
+1. https://supabase.com でサインアップ（無料プランで始められます）
+2. 「New project」でプロジェクトを作成。**データベースのパスワードは控えておく**
+3. リージョンは利用者に近い場所（日本なら Northeast Asia (Tokyo)）
+
+### 2. テーブルを作る
+
+Supabase ダッシュボードの **SQL Editor** を開き、このリポジトリの
+[`supabase/schema.sql`](supabase/schema.sql) の中身を貼り付けて実行します。
+
+作られるもの:
+
+- `coach_states` テーブル（カルテ・会話履歴・毎日の記録・体重を JSONB で保持）
+- `updated_at` を自動更新するトリガー
+- 行レベルセキュリティ（RLS）と、自分の行だけを操作できるポリシー4つ
+
+何度実行しても壊れません。
+
+### 3. キーを取得して環境変数に入れる
+
+**Project Settings → API** から3つコピーします。
+
+| 環境変数 | ダッシュボードでの名前 | 注意 |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL | — |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public（新: publishable） | ブラウザに出て構わない |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role（新: secret） | **絶対にブラウザへ渡さない** |
+
+Vercel なら Settings → Environment Variables に追加し、**再デプロイ**してください。
+
+### 4. ログインを有効にする
+
+**Authentication → URL Configuration** で、戻り先を登録します。
+
+- **Site URL**: 本番のURL（例 `https://your-app.vercel.app`）
+- **Redirect URLs**: `https://your-app.vercel.app/api/auth/callback`
+  （Vercel のプレビューURLも使うなら `https://*-yourname.vercel.app/api/auth/callback` を追加）
+
+**メールでのログイン（マジックリンク）はこれだけで使えます。**
+Supabase の標準メール送信には送信数の上限があるため、本番運用では
+Authentication → Emails から SMTP（Resend / SendGrid など）を設定してください。
+
+**Google ログインを使う場合**は追加で:
+
+1. Google Cloud Console → 「APIとサービス」→「認証情報」→ OAuth クライアント ID（ウェブアプリケーション）を作成
+2. **承認済みのリダイレクト URI** に、アプリではなく **Supabase の** URL を入れる
+   → `https://<プロジェクトID>.supabase.co/auth/v1/callback`
+   （ここをアプリのURLにしてしまうのがよくある詰まりどころです）
+3. 発行された クライアントID / シークレット を、Supabase の
+   **Authentication → Providers → Google** に貼り付けて有効化
+
+### 5. 確認する
+
+デプロイ後、`https://あなたのURL/api/health` を開いて次を確認します。
+
+```json
+{ "storage": "supabase", "authAvailable": true }
+```
+
+`storage` が `file` のままなら、`SUPABASE_SERVICE_ROLE_KEY` が読めていません。
+
+### 未ログインでも使えます
+
+最初の一言を交わす前にメールアドレスを求めると、多くの人はそこで離脱します。
+そのため**ログインは必須にしていません。**
+
+- 未ログイン: 端末ごとの匿名IDで保存（Supabase 設定済みならデータベースに保存されます）
+- ログイン時: **それまでの匿名の記録が、そのままアカウントへ引き継がれます**
+- すでにアカウント側に記録がある場合は、匿名の記録で上書きしません
+  （別端末で積み上げたカルテが消えるのを防ぐため）
+
 ### 保存について
 
-ローカルではユーザーごとの JSON ファイル（既定 `.data/`、`COACH_DATA_DIR` で変更可）に保存します。
-サーバーレス環境では自動的に `/tmp` を使い、そこも書けなければメモリ保持へ退避するため、対話自体は止まりません。
+保存層は2つあり、環境変数で自動的に切り替わります。
+
+| 条件 | 保存先 |
+| --- | --- |
+| Supabase のキーが揃っている | **Supabase**（永続。ログインで端末をまたげる） |
+| 未設定 | ローカルは `.data/`、サーバーレスでは `/tmp`、書けなければメモリ |
+
+差し替え点は `CoachStore` インタフェース（`src/lib/store.ts`）と
+`resolveUserId`（`src/lib/session.ts`）の2か所に閉じたままです。
+別のデータベースに移す場合も、`CoachStore` を実装した class を1つ足すだけで済みます。
 本番運用ではログイン機構とデータベースへの差し替えを想定しており、
 その差し替え点は `CoachStore` インタフェース（`src/lib/store.ts`）と
 `resolveUserId`（`src/lib/session.ts`）の2か所に閉じています。
@@ -403,7 +495,7 @@ https://<あなたのデプロイURL>/api/health
 npm test
 ```
 
-199 件のテストが、痛み検知・走行指示の検査・目標からのペースとVDOTの導出・心拍ゾーンの計算・
+215 件のテストが、痛み検知・走行指示の検査・目標からのペースとVDOTの導出・心拍ゾーンの計算・
 返答の整形・フェーズ判定・カルテ更新・ツール実行・画像の検証と保存時の除去・
 エージェントループ（Gemini はモック）を検証します。
 とくに次の2つは、実際のループを通して確認しています。
@@ -416,6 +508,8 @@ npm test
 - 生成途中でもアスタリスクや JSON が画面に漏れない（`tests/richtext.test.ts`）
 - どのキャラクターでも安全のルールが変わらない（`tests/characters.test.ts`）
 - アフィリエイト未設定時に広告だと偽らない（`tests/gear.test.ts`）
+- ログインしても、既存アカウントのカルテが匿名記録で上書きされない（`tests/supabase-store.test.ts`）
+- 引き継ぎに失敗しても対話が止まらない（`tests/store-session.test.ts`）
 
 ## 注意
 

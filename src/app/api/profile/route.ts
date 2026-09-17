@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { getStore } from '@/lib/store';
+import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { applyProfileUpdate, replaceInjuryHistory, setGoal, setPhase } from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
 
 /** コーチが今なにを把握しているかを、いつでも本人が確認できるようにする。 */
 export async function GET(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
-  const state = await getStore().load(userId);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
+  const state = await loadForSession(session);
   return Response.json(
     { profile: state.profile },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
@@ -61,7 +62,8 @@ function phaseForGoal(kind: GoalKind): CoachingPhase {
  * 目標レベルが変われば、コーチが使う基準ペースもここから自動で切り替わる。
  */
 export async function PATCH(request: NextRequest) {
-  const { userId, isNew } = resolveUserId(request);
+  const session = await resolveUserId(request);
+  const { userId, isNew } = session;
   const store = getStore();
 
   let body: ProfilePatchBody;
@@ -72,7 +74,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const now = new Date();
-  const state = await store.load(userId);
+  const state = await loadForSession(session);
   let profile = state.profile;
 
   if (body.goal !== undefined) {
@@ -125,7 +127,7 @@ export async function PATCH(request: NextRequest) {
     now,
   );
 
-  await store.save(userId, { ...state, profile });
+  await store.save(userId, { ...state, profile }, session.authUserId);
 
   return Response.json(
     { profile },
@@ -135,7 +137,8 @@ export async function PATCH(request: NextRequest) {
 
 /** 記録を消す権利は本人にある。 */
 export async function DELETE(request: NextRequest) {
-  const { userId } = resolveUserId(request);
+  const session = await resolveUserId(request);
+  const { userId } = session;
   await getStore().reset(userId);
   return Response.json({ ok: true });
 }

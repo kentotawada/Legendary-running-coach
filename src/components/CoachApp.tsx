@@ -9,6 +9,7 @@ import ProfileSheet from './ProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
+import AuthSheet from './AuthSheet';
 import PhaseBadge from './PhaseBadge';
 import CoachAvatar from './CoachAvatar';
 import { findCharacter } from '@/lib/characters';
@@ -32,11 +33,13 @@ export default function CoachApp() {
     saveWeight,
     savingWeight,
     gear,
+    auth,
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
@@ -166,6 +169,14 @@ export default function CoachApp() {
         />
       )}
 
+      {authOpen && (
+        <AuthSheet
+          auth={auth}
+          onClose={() => setAuthOpen(false)}
+          onSignedOut={() => window.location.reload()}
+        />
+      )}
+
       {ideasOpen && (
         <IdeaSheet
           onPick={(question) => {
@@ -181,6 +192,12 @@ export default function CoachApp() {
           profile={profile}
           build={build}
           saving={savingProfile}
+          signedInAs={auth.isAuthenticated ? (auth.email ?? 'ログイン済み') : undefined}
+          authAvailable={auth.available}
+          onOpenAuth={() => {
+            setSheetOpen(false);
+            setAuthOpen(true);
+          }}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}

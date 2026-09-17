@@ -5,6 +5,7 @@ import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import type { DailyStatus } from '@/lib/daily';
 import type { ResolvedGear } from '@/lib/gear';
+import type { AuthState } from '@/components/AuthSheet';
 import type { PreparedImage } from '@/lib/downscale';
 import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
 import type { ProfileEdit } from '@/components/GoalEditor';
@@ -39,6 +40,8 @@ export interface CoachChat {
   daily: DailyStatus | null;
   /** 道具カードのカタログ。リンクはサーバーが組み立てたもの。 */
   gear: ResolvedGear[];
+  /** ログイン状態。 */
+  auth: AuthState;
   saveWeight: (weightKg: number) => Promise<void>;
   savingWeight: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
@@ -57,6 +60,7 @@ export function useCoachChat(): CoachChat {
   const [savingProfile, setSavingProfile] = useState(false);
   const [daily, setDaily] = useState<DailyStatus | null>(null);
   const [gear, setGear] = useState<ResolvedGear[]>([]);
+  const [auth, setAuth] = useState<AuthState>({ available: false, isAuthenticated: false });
   const [savingWeight, setSavingWeight] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
@@ -176,6 +180,7 @@ export function useCoachChat(): CoachChat {
           hasApiKey: boolean;
           build?: BuildInfo;
           gear?: ResolvedGear[];
+          auth?: AuthState;
         };
         setMessages(data.messages.map((m) => ({ ...m, id: `server-${m.id}` })));
 
@@ -187,6 +192,7 @@ export function useCoachChat(): CoachChat {
         setProfile(data.profile);
         setBuild(data.build ?? null);
         setGear(data.gear ?? []);
+        if (data.auth) setAuth(data.auth);
         setReady(true);
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
@@ -283,6 +289,7 @@ export function useCoachChat(): CoachChat {
     savingProfile,
     daily,
     gear,
+    auth,
     saveWeight,
     savingWeight,
   };
