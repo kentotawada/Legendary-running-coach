@@ -72,7 +72,7 @@ export interface ConditionLog {
 export type ActivityType = 'run' | 'walk' | 'cross' | 'strength' | 'stretch' | 'rest';
 export type ActivitySource = 'self-report' | 'screenshot';
 
-/** Garmin などの計測データ。スクリーンショットから読み取った値もここに入る。 */
+/** 時計やアプリの計測データ。スクリーンショットから読み取った値もここに入る。 */
 export interface WorkoutMetrics {
   /** "4:15/km" のような平均ペース。 */
   avgPace?: string;
@@ -122,9 +122,21 @@ export interface CoachPlan {
   createdAt: string;
 }
 
+/** 1日ぶんの記録。スタンプの土台。 */
+export interface DailyRecord {
+  /** YYYY-MM-DD */
+  date: string;
+  /** その日アプリを開いたか。 */
+  opened: boolean;
+  /** その日はかった体重(kg)。 */
+  weightKg?: number;
+}
+
 export interface RunnerProfile {
   id: string;
   displayName?: string;
+  /** 選んでいるコーチのキャラクター。話し方だけが変わる。 */
+  characterId?: string;
   phase: CoachingPhase;
   phaseHistory: PhaseChange[];
   goal?: RunnerGoal;
@@ -153,6 +165,8 @@ export interface RunnerProfile {
   conditionLogs: ConditionLog[];
   activities: ActivityLog[];
   plans: CoachPlan[];
+  /** 毎日の記録。スタンプと連続日数の土台。 */
+  dailyLog?: DailyRecord[];
   createdAt: string;
   updatedAt: string;
 }

@@ -1,5 +1,7 @@
-import type { InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
+import type { GearBlock, InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
 import { parseRichText } from '@/lib/richtext';
+import type { ResolvedGear } from '@/lib/gear';
+import { hasAffiliate } from '@/lib/gear';
 
 function Inline({ parts }: { parts: InlineText[] }) {
   return (
@@ -93,7 +95,59 @@ function ZonesCard({ block }: { block: ZonesBlock }) {
   );
 }
 
-function Block({ block }: { block: RichBlock }) {
+/**
+ * 道具の提案。リンクはサーバーが組み立てたものだけを使う。
+ * 広告リンクを含む場合は必ずその旨を出す（景品表示法のステマ規制）。
+ */
+function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[] }) {
+  const items = block.categories
+    .map((id) => catalog.find((entry) => entry.id === id))
+    .filter((entry): entry is ResolvedGear => Boolean(entry));
+
+  if (items.length === 0) return null;
+  const sponsored = items.some((item) => hasAffiliate(item.links));
+
+  return (
+    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+      <p className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
+        <span className="text-[13px] font-bold">検討したい道具</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[10px] text-muted">
+          {sponsored ? 'PR・広告リンクを含みます' : '検索リンク'}
+        </span>
+      </p>
+
+      {block.note && <p className="px-3.5 pt-2.5 text-[13px] leading-relaxed">{block.note}</p>}
+
+      <ul className="divide-y divide-[color:var(--border)]">
+        {items.map((item) => (
+          <li key={item.id} className="px-3.5 py-3">
+            <p className="text-[13px] font-semibold">{item.title}</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-muted">{item.why}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {item.links.map((link) => (
+                <a
+                  key={link.shop}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className="rounded-full border border-line px-3 py-1.5 text-[12px] font-medium text-accent"
+                >
+                  {link.shop}で探す
+                </a>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <p className="border-t border-line px-3.5 py-2 text-[11px] leading-relaxed text-muted">
+        商品はモールの検索結果です。実際の仕様と価格は、購入前に必ずご確認ください。
+      </p>
+    </div>
+  );
+}
+
+function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }) {
   switch (block.type) {
     case 'heading':
       return (
@@ -131,6 +185,8 @@ function Block({ block }: { block: RichBlock }) {
       return <MenuCard block={block} />;
     case 'zones':
       return <ZonesCard block={block} />;
+    case 'gear':
+      return <GearCard block={block} catalog={catalog} />;
     case 'pending':
       return <p className="my-1 text-[12px] text-muted">…</p>;
     case 'paragraph':
@@ -144,12 +200,12 @@ function Block({ block }: { block: RichBlock }) {
 }
 
 /** コーチの発言を、記号ではなく構造として描く。 */
-export default function RichText({ text }: { text: string }) {
+export default function RichText({ text, gear = [] }: { text: string; gear?: ResolvedGear[] }) {
   const blocks = parseRichText(text);
   return (
     <div className="space-y-2">
       {blocks.map((block, index) => (
-        <Block key={index} block={block} />
+        <Block key={index} block={block} catalog={gear} />
       ))}
     </div>
   );

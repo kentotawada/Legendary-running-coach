@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
+import type { DailyStatus } from '@/lib/daily';
+import type { ResolvedGear } from '@/lib/gear';
 import type { PreparedImage } from '@/lib/downscale';
 import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
 import type { ProfileEdit } from '@/components/GoalEditor';
@@ -33,6 +35,12 @@ export interface CoachChat {
   /** カルテ画面からの設定変更。 */
   updateProfile: (edit: ProfileEdit) => Promise<void>;
   savingProfile: boolean;
+  /** 今日のスタンプと連続日数。 */
+  daily: DailyStatus | null;
+  /** 道具カードのカタログ。リンクはサーバーが組み立てたもの。 */
+  gear: ResolvedGear[];
+  saveWeight: (weightKg: number) => Promise<void>;
+  savingWeight: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
   reportError: (message: string) => void;
 }
@@ -47,6 +55,9 @@ export function useCoachChat(): CoachChat {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [daily, setDaily] = useState<DailyStatus | null>(null);
+  const [gear, setGear] = useState<ResolvedGear[]>([]);
+  const [savingWeight, setSavingWeight] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
 
@@ -164,10 +175,18 @@ export function useCoachChat(): CoachChat {
           profile: RunnerProfile;
           hasApiKey: boolean;
           build?: BuildInfo;
+          gear?: ResolvedGear[];
         };
         setMessages(data.messages.map((m) => ({ ...m, id: `server-${m.id}` })));
+
+        // 「今日ここを開いた」を記録する。スタンプはこれが起点。
+        void fetch('/api/daily', { method: 'POST' })
+          .then((r) => r.json())
+          .then((d: { daily?: DailyStatus }) => d.daily && setDaily(d.daily))
+          .catch(() => undefined);
         setProfile(data.profile);
         setBuild(data.build ?? null);
+        setGear(data.gear ?? []);
         setReady(true);
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
@@ -220,6 +239,29 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  const saveWeight = useCallback(async (weightKg: number) => {
+    setSavingWeight(true);
+    try {
+      const response = await fetch('/api/daily', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weightKg }),
+      });
+      const data = (await response.json()) as {
+        daily?: DailyStatus;
+        profile?: RunnerProfile;
+        error?: string;
+      };
+      if (!response.ok || !data.daily) throw new Error(data.error ?? '体重を記録できませんでした。');
+      setDaily(data.daily);
+      if (data.profile) setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '体重を記録できませんでした。');
+    } finally {
+      setSavingWeight(false);
+    }
+  }, []);
+
   const reportError = useCallback((message: string) => {
     setError(message);
     setErrorDetail(null);
@@ -239,5 +281,9 @@ export function useCoachChat(): CoachChat {
     reportError,
     updateProfile,
     savingProfile,
+    daily,
+    gear,
+    saveWeight,
+    savingWeight,
   };
 }

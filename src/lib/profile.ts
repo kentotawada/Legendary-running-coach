@@ -46,6 +46,7 @@ function tail<T>(items: T[], max: number): T[] {
 
 export interface ProfilePatch {
   displayName?: string;
+  characterId?: string;
   experience?: string;
   weeklyVolumeKm?: number;
   bodyWeightKg?: number;
@@ -73,6 +74,7 @@ export function applyProfileUpdate(
   const next: RunnerProfile = {
     ...profile,
     displayName: patch.displayName?.trim() || profile.displayName,
+    characterId: patch.characterId?.trim() || profile.characterId,
     experience: patch.experience?.trim() || profile.experience,
     weeklyVolumeKm: patch.weeklyVolumeKm ?? profile.weeklyVolumeKm,
     bodyWeightKg: patch.bodyWeightKg ?? profile.bodyWeightKg,

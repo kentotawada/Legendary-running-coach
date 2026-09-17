@@ -6,6 +6,7 @@ import { FIRST_TURN_PROMPT } from '@/lib/prompt';
 import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
 import { getBuildInfo } from '@/lib/build-info';
 import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
+import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,8 @@ export async function GET(request: NextRequest) {
       profile: state.profile,
       hasApiKey: build.hasApiKey,
       build,
+      // リンクはサーバー側で組み立てる。モデルにURLを書かせない。
+      gear: resolveGearCatalog(affiliateConfigFromEnv()),
     },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );

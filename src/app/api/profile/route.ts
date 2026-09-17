@@ -30,6 +30,7 @@ interface ProfilePatchBody {
     raceDate?: string;
     why?: string;
   } | null;
+  characterId?: unknown;
   injuryHistory?: unknown;
   maxHr?: unknown;
   restingHr?: unknown;
@@ -115,6 +116,7 @@ export async function PATCH(request: NextRequest) {
     profile,
     {
       displayName: text(body.displayName),
+      characterId: text(body.characterId),
       maxHr: count(body.maxHr),
       restingHr: count(body.restingHr),
       lthr: count(body.lthr),

@@ -1,13 +1,16 @@
 import type { ChatMessage } from '@/lib/types';
 import RichText from './RichText';
+import type { ResolvedGear } from '@/lib/gear';
 
 interface Props {
   message: ChatMessage;
   /** 生成中のカーソルを出すか。 */
   pending?: boolean;
+  /** 道具カードを描くためのカタログ。 */
+  gear?: ResolvedGear[];
 }
 
-export default function MessageBubble({ message, pending = false }: Props) {
+export default function MessageBubble({ message, pending = false, gear }: Props) {
   const isUser = message.role === 'user';
   return (
     <div className={`flex w-full animate-rise ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -37,7 +40,7 @@ export default function MessageBubble({ message, pending = false }: Props) {
         {!message.imagePreviews && message.attachmentCount ? (
           <p className="mb-1 text-[12px] opacity-70">📷 スクリーンショット{message.attachmentCount}枚を送信</p>
         ) : null}
-        {isUser ? message.text : <RichText text={message.text} />}
+        {isUser ? message.text : <RichText text={message.text} gear={gear} />}
         {pending && <span className="ml-0.5 inline-block animate-blink text-accent">●</span>}
       </div>
     </div>

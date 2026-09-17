@@ -11,7 +11,7 @@ type Chip =
 
 const CHIPS: Chip[] = [
   { label: '💡 何を相談する？', kind: 'ideas' },
-  { label: '📊 Garminデータを送る', kind: 'image', tone: 'accent' },
+  { label: '📊 練習データを送る', kind: 'image', tone: 'accent' },
   { label: '🔥 ポイント練習の報告', kind: 'message', message: '今日のポイント練習について報告します。' },
   { label: '🦵 膝・足の違和感', kind: 'message', message: '膝（または足）に違和感があります。', tone: 'warn' },
   { label: '😮‍💨 疲労が抜けない', kind: 'message', message: '疲労が抜けません。脚が重い状態が続いています。' },

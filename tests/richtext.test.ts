@@ -95,3 +95,22 @@ describe('parseRichText', () => {
     expect(blocks[0].type).toBe('paragraph');
   });
 });
+
+describe('道具の提案ブロック', () => {
+  it('カテゴリidだけを受け取る（URLはモデルに書かせない）', () => {
+    const blocks = parseRichText(
+      '距離が増えてきましたね。\n```gear\n{"categories":["shoes-daily","scale"],"note":"2足を交互に"}\n```',
+    );
+
+    expect(blocks[1].type).toBe('gear');
+    const gear = blocks[1] as { categories: string[]; note?: string };
+    expect(gear.categories).toEqual(['shoes-daily', 'scale']);
+    expect(gear.note).toBe('2足を交互に');
+    expect(JSON.stringify(blocks)).not.toContain('http');
+  });
+
+  it('カテゴリが無ければ本文として扱う', () => {
+    const blocks = parseRichText('```gear\n{"categories":[]}\n```');
+    expect(blocks[0].type).toBe('paragraph');
+  });
+});

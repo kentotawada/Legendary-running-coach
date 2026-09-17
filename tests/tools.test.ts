@@ -10,6 +10,7 @@ describe('coachTools', () => {
     expect(coachTools.map((t) => t.name).sort()).toEqual([
       'log_activity',
       'log_condition',
+      'log_weight',
       'set_coaching_phase',
       'set_today_plan',
       'update_pain',
@@ -104,7 +105,7 @@ describe('executeTool', () => {
   });
 });
 
-describe('Garminデータの記録', () => {
+describe('練習データの記録', () => {
   it('読み取った計測値をカルテに残す', () => {
     const { profile } = executeTool(
       base(),
@@ -176,5 +177,19 @@ describe('Garminデータの記録', () => {
 
     expect(profile).toMatchObject({ maxHr: 190, restingHr: 44, lthr: 172 });
     expect(profile.injuryHistory).toEqual(['腸脛靭帯炎（右膝）']);
+  });
+});
+
+describe('体重の記録', () => {
+  it('会話から聞いた体重を残す', () => {
+    const { profile, result } = executeTool(base(), 'log_weight', { weightKg: 61.42 }, NOW);
+
+    expect(profile.bodyWeightKg).toBe(61.4);
+    expect(String(result.message)).toContain('はかったこと自体を評価');
+  });
+
+  it('あり得ない値は受け取らない', () => {
+    expect(executeTool(base(), 'log_weight', { weightKg: 3 }, NOW).result.ok).toBe(false);
+    expect(executeTool(base(), 'log_weight', {}, NOW).result.ok).toBe(false);
   });
 });

@@ -4,11 +4,14 @@ import { phaseGuidance, resolvePhase, transitionGuidance } from './phase';
 import { summarizeProfile, today } from './profile';
 import { goalDoctrine } from './goals';
 import { zoneDoctrine } from './zones';
+import { characterVoice, findCharacter } from './characters';
+import { dailyDoctrine } from './daily';
+import { gearDoctrine } from './gear';
 import { INTERNAL_PREFIX } from './markers';
 
 export { INTERNAL_PREFIX } from './markers';
 
-const IDENTITY = `あなたは「伝説のランナーコーチ」。目の前のランナーひとりのための専属コーチです。
+const IDENTITY = `あなたは「伝説のランナーコーチ」、名を {{characterName}}。目の前のランナーひとりのための専属コーチです。
 
 相手が本気で目標に向かっているなら、当たり障りのない励ましや一般向けの薄いアドバイスは、その人の時間を奪うだけです。
 数字と生理学的な根拠で語り、良くない練習には良くないとはっきり言い、その代わり必ず次の一手を示してください。
@@ -61,7 +64,11 @@ const ABSOLUTE_RULES = `# 絶対に破ってはいけない原則
    推測した数字で語るのは、この人に対する裏切りです。分からなければ質問する。
 5. 医療行為はしない。診断名を断定しない。強い痛み・腫れ・しびれ・2週間以上続く痛みは、整形外科やスポーツ外来の受診を具体的に勧める。`;
 
-const IMAGE_POLICY = `# Garmin などのスクリーンショットが送られてきた時
+const IMAGE_POLICY = `# ランニングアプリのスクリーンショットが送られてきた時
+
+送られてくる画像は、Garmin Connect / Nike Run Club / Strava / adidas Running / Apple ヘルスケア /
+ランニングウォッチの画面など、アプリはさまざまです。**特定のアプリを前提にしないでください。**
+表示されている項目名や単位はアプリごとに違います。見出しの言葉ではなく、数値とその意味で読み取ってください。
 
 画像が添付されたら、まず数字を正確に読み取ることに集中してください。読み取る対象:
 
@@ -141,8 +148,11 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
   const phase = resolvePhase(profile, safety.runningForbidden);
   const transition = transitionGuidance(profile);
 
+  const character = findCharacter(profile.characterId);
+
   const sections = [
-    IDENTITY,
+    IDENTITY.replace('{{characterName}}', character.name),
+    characterVoice(profile.characterId),
     `今日の日付: ${today(now)}`,
     ABSOLUTE_RULES,
     DOCTRINE,
@@ -151,10 +161,12 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     phaseGuidance(phase),
     transition,
     summarizeProfile(profile, now),
+    dailyDoctrine(profile, now),
     safety.directives.length > 0
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
       : null,
     IMAGE_POLICY,
+    gearDoctrine(),
     TOOL_POLICY,
     TONE,
   ].filter((section): section is string => Boolean(section));
@@ -167,5 +179,6 @@ export const FIRST_TURN_PROMPT =
   INTERNAL_PREFIX +
   '（システム: これが初回の対話です。専属コーチとして名乗り、何を見て何を判断する存在なのかを2文以内で伝えてください。' +
   'そのうえで、この人が何を目指しているか（サブ3・サブ4・完走・健康維持など、どれでも歓迎される空気で）を、ひとつだけ尋ねてください。' +
-  '目標は「カルテ」画面からも設定・変更できること、Garmin などのスクリーンショットを送れば練習を分析できることを、' +
+  '目標は「カルテ」画面からも設定・変更できること、ランニングアプリ（Garmin Connect、Nike Run Club、Strava など）の' +
+  'スクリーンショットを送れば練習を分析できることを、' +
   'それぞれ一言だけ添えること。）';

@@ -16,6 +16,7 @@ import {
   today,
   upsertPain,
 } from './profile';
+import { logWeight } from './daily';
 
 /**
  * コーチが「学習」するための手段。
@@ -115,7 +116,7 @@ export const coachTools: FunctionDeclaration[] = [
   {
     name: 'log_activity',
     description:
-      '練習の報告を受けた時、およびGarminなどのスクリーンショットから数値を読み取った時に記録する。' +
+      '練習の報告を受けた時、およびランニングアプリのスクリーンショットから数値を読み取った時に記録する。' +
       '読み取れなかった項目は空のままにすること。推測した数値を入れてはならない。',
     parametersJsonSchema: {
       type: 'object',
@@ -182,6 +183,19 @@ export const coachTools: FunctionDeclaration[] = [
         },
       },
       required: ['title', 'steps', 'rationale', 'intensity'],
+    },
+  },
+  {
+    name: 'log_weight',
+    description:
+      '体重を聞いた時に記録する。増減を評価するためではなく、はかる習慣を支えるために残す。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        weightKg: { type: 'number', description: '体重(kg)' },
+        date: { type: 'string', description: 'YYYY-MM-DD。省略時は今日。' },
+      },
+      required: ['weightKg'],
     },
   },
   {
@@ -432,6 +446,21 @@ export function executeTool(
             alternatives && alternatives.length > 0
               ? 'メニューを記録した'
               : 'メニューを記録した。ただし代替案が未設定。返答の中で「時間が取れない時」の逃げ道を必ず添えること。',
+        },
+      };
+    }
+
+    case 'log_weight': {
+      const weightKg = num(args.weightKg);
+      if (weightKg === undefined || weightKg < 20 || weightKg > 250) {
+        return { profile, result: { ok: false, error: '体重は 20〜250kg の範囲で受け取る。' } };
+      }
+      const next = logWeight(profile, Math.round(weightKg * 10) / 10, str(args.date) ?? today(now), now);
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          message: '体重を記録した。増減ではなく、はかったこと自体を評価すること。',
         },
       };
     }

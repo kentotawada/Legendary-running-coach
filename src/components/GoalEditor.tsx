@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import type { GoalKind, RunnerProfile } from '@/lib/types';
+import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID } from '@/lib/characters';
+import CoachAvatar from './CoachAvatar';
 import {
   formatDuration,
   marathonPaceSeconds,
@@ -13,6 +15,7 @@ import {
 } from '@/lib/goals';
 
 export interface ProfileEdit {
+  characterId: string;
   goal: {
     kind: GoalKind;
     summary: string;
@@ -77,6 +80,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
   const [targetPace, setTargetPace] = useState(goal?.targetPace ?? '');
   const [raceName, setRaceName] = useState(goal?.raceName ?? '');
   const [raceDate, setRaceDate] = useState(goal?.raceDate ?? '');
+  const [characterId, setCharacterId] = useState(profile?.characterId ?? DEFAULT_CHARACTER_ID);
   const [injuries, setInjuries] = useState((profile?.injuryHistory ?? []).join('\n'));
   const [maxHr, setMaxHr] = useState(profile?.maxHr ? String(profile.maxHr) : '');
   const [lthr, setLthr] = useState(profile?.lthr ? String(profile.lthr) : '');
@@ -125,6 +129,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
   const submit = () => {
     if (!timeIsValid) return;
     onSave({
+      characterId,
       goal: {
         kind,
         summary: summary.trim() || '目標',
@@ -142,6 +147,36 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
+      <Field label="コーチのキャラクター" required={false} hint="話し方だけが変わります。指導の中身と安全のルールは同じです">
+        <div className="grid grid-cols-2 gap-2">
+          {COACH_CHARACTERS.map((character) => {
+            const active = characterId === character.id;
+            return (
+              <button
+                key={character.id}
+                type="button"
+                onClick={() => setCharacterId(character.id)}
+                className={[
+                  'flex items-start gap-2.5 rounded-[14px] border p-2.5 text-left transition active:scale-[0.98]',
+                  active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                ].join(' ')}
+              >
+                <CoachAvatar character={character} size={34} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
+                    {character.name}
+                  </span>
+                  <span className="block text-[11px] leading-snug text-muted">{character.tagline}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          {COACH_CHARACTERS.find((c) => c.id === characterId)?.description}
+        </p>
+      </Field>
+
       <Field label="何を目指しますか" required hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">
         <div className="flex flex-wrap gap-2">
           {KINDS.map((item) => (
@@ -267,7 +302,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
       <Field
         label="最大心拍数"
         required
-        hint="Garmin等で計測した最高心拍数。不明なら「220 − 年齢」が目安です"
+        hint="時計やランニングアプリで計測した最高心拍数。不明なら「220 − 年齢」が目安です"
       >
         <input
           className={inputClass}

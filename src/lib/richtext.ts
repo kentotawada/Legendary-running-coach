@@ -39,6 +39,12 @@ export interface ZonesBlock {
   rows: ZoneRow[];
 }
 
+export interface GearBlock {
+  type: 'gear';
+  categories: string[];
+  note?: string;
+}
+
 export type RichBlock =
   | { type: 'paragraph'; content: InlineText[] }
   | { type: 'heading'; content: InlineText[] }
@@ -46,6 +52,7 @@ export type RichBlock =
   | { type: 'ordered'; items: InlineText[][] }
   | MenuBlock
   | ZonesBlock
+  | GearBlock
   /** 生成途中の囲みブロック。閉じるまでは中身を出さない。 */
   | { type: 'pending' };
 
@@ -68,7 +75,7 @@ export function parseInline(text: string): InlineText[] {
   return parts.filter((part) => part.value.length > 0);
 }
 
-const FENCE = /^```(menu|zones)\s*$/;
+const FENCE = /^```(menu|zones|gear)\s*$/;
 const BULLET = /^\s*(?:[-*・]|●)\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
@@ -91,6 +98,22 @@ function menuFrom(raw: string): MenuBlock | null {
       type: 'menu',
       title: typeof data.title === 'string' ? data.title : undefined,
       items,
+      note: typeof data.note === 'string' ? data.note : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function gearFrom(raw: string): GearBlock | null {
+  try {
+    const data = JSON.parse(raw) as { categories?: unknown; note?: unknown };
+    if (!Array.isArray(data.categories)) return null;
+    const categories = data.categories.filter((id): id is string => typeof id === 'string');
+    if (categories.length === 0) return null;
+    return {
+      type: 'gear',
+      categories,
       note: typeof data.note === 'string' ? data.note : undefined,
     };
   } catch {
@@ -173,7 +196,8 @@ export function parseRichText(text: string): RichBlock[] {
       }
 
       const raw = body.join('\n').trim();
-      const parsed = fence[1] === 'menu' ? menuFrom(raw) : zonesFrom(raw);
+      const parsed =
+        fence[1] === 'menu' ? menuFrom(raw) : fence[1] === 'gear' ? gearFrom(raw) : zonesFrom(raw);
       if (parsed) blocks.push(parsed);
       else if (raw) blocks.push({ type: 'paragraph', content: parseInline(raw) });
       continue;

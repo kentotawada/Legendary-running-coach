@@ -7,7 +7,11 @@ import Composer, { type ComposerApi } from './Composer';
 import QuickCheckIn from './QuickCheckIn';
 import ProfileSheet from './ProfileSheet';
 import IdeaSheet from './IdeaSheet';
+import DailyStrip from './DailyStrip';
+import DailySheet from './DailySheet';
 import PhaseBadge from './PhaseBadge';
+import CoachAvatar from './CoachAvatar';
+import { findCharacter } from '@/lib/characters';
 
 export default function CoachApp() {
   const {
@@ -24,10 +28,15 @@ export default function CoachApp() {
     reportError,
     updateProfile,
     savingProfile,
+    daily,
+    saveWeight,
+    savingWeight,
+    gear,
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
@@ -56,15 +65,14 @@ export default function CoachApp() {
   }, [celebration]);
 
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
+  const character = findCharacter(profile?.characterId);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg text-fg">
       <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-elevated px-4 pb-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg" aria-hidden="true">
-          🏃
-        </div>
+        <CoachAvatar character={character} size={40} />
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-bold leading-tight">伝説のパーソナルコーチ</h1>
+          <h1 className="truncate text-[15px] font-bold leading-tight">コーチ {character.name}</h1>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             {profile && <PhaseBadge phase={profile.phase} />}
             <p className="truncate text-[12px] text-muted">今日のあなたに合わせて</p>
@@ -79,6 +87,8 @@ export default function CoachApp() {
         </button>
       </header>
 
+      {daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
+
       {activePains.length > 0 && (
         <div className="border-b border-line bg-warn-soft px-4 py-2.5 text-[13px] leading-relaxed text-warn">
           <strong className="font-semibold">いまは走らない期間です。</strong>{' '}
@@ -90,11 +100,15 @@ export default function CoachApp() {
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} gear={gear} />
         ))}
 
         {streamingText !== null && (
-          <MessageBubble message={{ id: 'streaming', role: 'coach', text: streamingText }} pending />
+          <MessageBubble
+            message={{ id: 'streaming', role: 'coach', text: streamingText }}
+            gear={gear}
+            pending
+          />
         )}
 
         {busy && streamingText === null && (
@@ -142,6 +156,15 @@ export default function CoachApp() {
           disabled={busy || !ready}
         />
       </footer>
+
+      {dailyOpen && daily && (
+        <DailySheet
+          daily={daily}
+          saving={savingWeight}
+          onSaveWeight={(kg) => void saveWeight(kg)}
+          onClose={() => setDailyOpen(false)}
+        />
+      )}
 
       {ideasOpen && (
         <IdeaSheet

@@ -231,7 +231,7 @@ export interface CoachTurnInput {
   state: CoachState;
   /** ユーザーの発言。初回の呼びかけを生成する場合は内部プロンプトを渡す。 */
   userText: string;
-  /** Garmin のスクリーンショットなど。読み取りはモデルに任せる。 */
+  /** ランニングアプリのスクリーンショットなど。読み取りはモデルに任せる。 */
   images?: ImageAttachment[];
   now?: Date;
   onDelta?: (delta: string) => void;

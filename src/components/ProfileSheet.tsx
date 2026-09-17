@@ -6,6 +6,8 @@ import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
 import PhaseBadge from './PhaseBadge';
 import GoalEditor, { type ProfileEdit } from './GoalEditor';
+import CoachAvatar from './CoachAvatar';
+import { findCharacter } from '@/lib/characters';
 import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
 import { heartRateZones } from '@/lib/zones';
 
@@ -90,6 +92,17 @@ export default function ProfileSheet({ profile, build, saving, onSave, onClose, 
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
             <dl className="divide-y divide-[color:var(--border)]">
+              <Row label="コーチ">
+                <span className="flex items-center gap-2">
+                  <CoachAvatar character={findCharacter(profile.characterId)} size={26} />
+                  <span>
+                    {findCharacter(profile.characterId).name}
+                    <span className="ml-1.5 text-[12px] text-muted">
+                      {findCharacter(profile.characterId).tagline}
+                    </span>
+                  </span>
+                </span>
+              </Row>
               <Row label="現在地">{PHASE_LABEL[profile.phase]}</Row>
               {profile.displayName && <Row label="呼び方">{profile.displayName}さん</Row>}
               <Row label="目標">

@@ -12,7 +12,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'i
 
 /**
  * 1回に添付できる枚数。
- * Garmin の心拍・ペース・ピッチ・高度・ラップなど、詳細画面をまとめて送れるようにしている。
+ * 心拍・ペース・ピッチ・高度・ラップなど、アプリの詳細画面をまとめて送れるようにしている。
  */
 export const MAX_IMAGES = 10;
 
