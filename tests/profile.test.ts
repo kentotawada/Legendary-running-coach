@@ -8,7 +8,7 @@ import {
   toDisplayMessages,
   upsertPain,
 } from '@/lib/profile';
-import { createEmptyProfile } from '@/lib/types';
+import { createBlankProfile, createDefaultProfile } from '@/lib/types';
 import { INTERNAL_PREFIX } from '@/lib/prompt';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
@@ -16,7 +16,7 @@ const NOW = new Date('2026-09-16T09:00:00Z');
 describe('applyProfileUpdate', () => {
   it('分かった項目だけを足し、既存の値を消さない', () => {
     const base = applyProfileUpdate(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { displayName: 'ケント', weeklyVolumeKm: 30 },
       NOW,
     );
@@ -29,7 +29,7 @@ describe('applyProfileUpdate', () => {
 
   it('制約と原動力は重複させずに積み上げる', () => {
     const first = applyProfileUpdate(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { constraints: ['平日は朝しか走れない'] },
       NOW,
     );
@@ -43,7 +43,7 @@ describe('applyProfileUpdate', () => {
 
   it('目標は部分更新できる', () => {
     const withGoal = applyProfileUpdate(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { goal: { kind: 'time', summary: 'サブスリー' } },
       NOW,
     );
@@ -55,7 +55,7 @@ describe('applyProfileUpdate', () => {
 
 describe('upsertPain', () => {
   it('同じ部位は上書きし、増やさない', () => {
-    const first = upsertPain(createEmptyProfile('u1'), { site: '右膝 外側', severity: 3 }, NOW);
+    const first = upsertPain(createBlankProfile('u1'), { site: '右膝 外側', severity: 3 }, NOW);
     const second = upsertPain(first, { site: '右膝外側', severity: 1, status: 'improving' }, NOW);
 
     expect(second.pains).toHaveLength(1);
@@ -63,19 +63,19 @@ describe('upsertPain', () => {
   });
 
   it('severity 0 は解消として扱う', () => {
-    const profile = upsertPain(createEmptyProfile('u1'), { site: '右膝', severity: 0 }, NOW);
+    const profile = upsertPain(createBlankProfile('u1'), { site: '右膝', severity: 0 }, NOW);
     expect(profile.pains[0].status).toBe('resolved');
   });
 
   it('範囲外の severity は 0-5 に丸める', () => {
-    const profile = upsertPain(createEmptyProfile('u1'), { site: '腰', severity: 9 }, NOW);
+    const profile = upsertPain(createBlankProfile('u1'), { site: '腰', severity: 9 }, NOW);
     expect(profile.pains[0].severity).toBe(5);
   });
 });
 
 describe('setPhase', () => {
   it('変化した時だけ履歴を残す', () => {
-    const toGoal = setPhase(createEmptyProfile('u1'), 'goal', 'フルマラソンに申し込んだ', NOW);
+    const toGoal = setPhase(createBlankProfile('u1'), 'goal', 'フルマラソンに申し込んだ', NOW);
     const again = setPhase(toGoal, 'goal', '同じ', NOW);
 
     expect(toGoal.phaseHistory).toHaveLength(1);
@@ -87,7 +87,7 @@ describe('setPhase', () => {
 describe('setPlan', () => {
   it('同じ日のメニューは組み替えられる', () => {
     const first = setPlan(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { date: '2026-09-16', title: '40分ジョグ', steps: ['40分'], rationale: '土台づくり', intensity: 'easy' },
       NOW,
     );
@@ -103,14 +103,18 @@ describe('setPlan', () => {
 });
 
 describe('summarizeProfile', () => {
-  it('目標が無い人には、数字を出さないよう明記する', () => {
-    const summary = summarizeProfile(createEmptyProfile('u1'), NOW);
-    expect(summary).toContain('数字やノルマを持ち出さないこと');
+  it('目標をまだ言葉にしていない人には、走力を聞き出すところから始めさせる', () => {
+    const summary = summarizeProfile(createBlankProfile('u1'), NOW);
+    expect(summary).toContain('走力を聞き出し');
+  });
+
+  it('心拍の基準値が無ければ、推測せず尋ねるよう明記する', () => {
+    expect(summarizeProfile(createBlankProfile('u1'), NOW)).toContain('推測せず最大心拍かLTHRを尋ねる');
   });
 
   it('レースまでの残り日数を計算して渡す', () => {
     const profile = applyProfileUpdate(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { goal: { kind: 'race', summary: '初フル完走', raceDate: '2026-09-26' } },
       NOW,
     );
@@ -119,7 +123,7 @@ describe('summarizeProfile', () => {
 
   it('直近の行動を載せる', () => {
     const profile = addActivity(
-      createEmptyProfile('u1'),
+      createDefaultProfile('u1'),
       { date: '2026-09-15', type: 'walk', durationMin: 15, felt: '思ったより気持ちよかった' },
       NOW,
     );

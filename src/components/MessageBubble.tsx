@@ -18,6 +18,23 @@ export default function MessageBubble({ message, pending = false }: Props) {
             : 'rounded-bl-md border border-line bg-[var(--coach-bubble)] text-fg shadow-sm',
         ].join(' ')}
       >
+        {message.imagePreviews && message.imagePreviews.length > 0 && (
+          <div className="mb-2 flex gap-2">
+            {message.imagePreviews.map((preview, index) => (
+              // 送信済みの縮小画像をそのまま出すだけなので next/image は使わない
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={preview.slice(-24)}
+                src={preview}
+                alt={`送信した画像 ${index + 1}`}
+                className="h-24 w-24 rounded-lg border border-line object-cover"
+              />
+            ))}
+          </div>
+        )}
+        {!message.imagePreviews && message.attachmentCount ? (
+          <p className="mb-1 text-[12px] opacity-70">📷 スクリーンショット{message.attachmentCount}枚を送信</p>
+        ) : null}
         {message.text}
         {pending && <span className="ml-0.5 inline-block animate-blink text-accent">●</span>}
       </div>

@@ -5,6 +5,7 @@ import { toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
 import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
 import { getBuildInfo } from '@/lib/build-info';
+import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 
 interface ChatRequestBody {
   message?: string;
+  images?: unknown;
 }
 
 /**
@@ -48,11 +50,19 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'リクエストの形式が正しくありません。' }, { status: 400 });
   }
 
+  const { images, error: imageError } = validateImages(body.images);
+  if (imageError) {
+    return Response.json({ error: imageError }, { status: 400 });
+  }
+
   const state = await store.load(userId);
   const message = (body.message ?? '').trim();
 
   // 初回だけ、こちらから声をかける。
-  const userText = message || (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
+  const userText =
+    message ||
+    (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '') ||
+    (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
   if (!userText) {
     return Response.json({ error: 'メッセージが空です。' }, { status: 400 });
   }
@@ -68,6 +78,7 @@ export async function POST(request: NextRequest) {
         const result = await runCoachTurn({
           state,
           userText,
+          images,
           onDelta: (delta) => send({ type: 'delta', text: delta }),
         });
         await store.save(userId, result.state);

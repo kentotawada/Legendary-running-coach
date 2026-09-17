@@ -68,17 +68,38 @@ export interface ConditionLog {
 }
 
 export type ActivityType = 'run' | 'walk' | 'cross' | 'strength' | 'stretch' | 'rest';
+export type ActivitySource = 'self-report' | 'screenshot';
+
+/** Garmin などの計測データ。スクリーンショットから読み取った値もここに入る。 */
+export interface WorkoutMetrics {
+  /** "4:15/km" のような平均ペース。 */
+  avgPace?: string;
+  avgHr?: number;
+  maxHr?: number;
+  /** ピッチ（spm）。 */
+  cadence?: number;
+  /** ストライド（m）。 */
+  strideM?: number;
+  elevationGainM?: number;
+  /** 消費カロリーや気温など、上の枠に入らない補足。 */
+  note?: string;
+}
 
 export interface ActivityLog {
   id: string;
   date: string;
   type: ActivityType;
+  /** ポイント練習の種別。例: "閾値走", "インターバル", "ロング走", "レース" */
+  session?: string;
   distanceKm?: number;
   durationMin?: number;
   /** 主観的運動強度 1-10。 */
   effort?: number;
-  /** 走った後の気分。習慣化フェーズではここが最重要指標。 */
+  /** 走った後の感覚。数値に出ない情報として重視する。 */
   felt?: string;
+  metrics?: WorkoutMetrics;
+  /** 画像から読み取った値かどうか。読み取り誤りを疑えるようにしておく。 */
+  source?: ActivitySource;
   createdAt: string;
 }
 
@@ -109,6 +130,14 @@ export interface RunnerProfile {
   experience?: string;
   weeklyVolumeKm?: number;
   bodyWeightKg?: number;
+  /** 最大心拍数。心拍ゾーンの評価に必須。分からなければコーチが尋ねる。 */
+  maxHr?: number;
+  /** 安静時心拍数。疲労の蓄積を測る手がかり。 */
+  restingHr?: number;
+  /** 乳酸性作業閾値心拍（LTHR）。閾値走の強度設定に使う。 */
+  lthr?: number;
+  /** 過去の故障歴。再発しやすい箇所として、練習を組む時に必ず考慮する。 */
+  injuryHistory?: string[];
   /** 種目 -> タイム。例: { "5km": "24:30", "full": "3:25:00" } */
   personalBests?: Record<string, string>;
   /** 走れる曜日。例: ["tue", "thu", "sun"] */
@@ -135,14 +164,25 @@ export interface CoachState {
   history: Content[];
 }
 
+/** チャットに添付された画像。data は base64（接頭辞なし）。 */
+export interface ImageAttachment {
+  mimeType: string;
+  data: string;
+}
+
 /** UI に返す表示用メッセージ。 */
 export interface ChatMessage {
   id: string;
   role: 'user' | 'coach';
   text: string;
+  /** 送信直後の表示用。保存はされないので、再読み込み後は消える。 */
+  imagePreviews?: string[];
+  /** 保存済みの履歴で、画像が添付されていたことを示す枚数。 */
+  attachmentCount?: number;
 }
 
-export function createEmptyProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
+/** 何も入っていないプロフィール。前提を持たせたくない場面で使う。 */
+export function createBlankProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
   return {
     id,
     phase: 'unknown',
@@ -153,5 +193,34 @@ export function createEmptyProfile(id: string, now: string = new Date().toISOStr
     plans: [],
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+/**
+ * このアプリの対象は「フルマラソン サブ3 を目指すシリアスランナー」。
+ * 毎回ゼロから素性を聞き出すのではなく、その前提を最初から持って対話を始める。
+ * 膝の故障歴も前提に含めるが、現在の痛みとしては扱わない（resolved）。
+ * ここを active にすると、痛みが無いのに永遠に走らせないコーチになってしまう。
+ */
+export function createDefaultProfile(id: string, now: string = new Date().toISOString()): RunnerProfile {
+  return {
+    ...createBlankProfile(id, now),
+    phase: 'goal',
+    goal: {
+      kind: 'time',
+      summary: 'フルマラソン サブ3（2時間59分59秒）達成',
+      targetTime: '2:59:59',
+    },
+    injuryHistory: ['膝の痛み（再発しやすい箇所として、負荷を上げる時は必ず確認する）'],
+    pains: [
+      {
+        id: 'seed-knee',
+        site: '膝',
+        severity: 0,
+        status: 'resolved',
+        description: '過去に痛みを経験。現在は解消しているが、再発しやすい箇所。',
+        updatedAt: now,
+      },
+    ],
   };
 }

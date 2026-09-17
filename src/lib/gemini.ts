@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentConfig, Part } from '@google/genai';
-import type { CoachState, RunnerProfile } from './types';
+import type { CoachState, ImageAttachment, RunnerProfile } from './types';
 import { coachTools, executeTool } from './tools';
 import { buildSystemInstruction } from './prompt';
 import {
@@ -9,7 +9,7 @@ import {
   containsRunningPrescription,
   mentionsDiscomfort,
 } from './safety';
-import { trimHistory } from './store';
+import { stripInlineData, trimHistory } from './store';
 import { cleanEnv } from './build-info';
 
 const DEFAULT_MODEL = 'gemini-3-pro-preview';
@@ -231,6 +231,8 @@ export interface CoachTurnInput {
   state: CoachState;
   /** ユーザーの発言。初回の呼びかけを生成する場合は内部プロンプトを渡す。 */
   userText: string;
+  /** Garmin のスクリーンショットなど。読み取りはモデルに任せる。 */
+  images?: ImageAttachment[];
   now?: Date;
   onDelta?: (delta: string) => void;
 }
@@ -253,14 +255,21 @@ export interface CoachTurnResult {
 export async function runCoachTurn({
   state,
   userText,
+  images,
   now = new Date(),
   onDelta,
 }: CoachTurnInput): Promise<CoachTurnResult> {
   let profile: RunnerProfile = state.profile;
-  const history: Content[] = [
-    ...state.history,
-    { role: 'user', parts: [{ text: userText }] },
+
+  // 画像はテキストより前に置く。Gemini は先に画像を見てから指示を読む方が読み取りが安定する。
+  const userParts: Part[] = [
+    ...(images ?? []).map((image) => ({
+      inlineData: { mimeType: image.mimeType, data: image.data },
+    })),
+    { text: userText },
   ];
+
+  const history: Content[] = [...state.history, { role: 'user', parts: userParts }];
 
   const usedTools: string[] = [];
   let rewrites = 0;
@@ -329,7 +338,8 @@ export async function runCoachTurn({
   }
 
   return {
-    state: { profile, history: trimHistory(history) },
+    // 画像の本体は保存しない。読み取った数値はカルテ側に残る。
+    state: { profile, history: stripInlineData(trimHistory(history)) },
     text: finalText,
     rewrites,
     usedTools,

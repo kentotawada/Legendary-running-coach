@@ -10,7 +10,7 @@ import type {
 } from './types';
 import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
-import { INTERNAL_PREFIX } from './prompt';
+import { INTERNAL_PREFIX, attachmentCountOf } from './markers';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
 const MAX_CONDITION_LOGS = 120;
@@ -49,6 +49,10 @@ export interface ProfilePatch {
   experience?: string;
   weeklyVolumeKm?: number;
   bodyWeightKg?: number;
+  maxHr?: number;
+  restingHr?: number;
+  lthr?: number;
+  injuryHistory?: string[];
   personalBests?: Record<string, string>;
   availableDays?: string[];
   typicalSessionMinutes?: number;
@@ -72,6 +76,10 @@ export function applyProfileUpdate(
     experience: patch.experience?.trim() || profile.experience,
     weeklyVolumeKm: patch.weeklyVolumeKm ?? profile.weeklyVolumeKm,
     bodyWeightKg: patch.bodyWeightKg ?? profile.bodyWeightKg,
+    maxHr: patch.maxHr ?? profile.maxHr,
+    restingHr: patch.restingHr ?? profile.restingHr,
+    lthr: patch.lthr ?? profile.lthr,
+    injuryHistory: mergeUnique(profile.injuryHistory, patch.injuryHistory),
     personalBests: patch.personalBests
       ? { ...(profile.personalBests ?? {}), ...patch.personalBests }
       : profile.personalBests,
@@ -242,7 +250,7 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
     lines.push(`- 目標: ${parts.filter(Boolean).join(' / ')}`);
     if (g.why) lines.push(`- その目標を選んだ理由: ${g.why}`);
   } else {
-    lines.push('- 目標: まだ設定していない（数字やノルマを持ち出さないこと）');
+    lines.push('- 目標: まだ言葉にしていない（走力を聞き出し、サブ3までのギャップを示すところから始める）');
   }
 
   if (profile.personalBests && Object.keys(profile.personalBests).length > 0) {
@@ -251,6 +259,21 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
   }
   if (profile.weeklyVolumeKm !== undefined) lines.push(`- 週間走行距離: 約${profile.weeklyVolumeKm}km`);
   if (profile.bodyWeightKg !== undefined) lines.push(`- 体重: ${profile.bodyWeightKg}kg`);
+
+  const hr = [
+    profile.maxHr !== undefined ? `最大心拍 ${profile.maxHr}` : null,
+    profile.lthr !== undefined ? `LTHR ${profile.lthr}` : null,
+    profile.restingHr !== undefined ? `安静時 ${profile.restingHr}` : null,
+  ].filter(Boolean);
+  if (hr.length > 0) {
+    lines.push(`- 心拍: ${hr.join(' / ')}`);
+  } else {
+    lines.push('- 心拍: 未取得（ゾーン評価が必要な場面では、推測せず最大心拍かLTHRを尋ねること）');
+  }
+
+  if (profile.injuryHistory?.length) {
+    lines.push(`- 故障歴: ${profile.injuryHistory.join(' / ')}`);
+  }
   if (profile.availableDays?.length) lines.push(`- 走れる曜日: ${profile.availableDays.join('・')}`);
   if (profile.typicalSessionMinutes !== undefined) {
     lines.push(`- 1回に使える時間: 約${profile.typicalSessionMinutes}分`);
@@ -276,10 +299,18 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
     lines.push(`- 直近${RECENT_DAYS}日の行動:`);
     for (const a of recentActivities.slice(-8)) {
       const detail = [
+        a.session ?? null,
         a.distanceKm !== undefined ? `${a.distanceKm}km` : null,
         a.durationMin !== undefined ? `${a.durationMin}分` : null,
+        a.metrics?.avgPace ? `平均${a.metrics.avgPace}` : null,
+        a.metrics?.avgHr !== undefined ? `平均心拍${a.metrics.avgHr}` : null,
+        a.metrics?.maxHr !== undefined ? `最高${a.metrics.maxHr}` : null,
+        a.metrics?.cadence !== undefined ? `ピッチ${a.metrics.cadence}spm` : null,
+        a.metrics?.strideM !== undefined ? `ストライド${a.metrics.strideM}m` : null,
+        a.metrics?.elevationGainM !== undefined ? `獲得標高${a.metrics.elevationGainM}m` : null,
         a.effort !== undefined ? `主観強度${a.effort}/10` : null,
         a.felt ? `「${a.felt}」` : null,
+        a.source === 'screenshot' ? '(画像から読取)' : null,
       ]
         .filter(Boolean)
         .join(' ');
@@ -327,22 +358,29 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
 export function toDisplayMessages(history: Content[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
   history.forEach((content, index) => {
-    const text = (content.parts ?? [])
-      .filter(
-        (part) =>
-          typeof part.text === 'string' &&
-          part.text.length > 0 &&
-          !part.thought &&
-          !part.text.startsWith(INTERNAL_PREFIX),
-      )
+    const parts = (content.parts ?? []).filter(
+      (part) => typeof part.text === 'string' && part.text.length > 0 && !part.thought,
+    );
+
+    const attachmentCount = parts.reduce(
+      (total, part) => total + attachmentCountOf(part.text as string),
+      0,
+    );
+    const text = parts
+      .filter((part) => {
+        const value = part.text as string;
+        return !value.startsWith(INTERNAL_PREFIX) && attachmentCountOf(value) === 0;
+      })
       .map((part) => part.text as string)
       .join('')
       .trim();
-    if (!text) return;
+
+    if (!text && attachmentCount === 0) return;
     messages.push({
       id: `${index}`,
       role: content.role === 'user' ? 'user' : 'coach',
       text,
+      ...(attachmentCount > 0 ? { attachmentCount } : {}),
     });
   });
   return messages;

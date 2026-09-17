@@ -2,8 +2,9 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { CoachState, RunnerProfile } from './types';
-import { createEmptyProfile } from './types';
-import type { Content } from '@google/genai';
+import { createDefaultProfile } from './types';
+import type { Content, Part } from '@google/genai';
+import { imagePlaceholder } from './markers';
 
 /**
  * 保存層。いまは JSON ファイルだが、
@@ -27,8 +28,27 @@ export function trimHistory(history: Content[], max: number = MAX_HISTORY_CONTEN
   return history.slice(start === history.length ? history.length - max : start);
 }
 
+/**
+ * 保存する履歴から画像の本体を落とす。
+ * base64 を抱えたまま保存すると、保存先がすぐに膨れ上がる。
+ * 読み取った数値はカルテに残っているので、ここでは「添付があった」跡だけを残す。
+ */
+export function stripInlineData(history: Content[]): Content[] {
+  return history.map((content) => {
+    const parts = content.parts ?? [];
+    const imageCount = parts.filter((part) => part.inlineData).length;
+    if (imageCount === 0) return content;
+
+    const kept: Part[] = [{ text: imagePlaceholder(imageCount) }];
+    for (const part of parts) {
+      if (!part.inlineData) kept.push(part);
+    }
+    return { ...content, parts: kept };
+  });
+}
+
 function emptyState(userId: string): CoachState {
-  return { profile: createEmptyProfile(userId), history: [] };
+  return { profile: createDefaultProfile(userId), history: [] };
 }
 
 /** 書き込みが同時に走ってもファイルが壊れないよう、ユーザー単位で直列化する。 */
@@ -69,7 +89,7 @@ class FileCoachStore implements CoachStore {
       const raw = await fs.readFile(this.file(userId), 'utf8');
       const parsed = JSON.parse(raw) as CoachState;
       const state: CoachState = {
-        profile: { ...createEmptyProfile(userId), ...parsed.profile, id: userId },
+        profile: { ...createDefaultProfile(userId), ...parsed.profile, id: userId },
         history: parsed.history ?? [],
       };
       this.memory.set(userId, state);

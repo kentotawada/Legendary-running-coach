@@ -1,5 +1,12 @@
 import type { FunctionDeclaration } from '@google/genai';
-import type { ActivityType, CoachingPhase, PainStatus, PlanIntensity, RunnerProfile } from './types';
+import type {
+  ActivitySource,
+  ActivityType,
+  CoachingPhase,
+  PainStatus,
+  PlanIntensity,
+  RunnerProfile,
+} from './types';
 import {
   addActivity,
   addConditionLog,
@@ -26,6 +33,14 @@ export const coachTools: FunctionDeclaration[] = [
         experience: { type: 'string', description: 'ランニング歴や運動経験' },
         weeklyVolumeKm: { type: 'number', description: 'week あたりの走行距離(km)' },
         bodyWeightKg: { type: 'number' },
+        maxHr: { type: 'number', description: '最大心拍数(bpm)。心拍ゾーン評価に必須。' },
+        restingHr: { type: 'number', description: '安静時心拍数(bpm)。疲労の蓄積を測る指標。' },
+        lthr: { type: 'number', description: '乳酸性作業閾値心拍(bpm)。閾値走の強度設定に使う。' },
+        injuryHistory: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '過去の故障歴。例: ["腸脛靭帯炎（右膝）", "足底腱膜炎"]',
+        },
         personalBests: {
           type: 'object',
           description: '種目をキー、タイムを値にした自己ベスト。例: {"5km": "24:30", "full": "3:25:00"}',
@@ -99,7 +114,9 @@ export const coachTools: FunctionDeclaration[] = [
   },
   {
     name: 'log_activity',
-    description: '走った・歩いた・補強した・休んだという報告を記録する。距離や時間が不明でも記録すること。',
+    description:
+      '練習の報告を受けた時、およびGarminなどのスクリーンショットから数値を読み取った時に記録する。' +
+      '読み取れなかった項目は空のままにすること。推測した数値を入れてはならない。',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -108,10 +125,32 @@ export const coachTools: FunctionDeclaration[] = [
           type: 'string',
           enum: ['run', 'walk', 'cross', 'strength', 'stretch', 'rest'],
         },
+        session: {
+          type: 'string',
+          description: 'ポイント練習の種別。例: "閾値走", "インターバル", "ロング走", "レースペース走", "イージー"',
+        },
         distanceKm: { type: 'number' },
         durationMin: { type: 'number' },
         effort: { type: 'number', description: '主観的運動強度 1-10' },
-        felt: { type: 'string', description: 'やってみてどう感じたか。習慣化の段階ではここが最重要。' },
+        felt: { type: 'string', description: '本人の感覚。数値に出ない情報として重視する。' },
+        source: {
+          type: 'string',
+          enum: ['self-report', 'screenshot'],
+          description: '画像から読み取った場合は screenshot。',
+        },
+        metrics: {
+          type: 'object',
+          description: '計測データ。読み取れた項目だけを入れる。',
+          properties: {
+            avgPace: { type: 'string', description: '"4:15/km" 形式の平均ペース' },
+            avgHr: { type: 'number', description: '平均心拍(bpm)' },
+            maxHr: { type: 'number', description: '最高心拍(bpm)' },
+            cadence: { type: 'number', description: 'ピッチ(spm)' },
+            strideM: { type: 'number', description: 'ストライド(m)' },
+            elevationGainM: { type: 'number', description: '獲得標高(m)' },
+            note: { type: 'string', description: '接地時間・上下動・気温など、上の枠に入らない補足' },
+          },
+        },
       },
       required: ['type'],
     },
@@ -188,6 +227,7 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | und
 }
 
 const ACTIVITY_TYPES = ['run', 'walk', 'cross', 'strength', 'stretch', 'rest'] as const;
+const ACTIVITY_SOURCES = ['self-report', 'screenshot'] as const;
 const INTENSITIES = ['rest', 'easy', 'moderate', 'hard'] as const;
 const PAIN_STATUSES = ['active', 'improving', 'resolved'] as const;
 const PHASES = ['unknown', 'habit', 'goal', 'recovery'] as const;
@@ -240,6 +280,10 @@ export function executeTool(
           experience: str(args.experience),
           weeklyVolumeKm: num(args.weeklyVolumeKm),
           bodyWeightKg: num(args.bodyWeightKg),
+          maxHr: num(args.maxHr),
+          restingHr: num(args.restingHr),
+          lthr: num(args.lthr),
+          injuryHistory: strArray(args.injuryHistory),
           personalBests: personalBests && Object.keys(personalBests).length > 0 ? personalBests : undefined,
           availableDays: strArray(args.availableDays),
           typicalSessionMinutes: num(args.typicalSessionMinutes),
@@ -306,19 +350,48 @@ export function executeTool(
       if (!type) {
         return { profile, result: { ok: false, error: `type は ${ACTIVITY_TYPES.join(' / ')} のいずれか。` } };
       }
+      const rawMetrics = (args.metrics && typeof args.metrics === 'object' ? args.metrics : {}) as Args;
+      const metrics = {
+        avgPace: str(rawMetrics.avgPace),
+        avgHr: num(rawMetrics.avgHr),
+        maxHr: num(rawMetrics.maxHr),
+        cadence: num(rawMetrics.cadence),
+        strideM: num(rawMetrics.strideM),
+        elevationGainM: num(rawMetrics.elevationGainM),
+        note: str(rawMetrics.note),
+      };
+      const hasMetrics = Object.values(metrics).some((value) => value !== undefined);
+
       const next = addActivity(
         profile,
         {
           date: str(args.date) ?? today(now),
           type,
+          session: str(args.session),
           distanceKm: num(args.distanceKm),
           durationMin: num(args.durationMin),
           effort: num(args.effort),
           felt: str(args.felt),
+          metrics: hasMetrics ? metrics : undefined,
+          source: oneOf<ActivitySource>(args.source, ACTIVITY_SOURCES),
         },
         now,
       );
-      return { profile: next, result: { ok: true, message: '行動を記録した。まずその行動自体を称賛すること。' } };
+
+      // 心拍ゾーンの評価には基準値が要る。持っていないなら、推測させずに尋ねさせる。
+      const needsHrReference =
+        metrics.avgHr !== undefined && next.maxHr === undefined && next.lthr === undefined;
+
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          needsHrReference,
+          message: needsHrReference
+            ? '練習を記録した。ただし最大心拍もLTHRも未取得のため、心拍ゾーンの評価はできない。推測せずに基準値を尋ねること。'
+            : '練習を記録した。狙いに対して成立したかを、数字を挙げて評価すること。',
+        },
+      };
     }
 
     case 'set_today_plan': {

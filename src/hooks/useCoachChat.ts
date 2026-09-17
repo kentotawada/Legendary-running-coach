@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
+import type { PreparedImage } from '@/lib/downscale';
+import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
 
 interface DoneEvent {
   type: 'done';
@@ -25,8 +27,10 @@ export interface CoachChat {
   errorDetail: string | null;
   /** どのビルドを見ているか。古いデプロイを見続けている事故を切り分けるため。 */
   build: BuildInfo | null;
-  send: (text: string) => Promise<void>;
+  send: (text: string, images?: PreparedImage[]) => Promise<void>;
   reset: () => Promise<void>;
+  /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
+  reportError: (message: string) => void;
 }
 
 export function useCoachChat(): CoachChat {
@@ -93,7 +97,7 @@ export function useCoachChat(): CoachChat {
   }, []);
 
   const turn = useCallback(
-    async (text: string) => {
+    async (text: string, images: PreparedImage[] = []) => {
       setBusy(true);
       setError(null);
       setErrorDetail(null);
@@ -101,7 +105,11 @@ export function useCoachChat(): CoachChat {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({
+            message: text,
+            // preview は画面表示用。サーバーへは送らない。
+            images: images.map(({ mimeType, data }) => ({ mimeType, data })),
+          }),
         });
         if (!response.ok) {
           const detail = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -120,11 +128,20 @@ export function useCoachChat(): CoachChat {
   );
 
   const send = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || busy) return;
-      setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: trimmed }]);
-      await turn(trimmed);
+    async (text: string, images: PreparedImage[] = []) => {
+      // 画像だけ送られた時も、何を頼んだのかが吹き出しに残るようにする。
+      const trimmed = text.trim() || (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '');
+      if ((!trimmed && images.length === 0) || busy) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: 'user',
+          text: trimmed,
+          ...(images.length > 0 ? { imagePreviews: images.map((image) => image.preview) } : {}),
+        },
+      ]);
+      await turn(trimmed, images);
     },
     [busy, turn],
   );
@@ -176,5 +193,22 @@ export function useCoachChat(): CoachChat {
     await turn('');
   }, [turn]);
 
-  return { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset };
+  const reportError = useCallback((message: string) => {
+    setError(message);
+    setErrorDetail(null);
+  }, []);
+
+  return {
+    messages,
+    streamingText,
+    profile,
+    busy,
+    ready,
+    error,
+    errorDetail,
+    build,
+    send,
+    reset,
+    reportError,
+  };
 }

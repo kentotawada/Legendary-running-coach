@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCoachChat } from '@/hooks/useCoachChat';
 import MessageBubble from './MessageBubble';
-import Composer from './Composer';
+import Composer, { type ComposerApi } from './Composer';
 import QuickCheckIn from './QuickCheckIn';
 import ProfileSheet from './ProfileSheet';
 import PhaseBadge from './PhaseBadge';
 
 export default function CoachApp() {
-  const { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset } =
+  const { messages, streamingText, profile, busy, ready, error, errorDetail, build, send, reset, reportError } =
     useCoachChat();
+  const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -113,8 +114,17 @@ export default function CoachApp() {
       )}
 
       <footer className="safe-bottom border-t border-line bg-elevated">
-        <QuickCheckIn onPick={(message) => void send(message)} disabled={busy || !ready} />
-        <Composer onSend={(text) => void send(text)} disabled={busy || !ready} />
+        <QuickCheckIn
+          onPick={(message) => void send(message)}
+          onPickImage={() => composerRef.current?.openPicker()}
+          disabled={busy || !ready}
+        />
+        <Composer
+          onSend={(text, images) => void send(text, images)}
+          onError={reportError}
+          apiRef={composerRef}
+          disabled={busy || !ready}
+        />
       </footer>
 
       {sheetOpen && (

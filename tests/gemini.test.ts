@@ -10,7 +10,7 @@ vi.mock('@google/genai', () => ({
 }));
 
 import { CoachApiError, describeGeminiError, runCoachTurn } from '@/lib/gemini';
-import { createEmptyProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 import { upsertPain } from '@/lib/profile';
 import type { CoachState } from '@/lib/types';
 
@@ -34,7 +34,7 @@ function queueResponses(...responses: ReturnType<typeof chunksOf>[]) {
   });
 }
 
-function stateOf(profile = createEmptyProfile('u1', NOW.toISOString())): CoachState {
+function stateOf(profile = createDefaultProfile('u1', NOW.toISOString())): CoachState {
   return { profile, history: [] };
 }
 
@@ -88,7 +88,7 @@ describe('runCoachTurn', () => {
   it('痛みがある時は、検査を通すまで一文字も画面に流さない', async () => {
     queueResponses(chunksOf([{ text: '無理のない範囲で、体幹を10分だけやってみませんか。' }]));
     const deltas: string[] = [];
-    const hurt = upsertPain(createEmptyProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
+    const hurt = upsertPain(createDefaultProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
 
     const result = await runCoachTurn({
       state: stateOf(hurt),
@@ -108,7 +108,7 @@ describe('runCoachTurn', () => {
       chunksOf([{ text: '今は走らず、痛みの出ない範囲で体幹を整えましょう。' }]),
     );
     const deltas: string[] = [];
-    const hurt = upsertPain(createEmptyProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
+    const hurt = upsertPain(createDefaultProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
 
     const result = await runCoachTurn({
       state: stateOf(hurt),
@@ -257,5 +257,77 @@ describe('モデルの退避', () => {
       /GEMINI_API_KEY が無効です/,
     );
     expect(generateContentStream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('画像つきのターン', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    delete process.env.GEMINI_MODEL;
+    generateContentStream.mockReset();
+  });
+
+  it('画像をテキストより先に置いてモデルへ渡す', async () => {
+    queueResponses(chunksOf([{ text: '16.1km、平均4:14。狙いどおりです。' }]));
+
+    await runCoachTurn({
+      state: stateOf(),
+      userText: '今日の閾値走です',
+      images: [{ mimeType: 'image/jpeg', data: 'BASE64DATA' }],
+      now: NOW,
+    });
+
+    // contents はループ中に追記される同じ配列なので、最初のユーザー発言を直接見る。
+    const sent = generateContentStream.mock.calls[0][0].contents;
+    const parts = sent[0].parts;
+    expect(parts[0].inlineData).toMatchObject({ mimeType: 'image/jpeg', data: 'BASE64DATA' });
+    expect(parts[1].text).toBe('今日の閾値走です');
+  });
+
+  it('保存する履歴に画像データを残さない', async () => {
+    queueResponses(chunksOf([{ text: '読み取りました。' }]));
+
+    const result = await runCoachTurn({
+      state: stateOf(),
+      userText: '見てください',
+      images: [{ mimeType: 'image/jpeg', data: 'SHOULDNOTPERSIST' }],
+      now: NOW,
+    });
+
+    expect(JSON.stringify(result.state.history)).not.toContain('SHOULDNOTPERSIST');
+    expect(JSON.stringify(result.state.history)).toContain('画像が1枚');
+  });
+
+  it('画像から読み取った値は、ツール経由でカルテに入る', async () => {
+    queueResponses(
+      chunksOf([
+        {
+          functionCall: {
+            name: 'log_activity',
+            args: {
+              type: 'run',
+              session: '閾値走',
+              distanceKm: 16.1,
+              source: 'screenshot',
+              metrics: { avgPace: '4:14/km', avgHr: 168, cadence: 183 },
+            },
+          },
+        },
+      ]),
+      chunksOf([{ text: '平均4:14でこの心拍なら、閾値として成立しています。' }]),
+    );
+
+    const result = await runCoachTurn({
+      state: stateOf(),
+      userText: '',
+      images: [{ mimeType: 'image/jpeg', data: 'X' }],
+      now: NOW,
+    });
+
+    expect(result.state.profile.activities[0]).toMatchObject({
+      session: '閾値走',
+      source: 'screenshot',
+      metrics: { avgPace: '4:14/km', cadence: 183 },
+    });
   });
 });
