@@ -108,6 +108,87 @@ function Section({
   );
 }
 
+// ウルトラの目標時間も置けるよう、時間は 0〜23 まで用意する。
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
+const SECOND_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
+
+function pad2(value: number): string {
+  return `${value}`.padStart(2, '0');
+}
+
+/** "3:05:00" を 時・分・秒 に分ける。読めなければ未選択。 */
+function splitDuration(value: string | undefined): { h: string; m: string; s: string } {
+  const seconds = parseDuration(value);
+  if (seconds === undefined) return { h: '', m: '', s: '' };
+  return {
+    h: String(Math.floor(seconds / 3600)),
+    m: String(Math.floor((seconds % 3600) / 60)),
+    s: String(seconds % 60),
+  };
+}
+
+const timeSelectClass =
+  'w-full appearance-none rounded-xl border border-line bg-bg px-2 py-2.5 text-center text-fg outline-none focus:border-[color:var(--accent)]';
+
+/**
+ * タイムの入力。
+ *
+ * 文字入力にすると、スマホの数字キーボードにはコロンが無く「3:05:00」を打てない。
+ * 時・分・秒を選ぶ形にすれば、キーボードを出さずに入るうえ、
+ * 形式の崩れた値がそもそも作れなくなる。
+ */
+function TimePicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const [parts, setParts] = useState(() => splitDuration(value));
+
+  const update = (patch: Partial<{ h: string; m: string; s: string }>) => {
+    const next = { ...parts, ...patch };
+    setParts(next);
+    if (!next.h && !next.m && !next.s) {
+      onChange('');
+      return;
+    }
+    onChange(`${Number(next.h || 0)}:${pad2(Number(next.m || 0))}:${pad2(Number(next.s || 0))}`);
+  };
+
+  const columns: { key: 'h' | 'm' | 's'; unit: string; options: number[]; aria: string }[] = [
+    { key: 'h', unit: '時間', options: HOUR_OPTIONS, aria: `${label}の時間` },
+    { key: 'm', unit: '分', options: MINUTE_OPTIONS, aria: `${label}の分` },
+    { key: 's', unit: '秒', options: SECOND_OPTIONS, aria: `${label}の秒` },
+  ];
+
+  return (
+    <div className="flex items-center gap-1">
+      {columns.map((column) => (
+        <div key={column.key} className="flex min-w-0 flex-1 items-center gap-1">
+          <select
+            className={timeSelectClass}
+            value={parts[column.key]}
+            onChange={(e) => update({ [column.key]: e.target.value })}
+            aria-label={column.aria}
+          >
+            <option value="">—</option>
+            {column.options.map((option) => (
+              <option key={option} value={String(option)}>
+                {column.key === 'h' ? option : pad2(option)}
+              </option>
+            ))}
+          </select>
+          <span className="shrink-0 text-[12px] text-muted">{column.unit}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface RaceDraft {
   /** React のキー。保存済みの大会は id、新規行は発行した一時キー。 */
   key: string;
@@ -214,14 +295,14 @@ function RaceRow({
       </div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted">{RACE_PRIORITY_HINT[race.priority]}</p>
 
-      <input
-        className={`${inputClass} mt-2`}
-        value={race.targetTime}
-        onChange={(e) => onChange({ targetTime: e.target.value })}
-        placeholder="この大会の目標タイム（任意・3:29:59）"
-        aria-label="この大会の目標タイム"
-        inputMode="numeric"
-      />
+      <p className="mt-2.5 text-[11px] text-muted">この大会の目標タイム（任意）</p>
+      <div className="mt-1">
+        <TimePicker
+          value={race.targetTime}
+          onChange={(targetTime) => onChange({ targetTime })}
+          label="この大会の目標タイム"
+        />
+      </div>
 
       {left !== undefined && race.name.trim() && (
         <p className="mt-1.5 text-[11px] text-muted">
@@ -420,22 +501,18 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
                   {option.label}
                 </option>
               ))}
-              <option value="custom">その他（自由入力）</option>
+              <option value="custom">その他（5分刻み以外のタイム）</option>
             </select>
 
             {customTime && (
-              <input
-                className={`${inputClass} mt-2`}
-                value={targetTime}
-                onChange={(e) => setTargetTime(e.target.value)}
-                placeholder="2:48:30 のように 時:分:秒 で"
-                inputMode="numeric"
-              />
+              <div className="mt-2">
+                <TimePicker value={targetTime} onChange={setTargetTime} label="目標タイム" />
+              </div>
             )}
 
             {!timeIsValid && (
               <span className="mt-1 block text-[12px] text-warn">
-                「2:48:30」のように、時:分:秒 の形で入力してください。
+                目標タイムを選び直してください。
               </span>
             )}
           </Field>
@@ -499,7 +576,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
           )}
           {badRaceTime && (
             <span className="block text-[12px] text-warn">
-              「{badRaceTime.name.trim() || '大会'}」の目標タイムは 3:29:59 の形で入力してください。
+              「{badRaceTime.name.trim() || '大会'}」の目標タイムを選び直してください。
             </span>
           )}
         </div>
