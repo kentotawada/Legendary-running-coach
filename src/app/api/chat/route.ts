@@ -8,6 +8,7 @@ import { getBuildInfo } from '@/lib/build-info';
 import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
 import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { StorageError, storageErrorResponse } from '@/lib/storage-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,13 @@ export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const session = await resolveUserId(request);
   const { userId, isNew } = session;
-  const state = await loadForSession(session);
+  let state;
+  try {
+    state = await loadForSession(session);
+  } catch (error) {
+    return storageErrorResponse(error, 'これまでの記録を読み込めませんでした');
+  }
+
   const build = getBuildInfo();
   return Response.json(
     {
@@ -66,18 +73,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: imageError }, { status: 400 });
   }
 
-  const state = await loadForSession(session);
-  const message = (body.message ?? '').trim();
-
-  // 初回だけ、こちらから声をかける。
-  const userText =
-    message ||
-    (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '') ||
-    (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
-  if (!userText) {
-    return Response.json({ error: 'メッセージが空です。' }, { status: 400 });
-  }
-
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -85,18 +80,50 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(`${JSON.stringify(payload)}\n`));
       };
 
+      // 記録の読み書きは、対話そのものとは別の失敗として扱う。
+      // まとめて「接続できませんでした」にすると、原因の見当がつかなくなる。
+      const sendStorageFailure = (error: unknown, what: string) => {
+        console.error(`[coach] ${what}`, error);
+        if (error instanceof StorageError) {
+          send({ type: 'error', message: error.message, detail: `${error.detail}\n\n${error.hint}` });
+        } else {
+          send({
+            type: 'error',
+            message: `${what}。データベースの設定を確認してください。`,
+            detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+          });
+        }
+      };
+
+      let state;
       try {
-        const result = await runCoachTurn({
+        state = await loadForSession(session);
+      } catch (error) {
+        sendStorageFailure(error, 'これまでの記録を読み込めませんでした');
+        controller.close();
+        return;
+      }
+
+      const message = (body.message ?? '').trim();
+      // 初回だけ、こちらから声をかける。
+      const userText =
+        message ||
+        (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '') ||
+        (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
+
+      if (!userText) {
+        send({ type: 'error', message: 'メッセージが空です。' });
+        controller.close();
+        return;
+      }
+
+      let result;
+      try {
+        result = await runCoachTurn({
           state,
           userText,
           images,
           onDelta: (delta) => send({ type: 'delta', text: delta }),
-        });
-        await store.save(userId, result.state, session.authUserId);
-        send({
-          type: 'done',
-          profile: result.state.profile,
-          meta: { usedTools: result.usedTools, rewrites: result.rewrites },
         });
       } catch (error) {
         if (error instanceof MissingApiKeyError) {
@@ -115,9 +142,27 @@ export async function POST(request: NextRequest) {
             detail: (raw.trim() || '詳細不明のエラー').slice(0, 500),
           });
         }
-      } finally {
         controller.close();
+        return;
       }
+
+      // ここまで来たらコーチの返答は届いている。
+      // 保存に失敗しても、返答を無かったことにはしない。
+      let saved = true;
+      try {
+        await store.save(userId, result.state, session.authUserId);
+      } catch (error) {
+        saved = false;
+        sendStorageFailure(error, '返答は届きましたが、記録の保存に失敗しました');
+      }
+
+      send({
+        type: 'done',
+        profile: result.state.profile,
+        saved,
+        meta: { usedTools: result.usedTools, rewrites: result.rewrites },
+      });
+      controller.close();
     },
   });
 

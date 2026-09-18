@@ -1,5 +1,6 @@
 import { getBuildInfo } from '@/lib/build-info';
 import { createSupabaseAdminClient } from '@/lib/supabase';
+import { storageHint } from '@/lib/storage-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,23 +9,6 @@ type DatabaseStatus =
   | { database: 'not-configured' }
   | { database: 'ok'; rows: number }
   | { database: 'error'; databaseError: string; hint: string };
-
-/** 生のエラー文だけでは何を直せばよいか分からないので、よくある原因を言葉にする。 */
-function hintFor(code: string | undefined, message: string): string {
-  if (code === '42P01' || /relation .* does not exist|could not find the table/i.test(message)) {
-    return 'coach_states テーブルがありません。supabase/schema.sql を SQL Editor で実行してください。';
-  }
-  if (code === '42501' || /permission denied/i.test(message)) {
-    return 'キーの権限が足りません。SUPABASE_SERVICE_ROLE_KEY に service_role（secret）キーを設定しているか確認してください。';
-  }
-  if (/invalid api key|jwt|unauthorized/i.test(message)) {
-    return 'キーが正しくありません。Project Settings → API の値をもう一度コピーしてください。';
-  }
-  if (/fetch failed|enotfound|getaddrinfo|econnrefused/i.test(message)) {
-    return 'データベースに接続できません。NEXT_PUBLIC_SUPABASE_URL が正しいか、プロジェクトが一時停止していないか確認してください。';
-  }
-  return '環境変数を更新した後は、再デプロイが必要です。';
-}
 
 /**
  * 設定を確認するだけでなく、実際にテーブルへ問い合わせる。
@@ -44,7 +28,7 @@ async function checkDatabase(): Promise<DatabaseStatus> {
     return {
       database: 'error',
       databaseError: `${error.code ?? ''} ${error.message}`.trim(),
-      hint: hintFor(error.code, error.message),
+      hint: storageHint(error.code, error.message),
     };
   }
   return { database: 'ok', rows: count ?? 0 };

@@ -29,21 +29,27 @@ export async function resolveUserId(request: NextRequest): Promise<CoachSession>
   const cookie = request.cookies.get(USER_COOKIE)?.value;
   const anonymousId = cookie && ANONYMOUS_ID.test(cookie) ? cookie : undefined;
 
-  const supabase = await createSupabaseServerClient();
-  if (supabase) {
-    // getSession ではなく getUser を使う。Cookie の中身を信用せず、
-    // 認証サーバーでトークンを検証するため。
-    const { data, error } = await supabase.auth.getUser();
-    if (!error && data.user) {
-      return {
-        userId: data.user.id,
-        isNew: false,
-        anonymousId,
-        authUserId: data.user.id,
-        email: data.user.email ?? undefined,
-        isAuthenticated: true,
-      };
+  try {
+    const supabase = await createSupabaseServerClient();
+    if (supabase) {
+      // getSession ではなく getUser を使う。Cookie の中身を信用せず、
+      // 認証サーバーでトークンを検証するため。
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data.user) {
+        return {
+          userId: data.user.id,
+          isNew: false,
+          anonymousId,
+          authUserId: data.user.id,
+          email: data.user.email ?? undefined,
+          isAuthenticated: true,
+        };
+      }
     }
+  } catch (error) {
+    // 認証サーバーに届かなくても、匿名として対話は続けられた方がよい。
+    // ここで投げると、ログインしていない人まで巻き添えでアプリが使えなくなる。
+    console.error('[auth] ログイン状態を確認できませんでした', error);
   }
 
   const userId = anonymousId ?? globalThis.crypto.randomUUID();

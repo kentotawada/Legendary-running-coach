@@ -174,6 +174,18 @@ export function useCoachChat(): CoachChat {
     (async () => {
       try {
         const response = await fetch('/api/chat');
+        if (!response.ok) {
+          // 保存層の設定ミスなど、サーバーが理由を返している場合はそれを見せる。
+          const failure = (await response.json().catch(() => null)) as
+            | { error?: string; hint?: string }
+            | null;
+          if (failure?.error) {
+            setErrorDetail(failure.hint ?? null);
+            throw new Error(failure.error);
+          }
+          throw new Error(`サーバーが応答しませんでした (${response.status})`);
+        }
+
         const data = (await response.json()) as {
           messages: ChatMessage[];
           profile: RunnerProfile;
@@ -206,9 +218,13 @@ export function useCoachChat(): CoachChat {
           );
         }
         if (data.messages.length === 0) await turn('');
-      } catch {
+      } catch (e) {
         setReady(true);
-        setError('コーチに接続できませんでした。通信環境を確認して、もう一度開いてください。');
+        setError(
+          e instanceof Error && e.message
+            ? e.message
+            : 'コーチに接続できませんでした。通信環境を確認して、もう一度開いてください。',
+        );
       }
     })();
   }, [turn]);

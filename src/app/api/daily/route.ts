@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
+import { storageErrorResponse } from '@/lib/storage-error';
 import { dailyStatus, logWeight, markOpened } from '@/lib/daily';
 
 export const runtime = 'nodejs';
@@ -10,7 +11,13 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const session = await resolveUserId(request);
   const { userId, isNew } = session;
-  const state = await loadForSession(session);
+  let state;
+  try {
+    state = await loadForSession(session);
+  } catch (error) {
+    return storageErrorResponse(error, '今日の記録を読み込めませんでした');
+  }
+
   return Response.json(
     { daily: dailyStatus(state.profile) },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
@@ -22,10 +29,14 @@ export async function POST(request: NextRequest) {
   const session = await resolveUserId(request);
   const { userId, isNew } = session;
   const store = getStore();
-  const state = await loadForSession(session);
-  const profile = markOpened(state.profile);
-
-  if (profile !== state.profile) await store.save(userId, { ...state, profile }, session.authUserId);
+  let profile;
+  try {
+    const state = await loadForSession(session);
+    profile = markOpened(state.profile);
+    if (profile !== state.profile) await store.save(userId, { ...state, profile }, session.authUserId);
+  } catch (error) {
+    return storageErrorResponse(error, 'スタンプを記録できませんでした');
+  }
 
   return Response.json(
     { daily: dailyStatus(profile) },
@@ -51,10 +62,15 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: '体重は 20〜250kg の範囲で入力してください。' }, { status: 400 });
   }
 
-  const state = await loadForSession(session);
-  // 小数第1位まで。体重計の表示より細かく持っても意味がない。
-  const profile = logWeight(state.profile, Math.round(raw * 10) / 10);
-  await store.save(userId, { ...state, profile }, session.authUserId);
+  let profile;
+  try {
+    const state = await loadForSession(session);
+    // 小数第1位まで。体重計の表示より細かく持っても意味がない。
+    profile = logWeight(state.profile, Math.round(raw * 10) / 10);
+    await store.save(userId, { ...state, profile }, session.authUserId);
+  } catch (error) {
+    return storageErrorResponse(error, '体重を記録できませんでした');
+  }
 
   return Response.json({ daily: dailyStatus(profile), profile });
 }

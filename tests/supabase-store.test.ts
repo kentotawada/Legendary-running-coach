@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseCoachStore } from '@/lib/store-supabase';
+import { StorageError, storageHint } from '@/lib/storage-error';
 import { supabaseConfig, isSupabaseConfigured } from '@/lib/supabase';
 import { createDefaultProfile } from '@/lib/types';
 
@@ -114,14 +115,30 @@ describe('SupabaseCoachStore', () => {
     expect(table.get('anon-1234')?.auth_user_id).toBeNull();
   });
 
-  it('読み書きの失敗は、理由の分かる形で投げる', async () => {
+  it('読み書きの失敗は、直せる形にして投げる', async () => {
     const failing = {
       from: () => ({
-        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: { message: '接続できません' } }) }) }),
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: null,
+                error: { code: '42P01', message: 'relation "coach_states" does not exist' },
+              }),
+          }),
+        }),
       }),
     } as unknown as SupabaseClient;
 
-    await expect(new SupabaseCoachStore(failing).load('anon-1234')).rejects.toThrow(/接続できません/);
+    await expect(new SupabaseCoachStore(failing).load('anon-1234')).rejects.toThrow(StorageError);
+    try {
+      await new SupabaseCoachStore(failing).load('anon-1234');
+    } catch (error) {
+      const storage = error as StorageError;
+      // 生のエラーは詳細として残しつつ、何を直せばよいかを言葉にする。
+      expect(storage.detail).toContain('does not exist');
+      expect(storage.hint).toContain('schema.sql');
+    }
   });
 });
 
@@ -201,5 +218,21 @@ describe('設定の読み取り', () => {
 
     expect(config?.url).toBe('https://example.supabase.co');
     expect(config?.anonKey).toBe('anon-key');
+  });
+});
+
+describe('保存層のエラーから原因を言い当てる', () => {
+  it.each([
+    ['42P01', 'relation "coach_states" does not exist', 'schema.sql'],
+    ['42501', 'permission denied for table coach_states', 'service_role'],
+    [undefined, 'Invalid API key', 'Project Settings'],
+    [undefined, 'TypeError: fetch failed', 'NEXT_PUBLIC_SUPABASE_URL'],
+    ['23503', 'insert violates foreign key constraint', 'ログアウト'],
+  ])('%s / %s → %s を案内する', (code, message, expected) => {
+    expect(storageHint(code as string | undefined, message)).toContain(expected);
+  });
+
+  it('心当たりが無い時も、次にやることを示す', () => {
+    expect(storageHint(undefined, 'なにか未知の失敗')).toContain('再デプロイ');
   });
 });

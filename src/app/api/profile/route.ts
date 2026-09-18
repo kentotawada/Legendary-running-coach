@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
+import { storageErrorResponse } from '@/lib/storage-error';
 import { applyProfileUpdate, replaceInjuryHistory, setGoal, setPhase } from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
 import type { CoachingPhase, GoalKind, RunnerGoal } from '@/lib/types';
@@ -12,7 +13,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const session = await resolveUserId(request);
   const { userId, isNew } = session;
-  const state = await loadForSession(session);
+
+  let state;
+  try {
+    state = await loadForSession(session);
+  } catch (error) {
+    return storageErrorResponse(error, 'カルテを読み込めませんでした');
+  }
+
   return Response.json(
     { profile: state.profile },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
@@ -74,7 +82,14 @@ export async function PATCH(request: NextRequest) {
   }
 
   const now = new Date();
-  const state = await loadForSession(session);
+
+  let state;
+  try {
+    state = await loadForSession(session);
+  } catch (error) {
+    return storageErrorResponse(error, 'カルテを読み込めませんでした');
+  }
+
   let profile = state.profile;
 
   if (body.goal !== undefined) {
@@ -127,7 +142,11 @@ export async function PATCH(request: NextRequest) {
     now,
   );
 
-  await store.save(userId, { ...state, profile }, session.authUserId);
+  try {
+    await store.save(userId, { ...state, profile }, session.authUserId);
+  } catch (error) {
+    return storageErrorResponse(error, '設定を保存できませんでした');
+  }
 
   return Response.json(
     { profile },
@@ -138,7 +157,10 @@ export async function PATCH(request: NextRequest) {
 /** 記録を消す権利は本人にある。 */
 export async function DELETE(request: NextRequest) {
   const session = await resolveUserId(request);
-  const { userId } = session;
-  await getStore().reset(userId);
+  try {
+    await getStore().reset(session.userId);
+  } catch (error) {
+    return storageErrorResponse(error, '記録を消去できませんでした');
+  }
   return Response.json({ ok: true });
 }

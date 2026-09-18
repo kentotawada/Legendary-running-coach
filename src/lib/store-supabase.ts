@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CoachState } from './types';
 import { createDefaultProfile } from './types';
 import type { CoachStore } from './store';
+import { storageError } from './storage-error';
 
 /** Supabase に置く1行ぶんの形。 */
 interface CoachStateRow {
@@ -29,7 +30,7 @@ export class SupabaseCoachStore implements CoachStore {
       .eq('user_id', userId)
       .maybeSingle<CoachStateRow>();
 
-    if (error) throw new Error(`カルテを読み込めませんでした: ${error.message}`);
+    if (error) throw storageError('カルテの読み込み', error.code, error.message);
     if (!data) return { profile: createDefaultProfile(userId), history: [] };
 
     return {
@@ -50,12 +51,12 @@ export class SupabaseCoachStore implements CoachStore {
       { onConflict: 'user_id' },
     );
 
-    if (error) throw new Error(`カルテを保存できませんでした: ${error.message}`);
+    if (error) throw storageError('カルテの保存', error.code, error.message);
   }
 
   async reset(userId: string): Promise<void> {
     const { error } = await this.client.from(TABLE).delete().eq('user_id', userId);
-    if (error) throw new Error(`記録を消去できませんでした: ${error.message}`);
+    if (error) throw storageError('記録の消去', error.code, error.message);
   }
 
   /**
@@ -71,7 +72,7 @@ export class SupabaseCoachStore implements CoachStore {
       .eq('user_id', fromUserId)
       .maybeSingle<CoachStateRow>();
 
-    if (sourceError) throw new Error(`引き継ぎ元を読めませんでした: ${sourceError.message}`);
+    if (sourceError) throw storageError('引き継ぎ元の読み込み', sourceError.code, sourceError.message);
     if (!source) return false;
 
     const { data: target, error: targetError } = await this.client
@@ -80,7 +81,7 @@ export class SupabaseCoachStore implements CoachStore {
       .eq('user_id', toUserId)
       .maybeSingle<{ user_id: string }>();
 
-    if (targetError) throw new Error(`引き継ぎ先を読めませんでした: ${targetError.message}`);
+    if (targetError) throw storageError('引き継ぎ先の読み込み', targetError.code, targetError.message);
     if (target) {
       // すでにアカウント側に記録がある。匿名の記録で上書きしてはいけない。
       return false;
@@ -93,7 +94,7 @@ export class SupabaseCoachStore implements CoachStore {
       profile,
       history: source.history,
     });
-    if (insertError) throw new Error(`引き継ぎに失敗しました: ${insertError.message}`);
+    if (insertError) throw storageError('記録の引き継ぎ', insertError.code, insertError.message);
 
     await this.client.from(TABLE).delete().eq('user_id', fromUserId);
     return true;
