@@ -455,13 +455,23 @@ Authentication → Emails から SMTP（Resend / SendGrid など）を設定し�
 
 ### 5. 確認する
 
-デプロイ後、`https://あなたのURL/api/health` を開いて次を確認します。
+デプロイ後、`https://あなたのURL/api/health` を開きます。
+**環境変数の有無だけでなく、実際にテーブルへ問い合わせた結果**が返ります。
 
 ```json
-{ "storage": "supabase", "authAvailable": true }
+{ "storage": "supabase", "authAvailable": true, "database": "ok", "rows": 0 }
 ```
 
-`storage` が `file` のままなら、`SUPABASE_SERVICE_ROLE_KEY` が読めていません。
+`database` が `ok` なら、キー・テーブル・権限がすべて通っています。
+`error` の場合は `hint` に直すべき箇所が書かれています。
+
+| database | 意味 |
+| --- | --- |
+| `ok` | 接続成功。`rows` は保存済みの人数 |
+| `not-configured` | Supabase の環境変数が読めていない（`SUPABASE_SERVICE_ROLE_KEY` の設定漏れが多い） |
+| `error` | 接続はしたが失敗。テーブル未作成・キー違い・URL誤りなど。`hint` を参照 |
+
+環境変数を追加・変更した後は、**必ず再デプロイ**してください。既存のデプロイには反映されません。
 
 ### 未ログインでも使えます
 
