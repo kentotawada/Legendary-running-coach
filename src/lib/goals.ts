@@ -252,10 +252,6 @@ export function goalDoctrine(profile: RunnerProfile): string {
   const volume = volumeGuide(goal);
   const lines = ['# この人の基準', `- 目標: ${goal.summary}`];
 
-  if (goal.raceName || goal.raceDate) {
-    lines.push(`- 本番: ${[goal.raceName, goal.raceDate].filter(Boolean).join(' / ')}`);
-  }
-
   if (derived !== undefined) {
     const paces = trainingPaces(derived);
     const vdot = vdotForTarget(goal.targetTime);

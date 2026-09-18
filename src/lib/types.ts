@@ -24,12 +24,35 @@ export interface PhaseChange {
 
 export type GoalKind = 'race' | 'time' | 'health' | 'habit' | 'none';
 
+/** A=最重要、B=調整、C=練習の一環。ピーキングをどこに合わせるかの判断に使う。 */
+export type RacePriority = 'A' | 'B' | 'C';
+
+/**
+ * 出場予定の大会。複数エントリーする人が珍しくないので、リストで持つ。
+ * 「本番」は1つとは限らず、どれに合わせて仕上げるかがコーチングの分岐点になる。
+ */
+export interface RaceEntry {
+  id: string;
+  /** 大会名。例: 「東京マラソン」 */
+  name: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** 「フル」「ハーフ」「30km」「ウルトラ」など。 */
+  distance?: string;
+  /** その大会での目標タイム。全体の目標と違っていてよい。 */
+  targetTime?: string;
+  priority: RacePriority;
+  /** 「気温が高い」「高低差がある」など、当日を左右する条件。 */
+  note?: string;
+}
+
 export interface RunnerGoal {
   kind: GoalKind;
   /** 「サブスリー達成」「初フルマラソン完走」など。 */
   summary: string;
+  /** @deprecated races へ移行済み。古い保存データを読むためだけに残している。 */
   raceName?: string;
-  /** YYYY-MM-DD */
+  /** @deprecated races へ移行済み。YYYY-MM-DD */
   raceDate?: string;
   /** "2:59:59" のような目標タイム。 */
   targetTime?: string;
@@ -140,6 +163,8 @@ export interface RunnerProfile {
   phase: CoachingPhase;
   phaseHistory: PhaseChange[];
   goal?: RunnerGoal;
+  /** 出場予定の大会。日付順とは限らないので、読む側で並べ替える。 */
+  races?: RaceEntry[];
   /** 「ランニング歴3年」「学生時代に陸上経験あり」など。 */
   experience?: string;
   weeklyVolumeKm?: number;

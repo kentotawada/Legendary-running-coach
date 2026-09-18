@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { GoalKind, RunnerProfile } from '@/lib/types';
+import type { GoalKind, RacePriority, RunnerProfile } from '@/lib/types';
+import { RACE_PRIORITY_HINT, RACE_PRIORITY_LABEL, daysUntil, racesOf } from '@/lib/races';
 import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import {
@@ -14,6 +15,16 @@ import {
   vdotForTarget,
 } from '@/lib/goals';
 
+export interface RaceEdit {
+  id?: string;
+  name: string;
+  date: string;
+  distance?: string;
+  targetTime?: string;
+  priority: RacePriority;
+  note?: string;
+}
+
 export interface ProfileEdit {
   characterId: string;
   goal: {
@@ -21,9 +32,8 @@ export interface ProfileEdit {
     summary: string;
     targetTime?: string;
     targetPace?: string;
-    raceName?: string;
-    raceDate?: string;
   } | null;
+  races: RaceEdit[];
   injuryHistory: string[];
   maxHr?: string;
   lthr?: string;
@@ -72,14 +82,175 @@ function Field({
 const inputClass =
   'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]';
 
+/**
+ * 入力欄を複数抱える項目。
+ * label で包むと、中のボタンを押しただけで先頭の入力欄が反応してしまうので、
+ * 見た目だけ Field に揃えた div 版を用意する。
+ */
+function Section({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="block py-2">
+      <span className="text-[13px] font-medium">
+        {label}
+        <span className="ml-1.5 rounded bg-sunken px-1.5 py-0.5 text-[10px] font-bold text-muted">任意</span>
+      </span>
+      {hint && <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{hint}</span>}
+      <div className="mt-1.5">{children}</div>
+    </div>
+  );
+}
+
+interface RaceDraft {
+  /** React のキー。保存済みの大会は id、新規行は発行した一時キー。 */
+  key: string;
+  id?: string;
+  name: string;
+  date: string;
+  distance: string;
+  targetTime: string;
+  priority: RacePriority;
+  note: string;
+}
+
+let draftSeq = 0;
+
+function emptyRace(): RaceDraft {
+  draftSeq += 1;
+  return {
+    key: `new-${draftSeq}`,
+    name: '',
+    date: '',
+    distance: '',
+    targetTime: '',
+    priority: 'A',
+    note: '',
+  };
+}
+
+const DISTANCE_OPTIONS = ['フル', 'ハーフ', '30km', '10km', '5km', 'ウルトラ', 'トレイル', '駅伝'];
+const PRIORITIES: RacePriority[] = ['A', 'B', 'C'];
+
+function RaceRow({
+  race,
+  onChange,
+  onRemove,
+}: {
+  race: RaceDraft;
+  onChange: (patch: Partial<RaceDraft>) => void;
+  onRemove: () => void;
+}) {
+  const left = daysUntil(race.date);
+
+  return (
+    <div className="rounded-[14px] border border-line bg-bg p-2.5">
+      <div className="flex gap-2">
+        <input
+          className={inputClass}
+          value={race.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          placeholder="大会名（例: 東京マラソン）"
+          aria-label="大会名"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 rounded-xl border border-line px-3 text-[13px] text-muted active:scale-[0.97]"
+          aria-label={`${race.name || 'この大会'}を削除`}
+        >
+          削除
+        </button>
+      </div>
+
+      <div className="mt-2 flex gap-2">
+        <input
+          className={inputClass}
+          type="date"
+          value={race.date}
+          onChange={(e) => onChange({ date: e.target.value })}
+          aria-label="開催日"
+        />
+        <select
+          className={`${inputClass} appearance-none`}
+          value={race.distance}
+          onChange={(e) => onChange({ distance: e.target.value })}
+          aria-label="種目"
+        >
+          <option value="">種目</option>
+          {DISTANCE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+          {race.distance && !DISTANCE_OPTIONS.includes(race.distance) && (
+            <option value={race.distance}>{race.distance}</option>
+          )}
+        </select>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {PRIORITIES.map((priority) => (
+          <button
+            key={priority}
+            type="button"
+            onClick={() => onChange({ priority })}
+            className={[
+              'rounded-full border px-3 py-1.5 text-[12px] transition active:scale-[0.97]',
+              race.priority === priority
+                ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                : 'border-line bg-bg text-muted',
+            ].join(' ')}
+          >
+            {priority}・{RACE_PRIORITY_LABEL[priority]}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted">{RACE_PRIORITY_HINT[race.priority]}</p>
+
+      <input
+        className={`${inputClass} mt-2`}
+        value={race.targetTime}
+        onChange={(e) => onChange({ targetTime: e.target.value })}
+        placeholder="この大会の目標タイム（任意・3:29:59）"
+        aria-label="この大会の目標タイム"
+        inputMode="numeric"
+      />
+
+      {left !== undefined && race.name.trim() && (
+        <p className="mt-1.5 text-[11px] text-muted">
+          {left > 0 ? `本番まであと ${left} 日` : left === 0 ? '本番は今日です' : `${-left} 日前に終了`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function GoalEditor({ profile, saving, onSave, onCancel }: Props) {
   const goal = profile?.goal;
   const [kind, setKind] = useState<GoalKind>(goal?.kind ?? 'time');
   const [summary, setSummary] = useState(goal?.summary ?? '');
   const [targetTime, setTargetTime] = useState(goal?.targetTime ?? '');
   const [targetPace, setTargetPace] = useState(goal?.targetPace ?? '');
-  const [raceName, setRaceName] = useState(goal?.raceName ?? '');
-  const [raceDate, setRaceDate] = useState(goal?.raceDate ?? '');
+  // 出場する大会は複数ありうる。1件で上書きすると、他の大会の予定が消える。
+  const [races, setRaces] = useState<RaceDraft[]>(() =>
+    (profile ? racesOf(profile) : []).map((race) => ({
+      key: race.id,
+      id: race.id === 'legacy-goal-race' ? undefined : race.id,
+      name: race.name,
+      date: race.date,
+      distance: race.distance ?? '',
+      targetTime: race.targetTime ?? '',
+      priority: race.priority,
+      note: race.note ?? '',
+    })),
+  );
   const [characterId, setCharacterId] = useState(profile?.characterId ?? DEFAULT_CHARACTER_ID);
   const [injuries, setInjuries] = useState((profile?.injuryHistory ?? []).join('\n'));
   const [maxHr, setMaxHr] = useState(profile?.maxHr ? String(profile.maxHr) : '');
@@ -126,8 +297,17 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
     { value: 'health', label: '健康維持・習慣化' },
   ];
 
+  // 書きかけの行（名前だけ、日付だけ）は保存できない。黙って捨てると予定が消える。
+  const incompleteRace = races.find(
+    (race) => Boolean(race.name.trim()) !== Boolean(race.date.trim()),
+  );
+  const badRaceTime = races.find(
+    (race) => race.targetTime.trim() && parseDuration(race.targetTime) === undefined,
+  );
+  const racesAreValid = !incompleteRace && !badRaceTime;
+
   const submit = () => {
-    if (!timeIsValid) return;
+    if (!timeIsValid || !racesAreValid) return;
     onSave({
       characterId,
       goal: {
@@ -135,9 +315,18 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         summary: summary.trim() || '目標',
         targetTime: needsTime ? targetTime.trim() || undefined : undefined,
         targetPace: needsTime ? targetPace.trim() || undefined : undefined,
-        raceName: raceName.trim() || undefined,
-        raceDate: raceDate.trim() || undefined,
       },
+      races: races
+        .filter((race) => race.name.trim() && race.date.trim())
+        .map((race) => ({
+          id: race.id,
+          name: race.name.trim(),
+          date: race.date.trim(),
+          distance: race.distance.trim() || undefined,
+          targetTime: race.targetTime.trim() || undefined,
+          priority: race.priority,
+          note: race.note.trim() || undefined,
+        })),
       injuryHistory: injuries.split('\n').map((line) => line.trim()).filter(Boolean),
       maxHr,
       lthr,
@@ -271,20 +460,47 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
             />
           </Field>
 
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Field label="大会名" required={false}>
-                <input className={inputClass} value={raceName} onChange={(e) => setRaceName(e.target.value)} placeholder="東京マラソン" />
-              </Field>
-            </div>
-            <div className="flex-1">
-              <Field label="本番の日" required={false}>
-                <input className={inputClass} type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)} />
-              </Field>
-            </div>
-          </div>
         </>
       )}
+
+      <Section
+        label="出場する大会"
+        hint="何件でも登録できます。本命をA、練習として使う大会をB・Cにすると、そこから逆算して調整します"
+      >
+        <div className="space-y-2.5">
+          {races.map((race, index) => (
+            <RaceRow
+              key={race.key}
+              race={race}
+              onChange={(patch) =>
+                setRaces((current) =>
+                  current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+                )
+              }
+              onRemove={() => setRaces((current) => current.filter((_, i) => i !== index))}
+            />
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setRaces((current) => [...current, emptyRace()])}
+            className="w-full rounded-xl border border-dashed border-line py-2.5 text-[13px] text-muted active:scale-[0.99]"
+          >
+            ＋ 大会を追加
+          </button>
+
+          {incompleteRace && (
+            <span className="block text-[12px] text-warn">
+              「{incompleteRace.name.trim() || '名称未入力の大会'}」は、大会名と開催日の両方が必要です。
+            </span>
+          )}
+          {badRaceTime && (
+            <span className="block text-[12px] text-warn">
+              「{badRaceTime.name.trim() || '大会'}」の目標タイムは 3:29:59 の形で入力してください。
+            </span>
+          )}
+        </div>
+      </Section>
 
       <Field
         label="故障歴・気になる部位"
@@ -350,7 +566,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         <button
           type="button"
           onClick={submit}
-          disabled={saving || !timeIsValid}
+          disabled={saving || !timeIsValid || !racesAreValid}
           className="flex-1 rounded-full bg-accent px-4 py-3 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {saving ? '保存しています…' : '保存する'}

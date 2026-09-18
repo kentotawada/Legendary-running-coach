@@ -2,9 +2,9 @@ import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
-import { applyProfileUpdate, replaceInjuryHistory, setGoal, setPhase } from '@/lib/profile';
+import { applyProfileUpdate, replaceInjuryHistory, replaceRaces, setGoal, setPhase } from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
-import type { CoachingPhase, GoalKind, RunnerGoal } from '@/lib/types';
+import type { CoachingPhase, GoalKind, RacePriority, RunnerGoal } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
 }
 
 const GOAL_KINDS: GoalKind[] = ['race', 'time', 'health', 'habit', 'none'];
+const RACE_PRIORITIES: RacePriority[] = ['A', 'B', 'C'];
+/** 1シーズンで現実的に走れる数を大きく超える登録は、入力ミスとして弾く。 */
+const MAX_RACES = 30;
 
 interface ProfilePatchBody {
   goal?: {
@@ -35,10 +38,9 @@ interface ProfilePatchBody {
     summary?: string;
     targetTime?: string;
     targetPace?: string;
-    raceName?: string;
-    raceDate?: string;
     why?: string;
   } | null;
+  races?: unknown;
   characterId?: unknown;
   injuryHistory?: unknown;
   maxHr?: unknown;
@@ -112,13 +114,49 @@ export async function PATCH(request: NextRequest) {
         summary: text(body.goal.summary) ?? '目標',
         targetTime,
         targetPace: text(body.goal.targetPace),
-        raceName: text(body.goal.raceName),
-        raceDate: text(body.goal.raceDate),
         why: text(body.goal.why),
       };
       profile = setGoal(profile, goal, now);
       profile = setPhase(profile, phaseForGoal(kind), '本人がカルテで目標を設定した', now);
     }
+  }
+
+  if (Array.isArray(body.races)) {
+    const races = body.races
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => ({
+        id: text(item.id),
+        name: text(item.name) ?? '',
+        date: text(item.date) ?? '',
+        distance: text(item.distance),
+        targetTime: text(item.targetTime),
+        priority: (RACE_PRIORITIES as string[]).includes(text(item.priority) ?? '')
+          ? (item.priority as RacePriority)
+          : ('A' as RacePriority),
+        note: text(item.note),
+      }))
+      .filter((race) => race.name && race.date);
+
+    const invalid = races.find((race) => !/^\d{4}-\d{2}-\d{2}$/.test(race.date));
+    if (invalid) {
+      return Response.json(
+        { error: `「${invalid.name}」の開催日を選んでください。` },
+        { status: 400 },
+      );
+    }
+    if (races.length > MAX_RACES) {
+      return Response.json({ error: `登録できる大会は${MAX_RACES}件までです。` }, { status: 400 });
+    }
+
+    const badTime = races.find((race) => race.targetTime && parseDuration(race.targetTime) === undefined);
+    if (badTime) {
+      return Response.json(
+        { error: `「${badTime.name}」の目標タイムは 3:29:59 のように「時:分:秒」で入力してください。` },
+        { status: 400 },
+      );
+    }
+
+    profile = replaceRaces(profile, races, now);
   }
 
   if (Array.isArray(body.injuryHistory)) {
