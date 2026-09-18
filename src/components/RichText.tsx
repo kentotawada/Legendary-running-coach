@@ -33,27 +33,27 @@ function MenuCard({ block }: { block: MenuBlock }) {
   return (
     <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
       {block.title && (
-        <p className="border-b border-line bg-accent-soft px-3.5 py-2 text-[13px] font-bold text-accent">
+        <p className="border-b border-line bg-accent-soft px-3.5 py-2 text-[0.87em] font-bold text-accent">
           {block.title}
         </p>
       )}
       <ol className="divide-y divide-[color:var(--border)]">
         {block.items.map((item, index) => (
           <li key={`${item.label}-${index}`} className="flex gap-3 px-3.5 py-2.5">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken text-[11px] font-bold tabular-nums">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken text-[0.74em] font-bold tabular-nums">
               {index + 1}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{item.label}</span>
+              <span className="block text-[0.87em] font-semibold">{item.label}</span>
               {item.detail && (
-                <span className="block text-[13px] leading-relaxed text-muted">{item.detail}</span>
+                <span className="block text-[0.87em] leading-relaxed text-muted">{item.detail}</span>
               )}
             </span>
           </li>
         ))}
       </ol>
       {block.note && (
-        <p className="border-t border-line px-3.5 py-2 text-[12px] leading-relaxed text-muted">{block.note}</p>
+        <p className="border-t border-line px-3.5 py-2 text-[0.8em] leading-relaxed text-muted">{block.note}</p>
       )}
     </div>
   );
@@ -72,23 +72,23 @@ function ZonesCard({ block }: { block: ZonesBlock }) {
   return (
     <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
       {block.basis && (
-        <p className="border-b border-line px-3.5 py-2 text-[12px] text-muted">{block.basis}</p>
+        <p className="border-b border-line px-3.5 py-2 text-[0.8em] text-muted">{block.basis}</p>
       )}
       <ul className="divide-y divide-[color:var(--border)]">
         {block.rows.map((row) => (
           <li key={row.zone} className="flex items-center gap-3 px-3.5 py-2.5">
             <span
-              className={`flex h-7 w-8 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${
+              className={`flex h-7 w-8 shrink-0 items-center justify-center rounded-md text-[0.74em] font-bold ${
                 ZONE_TONE[row.zone.toUpperCase()] ?? 'bg-sunken text-fg'
               }`}
             >
               {row.zone}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{row.name ?? row.zone}</span>
-              {row.note && <span className="block text-[12px] leading-relaxed text-muted">{row.note}</span>}
+              <span className="block text-[0.87em] font-semibold">{row.name ?? row.zone}</span>
+              {row.note && <span className="block text-[0.8em] leading-relaxed text-muted">{row.note}</span>}
             </span>
-            {row.range && <span className="shrink-0 text-[13px] font-semibold tabular-nums">{row.range}</span>}
+            {row.range && <span className="shrink-0 text-[0.87em] font-semibold tabular-nums">{row.range}</span>}
           </li>
         ))}
       </ul>
@@ -111,19 +111,19 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
   return (
     <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
       <p className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
-        <span className="text-[13px] font-bold">検討したい道具</span>
-        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[10px] text-muted">
+        <span className="text-[0.87em] font-bold">検討したい道具</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
           {sponsored ? 'PR・広告リンクを含みます' : '検索リンク'}
         </span>
       </p>
 
-      {block.note && <p className="px-3.5 pt-2.5 text-[13px] leading-relaxed">{block.note}</p>}
+      {block.note && <p className="px-3.5 pt-2.5 text-[0.87em] leading-relaxed">{block.note}</p>}
 
       <ul className="divide-y divide-[color:var(--border)]">
         {items.map((item) => (
           <li key={item.id} className="px-3.5 py-3">
-            <p className="text-[13px] font-semibold">{item.title}</p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-muted">{item.why}</p>
+            <p className="text-[0.87em] font-semibold">{item.title}</p>
+            <p className="mt-0.5 text-[0.8em] leading-relaxed text-muted">{item.why}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {item.links.map((link) => (
                 <a
@@ -131,7 +131,7 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer sponsored"
-                  className="rounded-full border border-line px-3 py-1.5 text-[12px] font-medium text-accent"
+                  className="rounded-full border border-line px-3 py-1.5 text-[0.8em] font-medium text-accent"
                 >
                   {link.shop}で探す
                 </a>
@@ -141,7 +141,7 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
         ))}
       </ul>
 
-      <p className="border-t border-line px-3.5 py-2 text-[11px] leading-relaxed text-muted">
+      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
         商品はモールの検索結果です。実際の仕様と価格は、購入前に必ずご確認ください。
       </p>
     </div>
@@ -152,7 +152,7 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
   switch (block.type) {
     case 'heading':
       return (
-        <p className="mt-3 text-[14px] font-bold first:mt-0">
+        <p className="mt-3 text-[0.94em] font-bold first:mt-0">
           <Inline parts={block.content} />
         </p>
       );
@@ -189,7 +189,7 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
     case 'gear':
       return <GearCard block={block} catalog={catalog} />;
     case 'pending':
-      return <p className="my-1 text-[12px] text-muted">…</p>;
+      return <p className="my-1 text-[0.8em] text-muted">…</p>;
     case 'paragraph':
     default:
       return (

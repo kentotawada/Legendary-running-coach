@@ -8,9 +8,11 @@ const base = () => createDefaultProfile('u1', NOW.toISOString());
 describe('coachTools', () => {
   it('コーチが学習に使う道具が一式そろっている', () => {
     expect(coachTools.map((t) => t.name).sort()).toEqual([
+      'add_race',
       'log_activity',
       'log_condition',
       'log_weight',
+      'remove_race',
       'set_coaching_phase',
       'set_today_plan',
       'update_pain',

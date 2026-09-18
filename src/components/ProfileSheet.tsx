@@ -9,6 +9,8 @@ import GoalEditor, { type ProfileEdit } from './GoalEditor';
 import CoachAvatar from './CoachAvatar';
 import { findCharacter } from '@/lib/characters';
 import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
+import { RACE_PRIORITY_LABEL, daysUntil, racesOf, targetRace } from '@/lib/races';
+import { FONT_SIZES, type FontSizeId } from '@/lib/display';
 import { heartRateZones } from '@/lib/zones';
 
 interface Props {
@@ -19,6 +21,9 @@ interface Props {
   onOpenAuth?: () => void;
   build: BuildInfo | null;
   saving: boolean;
+  /** 文字の大きさ。この端末だけの設定なので、カルテの保存とは別に即時反映する。 */
+  fontSize: FontSizeId;
+  onChangeFontSize: (id: FontSizeId) => void;
   onSave: (edit: ProfileEdit) => void;
   onClose: () => void;
   onReset: () => void;
@@ -53,6 +58,8 @@ export default function ProfileSheet({
   signedInAs,
   authAvailable,
   onOpenAuth,
+  fontSize,
+  onChangeFontSize,
   onClose,
   onSave,
   onReset,
@@ -62,6 +69,8 @@ export default function ProfileSheet({
   const targetPace = resolveTargetPace(profile?.goal);
   const vdot = vdotForTarget(profile?.goal?.targetTime);
   const zones = profile ? heartRateZones(profile) : null;
+  const races = profile ? racesOf(profile) : [];
+  const focus = profile ? targetRace(profile) : undefined;
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
   const plan = profile?.plans.at(-1);
@@ -106,6 +115,30 @@ export default function ProfileSheet({
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
             <dl className="divide-y divide-[color:var(--border)]">
+              <Row label="文字の大きさ">
+                <div className="flex gap-2">
+                  {FONT_SIZES.map((size) => (
+                    <button
+                      key={size.id}
+                      type="button"
+                      onClick={() => onChangeFontSize(size.id)}
+                      aria-pressed={fontSize === size.id}
+                      className={[
+                        'rounded-full border px-4 py-2 transition active:scale-[0.97]',
+                        fontSize === size.id
+                          ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                          : 'border-line text-fg',
+                      ].join(' ')}
+                      style={{ fontSize: `${Math.round(14 * size.scale)}px` }}
+                    >
+                      {size.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="mt-1 block text-[12px] text-muted">
+                  {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
+                </span>
+              </Row>
               {authAvailable && (
                 <Row label="保存先">
                   {signedInAs ? (
@@ -148,8 +181,6 @@ export default function ProfileSheet({
                     <span className="font-medium">{profile.goal.summary}</span>
                     {profile.goal.targetTime && <span className="block text-muted">目標タイム: {profile.goal.targetTime}</span>}
                     {targetPace && <span className="block text-muted">目標ペース: {targetPace}</span>}
-                    {profile.goal.raceName && <span className="block text-muted">大会: {profile.goal.raceName}</span>}
-                    {profile.goal.raceDate && <span className="block text-muted">本番: {profile.goal.raceDate}</span>}
                   </>
                 ) : (
                   <button
@@ -161,6 +192,36 @@ export default function ProfileSheet({
                   </button>
                 )}
               </Row>
+              {races.length > 0 && (
+                <Row label="出場する大会">
+                  <ul className="space-y-1.5">
+                    {races.map((race) => {
+                      const left = daysUntil(race.date);
+                      const isTarget = race.id === focus?.id;
+                      return (
+                        <li key={race.id}>
+                          <span className={isTarget ? 'font-medium' : undefined}>{race.name}</span>
+                          <span className="ml-1.5 text-[12px] text-muted">
+                            {race.priority}・{RACE_PRIORITY_LABEL[race.priority]}
+                            {race.distance ? ` / ${race.distance}` : ''}
+                          </span>
+                          <span className="block text-[12px] text-muted">
+                            {race.date}
+                            {left === undefined
+                              ? ''
+                              : left > 0
+                                ? `（あと${left}日）`
+                                : left === 0
+                                  ? '（今日）'
+                                  : '（終了）'}
+                            {race.targetTime ? ` / 目標 ${race.targetTime}` : ''}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Row>
+              )}
               {profile.experience && <Row label="経験">{profile.experience}</Row>}
               {profile.weeklyVolumeKm !== undefined && <Row label="週間距離">約 {profile.weeklyVolumeKm} km</Row>}
               {profile.availableDays?.length ? <Row label="走れる曜日">{profile.availableDays.join('・')}</Row> : null}

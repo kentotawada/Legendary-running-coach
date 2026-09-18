@@ -17,6 +17,19 @@ describe('コーチのキャラクター', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('男性コーチも女性コーチも選べる', () => {
+    const genders = new Set(COACH_CHARACTERS.map((c) => c.gender));
+    expect(genders.has('male')).toBe(true);
+    expect(genders.has('female')).toBe(true);
+    expect(COACH_CHARACTERS.filter((c) => c.gender === 'female').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('以前から選べた id は残っている（選択が黙って既定値に戻らない）', () => {
+    for (const id of ['blaze', 'logic', 'warm', 'veteran']) {
+      expect(findCharacter(id).id).toBe(id);
+    }
+  });
+
   it('未設定や未知の id では既定のキャラクターに落ちる', () => {
     expect(findCharacter(undefined).id).toBe(DEFAULT_CHARACTER_ID);
     expect(findCharacter('unknown-character').id).toBe(DEFAULT_CHARACTER_ID);

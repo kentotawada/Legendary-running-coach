@@ -3,6 +3,7 @@ import { assessSafety } from './safety';
 import { phaseGuidance, resolvePhase, transitionGuidance } from './phase';
 import { summarizeProfile, today } from './profile';
 import { goalDoctrine } from './goals';
+import { raceDoctrine } from './races';
 import { zoneDoctrine } from './zones';
 import { characterVoice, findCharacter } from './characters';
 import { dailyDoctrine } from './daily';
@@ -96,6 +97,8 @@ const TOOL_POLICY = `# 記録ツールの使い方
 記録はあなたの記憶であり、次回以降の「この人だけの最適解」の土台になります。
 
 - update_runner_profile: 目標、経験、走行距離、体重、自己ベスト、**最大心拍・安静時心拍・LTHR**、使える曜日と時間、生活の制約、故障歴。
+- add_race: 出場する大会が分かった時に**1件ずつ**。複数の大会に出る人は珍しくない。
+  新しい大会を聞くたびに呼び、既存の大会を置き換えない。出ないことになった大会だけ remove_race で外す。
 - log_condition: 疲労度・睡眠・気分・その日使える時間。「忙しい」「疲れた」も必ず残す。
 - update_pain: 痛み・違和感を聞いた時、および軽快・解消した時（severity 0 / status resolved）。
 - log_activity: 練習の報告を受けた時、および**スクリーンショットから数値を読み取った時**。
@@ -163,6 +166,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     ABSOLUTE_RULES,
     DOCTRINE,
     goalDoctrine(profile),
+    raceDoctrine(profile, now),
     zoneDoctrine(profile),
     phaseGuidance(phase),
     transition,

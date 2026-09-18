@@ -5,12 +5,15 @@ import type {
   CoachingPhase,
   PainStatus,
   PlanIntensity,
+  RacePriority,
   RunnerProfile,
 } from './types';
 import {
   addActivity,
   addConditionLog,
+  addRace,
   applyProfileUpdate,
+  removeRace,
   setPhase,
   setPlan,
   today,
@@ -72,13 +75,47 @@ export const coachTools: FunctionDeclaration[] = [
               description: 'race=大会完走, time=タイム目標, health=健康, habit=習慣化, none=目標なし',
             },
             summary: { type: 'string', description: '「サブスリー達成」など一言で' },
-            raceName: { type: 'string' },
+            raceName: { type: 'string', description: '出場する大会名。複数の大会は add_race で1件ずつ登録すること。' },
             raceDate: { type: 'string', description: 'YYYY-MM-DD' },
             targetTime: { type: 'string', description: '"2:59:59" 形式' },
             why: { type: 'string', description: 'なぜその目標なのか' },
           },
         },
       },
+    },
+  },
+  {
+    name: 'add_race',
+    description:
+      '出場する大会が分かった時に1件ずつ登録する。複数の大会にエントリーしている人は珍しくないので、' +
+      '新しい大会を聞くたびに呼ぶこと。既存の大会を置き換えてはならない。' +
+      'priority は、狙っている大会が A、練習として使う大会が B か C。どれを本命にするかは必ず本人に確かめる。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '大会名。例: "東京マラソン"' },
+        date: { type: 'string', description: 'YYYY-MM-DD' },
+        distance: { type: 'string', description: '"フル" / "ハーフ" / "30km" / "ウルトラ" など' },
+        targetTime: { type: 'string', description: 'その大会での目標タイム。"3:29:59" 形式。' },
+        priority: {
+          type: 'string',
+          enum: ['A', 'B', 'C'],
+          description: 'A=本命（ここに合わせて仕上げる）, B=調整レース, C=練習の一環',
+        },
+        note: { type: 'string', description: '高低差・気温・制限時間など、当日を左右する条件' },
+      },
+      required: ['name', 'date'],
+    },
+  },
+  {
+    name: 'remove_race',
+    description: '出場しないことになった大会を一覧から外す。本人が「出ない」と言った時だけ呼ぶこと。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '外す大会名' },
+      },
+      required: ['name'],
     },
   },
   {
@@ -245,6 +282,7 @@ const ACTIVITY_SOURCES = ['self-report', 'screenshot'] as const;
 const INTENSITIES = ['rest', 'easy', 'moderate', 'hard'] as const;
 const PAIN_STATUSES = ['active', 'improving', 'resolved'] as const;
 const PHASES = ['unknown', 'habit', 'goal', 'recovery'] as const;
+const RACE_PRIORITIES = ['A', 'B', 'C'] as const;
 
 export interface ToolOutcome {
   profile: RunnerProfile;
@@ -287,7 +325,7 @@ export function executeTool(
             )
           : undefined;
 
-      const next = applyProfileUpdate(
+      let next = applyProfileUpdate(
         profile,
         {
           displayName: str(args.displayName),
@@ -307,7 +345,69 @@ export function executeTool(
         },
         now,
       );
-      return { profile: next, result: { ok: true, message: 'カルテを更新した' } };
+
+      // 大会は一覧で持つ。ここで受け取った1件も、既存の大会を消さずに追加する。
+      const raceName = str(goalRaw?.raceName);
+      const raceDate = str(goalRaw?.raceDate);
+      if (raceName && raceDate) {
+        next = addRace(next, { name: raceName, date: raceDate, priority: 'A' }, now);
+      }
+
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          message:
+            raceName && !raceDate
+              ? 'カルテを更新した。ただし大会は日付が無いと登録できない。開催日を尋ねて add_race で登録すること。'
+              : 'カルテを更新した',
+        },
+      };
+    }
+
+    case 'add_race': {
+      const name = str(args.name);
+      const date = str(args.date);
+      if (!name || !date) {
+        return { profile, result: { ok: false, error: 'name と date（YYYY-MM-DD）は必須。' } };
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return { profile, result: { ok: false, error: '日付は YYYY-MM-DD で渡すこと。' } };
+      }
+      const next = addRace(
+        profile,
+        {
+          name,
+          date,
+          distance: str(args.distance),
+          targetTime: str(args.targetTime),
+          priority: oneOf<RacePriority>(args.priority, RACE_PRIORITIES) ?? 'A',
+          note: str(args.note),
+        },
+        now,
+      );
+      const count = next.races?.length ?? 0;
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          raceCount: count,
+          message:
+            count > 1
+              ? `大会を登録した（計${count}件）。どれを本命（A）にするかが未確定なら必ず確かめ、他の大会の位置づけも言葉にすること。`
+              : '大会を登録した。本番から逆算して、いま何を積む時期かを伝えること。',
+        },
+      };
+    }
+
+    case 'remove_race': {
+      const name = str(args.name);
+      if (!name) return { profile, result: { ok: false, error: 'name は必須。' } };
+      const target = (profile.races ?? []).find((race) => race.name === name);
+      if (!target) {
+        return { profile, result: { ok: false, error: `「${name}」は登録されていない。登録済みの大会名を確かめること。` } };
+      }
+      return { profile: removeRace(profile, target.id, now), result: { ok: true, message: '大会を一覧から外した' } };
     }
 
     case 'log_condition': {

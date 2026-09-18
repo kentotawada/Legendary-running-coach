@@ -16,6 +16,8 @@
 /** 本文に紛れ込み得るツール名。tools.ts の宣言と一致していることをテストで担保する。 */
 export const COACH_TOOL_NAMES = [
   'update_runner_profile',
+  'add_race',
+  'remove_race',
   'log_condition',
   'update_pain',
   'log_activity',

@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { prepareImages, type PreparedImage } from '@/lib/downscale';
 import { MAX_IMAGES, MAX_TOTAL_BYTES } from '@/lib/images';
+import { useVoiceInput } from '@/hooks/useSpeech';
 
 export interface ComposerApi {
   /** クイックボタンからも画像選択を開けるようにする。 */
@@ -28,6 +29,22 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
   const [preparing, setPreparing] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 話し始めた時点の文面。認識結果はこの後ろに足す。書きかけを消さないため。
+  const dictationBase = useRef('');
+
+  const voice = useVoiceInput((text) => {
+    const base = dictationBase.current;
+    setValue(base ? `${base.replace(/\s*$/, '')} ${text}` : text);
+  });
+
+  const toggleVoice = () => {
+    if (voice.listening) {
+      voice.stop();
+      return;
+    }
+    dictationBase.current = value;
+    voice.start();
+  };
 
   if (apiRef) {
     apiRef.current = {
@@ -135,7 +152,12 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
 
       {preparing && <p className="mb-2 text-[12px] text-muted">画像を準備しています…</p>}
 
-      <div className="flex items-end gap-2">
+      {voice.listening && (
+        <p className="mb-2 text-[12px] text-accent">聞いています… 話し終えたらマイクをもう一度押してください</p>
+      )}
+      {voice.error && !voice.listening && <p className="mb-2 text-[12px] text-warn">{voice.error}</p>}
+
+      <div className="flex items-end gap-1.5">
         <input
           ref={fileRef}
           type="file"
@@ -158,6 +180,28 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
             <path d="m14 15 1.8-1.8a2 2 0 0 1 2.8 0L20 14.6" />
           </svg>
         </button>
+
+        {voice.supported && (
+          <button
+            type="button"
+            onClick={toggleVoice}
+            disabled={disabled}
+            aria-label={voice.listening ? '音声入力を止める' : '音声で入力する'}
+            aria-pressed={voice.listening}
+            className={[
+              'flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border transition active:scale-95 disabled:opacity-40',
+              voice.listening
+                ? 'animate-blink border-[color:var(--accent)] bg-accent text-[var(--accent-fg)]'
+                : 'border-line bg-elevated text-fg',
+            ].join(' ')}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11a7 7 0 0 0 14 0" />
+              <path d="M12 18v3" />
+            </svg>
+          </button>
+        )}
 
         <textarea
           ref={textRef}

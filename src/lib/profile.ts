@@ -5,12 +5,15 @@ import type {
   CoachingPhase,
   ConditionLog,
   PainPoint,
+  RaceEntry,
+  RacePriority,
   RunnerGoal,
   RunnerProfile,
 } from './types';
 import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf } from './markers';
+import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
 const MAX_CONDITION_LOGS = 120;
@@ -194,6 +197,94 @@ export function setPlan(
   };
 }
 
+export interface RaceInput {
+  name: string;
+  date: string;
+  distance?: string;
+  targetTime?: string;
+  priority?: RacePriority;
+  note?: string;
+}
+
+/** 同じ大会かどうか。名前と日付が揃っていれば同じものとみなす。 */
+function sameRace(a: { name: string; date: string }, b: { name: string; date: string }): boolean {
+  return a.name.trim() === b.name.trim() && a.date.trim() === b.date.trim();
+}
+
+/**
+ * 大会を1つしか持てなかった頃の記録を、正式な一覧へ移し替える。
+ * 一覧を書き換える時にこれを通しておかないと、
+ * 「登録済みの大会が races に無い」状態で上書きされ、本番の日付が消える。
+ */
+function materializeRaces(profile: RunnerProfile): RaceEntry[] {
+  return racesOf(profile).map((race) =>
+    race.id === 'legacy-goal-race' ? { ...race, id: newId() } : race,
+  );
+}
+
+/** 旧フィールドは二重の情報源になるので、一覧を書いたら必ず外す。 */
+function withRaces(profile: RunnerProfile, races: RaceEntry[], now: Date): RunnerProfile {
+  const next: RunnerProfile = { ...profile, races: sortRaces(races), updatedAt: now.toISOString() };
+  if (next.goal?.raceName || next.goal?.raceDate) {
+    const { raceName: _name, raceDate: _date, ...rest } = next.goal;
+    next.goal = rest;
+  }
+  return next;
+}
+
+/**
+ * 大会を追加する。同じ大会（名前と日付が一致）は上書きする。
+ * 複数の大会に出る人がいるので、1件で置き換えてはならない。
+ */
+export function addRace(profile: RunnerProfile, input: RaceInput, now: Date = new Date()): RunnerProfile {
+  const entry: RaceEntry = {
+    id: newId(),
+    name: input.name.trim(),
+    date: input.date.trim(),
+    distance: input.distance?.trim() || undefined,
+    targetTime: input.targetTime?.trim() || undefined,
+    priority: input.priority ?? 'A',
+    note: input.note?.trim() || undefined,
+  };
+
+  const existing = materializeRaces(profile);
+  const index = existing.findIndex((race) => sameRace(race, entry));
+  if (index >= 0) {
+    const merged = [...existing];
+    merged[index] = { ...entry, id: existing[index].id };
+    return withRaces(profile, merged, now);
+  }
+  return withRaces(profile, [...existing, entry], now);
+}
+
+export function removeRace(profile: RunnerProfile, id: string, now: Date = new Date()): RunnerProfile {
+  const remaining = materializeRaces(profile).filter((race) => race.id !== id);
+  return withRaces(profile, remaining, now);
+}
+
+/**
+ * 本人がカルテで一覧ごと編集した時。
+ * 消す操作を成立させるため、追記ではなく置き換える。
+ */
+export function replaceRaces(
+  profile: RunnerProfile,
+  races: (RaceInput & { id?: string })[],
+  now: Date = new Date(),
+): RunnerProfile {
+  const cleaned: RaceEntry[] = races
+    .map((race) => ({
+      id: race.id?.trim() || newId(),
+      name: race.name.trim(),
+      date: race.date.trim(),
+      distance: race.distance?.trim() || undefined,
+      targetTime: race.targetTime?.trim() || undefined,
+      priority: race.priority ?? 'A',
+      note: race.note?.trim() || undefined,
+    }))
+    .filter((race) => race.name || race.date);
+  return withRaces(profile, cleaned, now);
+}
+
 /**
  * 本人がカルテから目標を編集した時は、既存の値と混ぜずに置き換える。
  * 「サブ3 → サブ4」に変えたのに古いレース情報が残る、といった事故を避けるため。
@@ -270,18 +361,23 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
   if (profile.goal && profile.goal.kind !== 'none') {
     const g = profile.goal;
     const parts = [g.summary];
-    if (g.raceName) parts.push(`大会: ${g.raceName}`);
-    if (g.raceDate) {
-      const daysLeft = Math.ceil((Date.parse(g.raceDate) - now.getTime()) / 86_400_000);
-      parts.push(
-        Number.isNaN(daysLeft) ? `本番: ${g.raceDate}` : `本番: ${g.raceDate}（あと${daysLeft}日）`,
-      );
-    }
     if (g.targetTime) parts.push(`目標タイム: ${g.targetTime}`);
     lines.push(`- 目標: ${parts.filter(Boolean).join(' / ')}`);
     if (g.why) lines.push(`- その目標を選んだ理由: ${g.why}`);
   } else {
     lines.push('- 目標: まだ言葉にしていない（走力を聞き出し、サブ3までのギャップを示すところから始める）');
+  }
+
+  const upcoming = upcomingRaces(profile, now);
+  if (upcoming.length > 0) {
+    lines.push(`- 出場予定の大会（${upcoming.length}件）:`);
+    for (const race of upcoming.slice(0, 8)) {
+      lines.push(`  - ${describeRace(race, now)}`);
+    }
+  }
+  const finished = pastRaces(profile, now);
+  if (finished.length > 0) {
+    lines.push(`- 走り終えた大会: ${finished.slice(0, 3).map((race) => describeRace(race, now)).join(' / ')}`);
   }
 
   if (profile.personalBests && Object.keys(profile.personalBests).length > 0) {
