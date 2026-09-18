@@ -12,7 +12,10 @@ import DailySheet from './DailySheet';
 import AuthSheet from './AuthSheet';
 import PhaseBadge from './PhaseBadge';
 import CoachAvatar from './CoachAvatar';
+import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
+import { useReadAloud } from '@/hooks/useSpeech';
+import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
 
 export default function CoachApp() {
   const {
@@ -41,8 +44,22 @@ export default function CoachApp() {
   const [dailyOpen, setDailyOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+  const [fontSize, setFontSize] = useState<FontSizeId>('medium');
+  const readAloud = useReadAloud();
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
+
+  // 文字サイズはこの端末の設定。描画前に当てた値を、画面の状態にも取り込む。
+  useEffect(() => {
+    setFontSize(loadFontSize());
+  }, []);
+
+  const changeFontSize = (id: FontSizeId) => {
+    setFontSize(id);
+    applyFontSize(id);
+    saveFontSize(id);
+  };
 
   // 新しい発言が来たら常に最新へ。ストリーミング中も追従させる。
   useEffect(() => {
@@ -103,7 +120,17 @@ export default function CoachApp() {
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} gear={gear} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            gear={gear}
+            canSpeak={readAloud.supported}
+            speaking={readAloud.speakingId === message.id}
+            onToggleSpeak={() => readAloud.toggle(message.id, message.text)}
+            onOpenImage={(index) =>
+              setLightbox({ images: message.imagePreviews ?? [], index })
+            }
+          />
         ))}
 
         {streamingText !== null && (
@@ -160,6 +187,14 @@ export default function CoachApp() {
         />
       </footer>
 
+      {lightbox && lightbox.images.length > 0 && (
+        <ImageLightbox
+          images={lightbox.images}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+
       {dailyOpen && daily && (
         <DailySheet
           daily={daily}
@@ -198,6 +233,8 @@ export default function CoachApp() {
             setSheetOpen(false);
             setAuthOpen(true);
           }}
+          fontSize={fontSize}
+          onChangeFontSize={changeFontSize}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}

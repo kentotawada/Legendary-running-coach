@@ -23,6 +23,8 @@
   --good: #2f7d52;
   --good-soft: #e6f2ea;
   --radius: 18px;
+  /* 本文の大きさ。カルテの「文字の大きさ」から書き換える。 */
+  --chat-font-scale: 1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,6 +78,14 @@ body {
   -webkit-font-smoothing: antialiased;
   /* iOS でスクロールが body に伝播してアドレスバーが跳ねるのを防ぐ。 */
   overscroll-behavior-y: none;
+}
+
+/*
+  吹き出しの本文。中のカードや注記はこの値に対する em で書いてあるので、
+  倍率を変えると発言全体が同じ比率で拡大・縮小する。
+*/
+.chat-body {
+  font-size: calc(15px * var(--chat-font-scale, 1));
 }
 
 /* 入力欄が 16px 未満だと iOS Safari が自動でズームしてしまう。 */

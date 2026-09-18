@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { FONT_SIZE_BOOT_SCRIPT } from '@/lib/display';
 
 export const metadata: Metadata = {
   title: '伝説のランニングコーチ',
@@ -29,6 +30,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
+      <head>
+        {/*
+          文字サイズは描画の前に当てる。読み込んでから切り替えると、
+          大きい設定にしている人の画面が毎回一瞬だけ小さく見えてしまう。
+        */}
+        <script dangerouslySetInnerHTML={{ __html: FONT_SIZE_BOOT_SCRIPT }} />
+      </head>
       <body className="antialiased">{children}</body>
     </html>
   );
