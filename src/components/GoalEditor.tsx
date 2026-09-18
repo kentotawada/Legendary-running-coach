@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { GoalKind, RacePriority, RunnerProfile } from '@/lib/types';
 import { RACE_PRIORITY_HINT, RACE_PRIORITY_LABEL, daysUntil, racesOf } from '@/lib/races';
-import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID } from '@/lib/characters';
+import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID, GENDER_LABEL } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import {
   formatDuration,
@@ -354,6 +354,9 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
                 <span className="min-w-0 flex-1">
                   <span className={`block text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
                     {character.name}
+                    <span className="ml-1 align-middle text-[10px] font-normal text-muted">
+                      {GENDER_LABEL[character.gender]}
+                    </span>
                   </span>
                   <span className="block text-[11px] leading-snug text-muted">{character.tagline}</span>
                 </span>
