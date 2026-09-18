@@ -1,5 +1,6 @@
 import type { GearBlock, InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
 import { parseRichText } from '@/lib/richtext';
+import { stripToolTextForDisplay } from '@/lib/tool-text';
 import type { ResolvedGear } from '@/lib/gear';
 import { hasAffiliate } from '@/lib/gear';
 
@@ -201,7 +202,9 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
 
 /** コーチの発言を、記号ではなく構造として描く。 */
 export default function RichText({ text, gear = [] }: { text: string; gear?: ResolvedGear[] }) {
-  const blocks = parseRichText(text);
+  // モデルがツール呼び出しを本文に書いてしまった場合、
+  // 内部処理用の JSON がランナーの画面に出ないよう、描画の前に取り除く。
+  const blocks = parseRichText(stripToolTextForDisplay(text));
   return (
     <div className="space-y-2">
       {blocks.map((block, index) => (

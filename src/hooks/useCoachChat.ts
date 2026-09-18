@@ -210,13 +210,10 @@ export function useCoachChat(): CoachChat {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
           return;
         }
-        if (data.build && !data.build.apiKeyLooksValid) {
-          // 引用符や改行ごと貼り付けてしまう事故は、実際に呼ぶ前に気づけた方がいい。
-          setError(
-            'GEMINI_API_KEY の形が Google AI Studio のキー（AIza… で始まる文字列）と違います。' +
-              '引用符や改行が混ざっていないか確認してください。',
-          );
-        }
+        // キーの形式だけを理由に警告は出さない。
+        // 形式は提供側の都合で変わるため、動いているのに警告が出ると、
+        // 本当の問題があるかのように見えてしまう。
+        // 実際に無効なら、最初の対話で Gemini 側の理由が表示される。
         if (data.messages.length === 0) await turn('');
       } catch (e) {
         setReady(true);

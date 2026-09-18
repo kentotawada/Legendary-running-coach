@@ -10,7 +10,11 @@ export interface BuildInfo {
   thinkingLevel: string;
   /** キーが設定されているか。値そのものは絶対に返さない。 */
   hasApiKey: boolean;
-  /** キーの形が Google AI Studio のものらしいか。引用符や改行の混入を見つけるため。 */
+  /**
+   * キーが明らかに壊れていないか。
+   * 引用符や改行の混入、貼り付けの取りこぼしを見つけるための目安であって、
+   * 有効性の判定ではない。キーの形式は提供側の都合で変わり得る。
+   */
   apiKeyLooksValid: boolean;
   environment: string;
   /** 記録の保存先。supabase なら永続、file ならこのインスタンス限り。 */
@@ -40,7 +44,8 @@ export function getBuildInfo(): BuildInfo {
     model: cleanEnv(process.env.GEMINI_MODEL) || 'gemini-3-pro-preview',
     thinkingLevel: (cleanEnv(process.env.GEMINI_THINKING_LEVEL) || 'LOW').toUpperCase(),
     hasApiKey: key.length > 0,
-    apiKeyLooksValid: /^AIza[0-9A-Za-z_-]{30,}$/.test(key),
+    // 特定の接頭辞を求めない。空白混入と短すぎる値だけを弾く。
+    apiKeyLooksValid: key.length >= 20 && !/\s/.test(key),
     environment: cleanEnv(process.env.VERCEL_ENV) || process.env.NODE_ENV || 'development',
     // service_role キーが無いと読み書きできないので、保存先の判定はこれで行う。
     storage: supabaseUrl && supabaseServiceKey ? 'supabase' : 'file',
