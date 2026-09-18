@@ -253,3 +253,33 @@ describe('目標に合わせて基準が変わる', () => {
     expect(prompt).toContain('走行メニューは一切出さない');
   });
 });
+
+describe('ツール呼び出しの扱い', () => {
+  it('ツール名やJSONを本文に書かせない', () => {
+    const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
+
+    expect(prompt).toContain('ツールは必ずツール呼び出しとして実行すること');
+    expect(prompt).toContain('返答の本文に書いてはなりません');
+  });
+});
+
+describe('APIキーの形式チェック', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('接頭辞が違っても、まともな長さのキーなら警告しない', () => {
+    // 形式は提供側の都合で変わる。動いているキーに警告を出さないため。
+    process.env.GEMINI_API_KEY = 'ya29-some-other-shape-but-valid-key-0123456789';
+    expect(getBuildInfo().apiKeyLooksValid).toBe(true);
+  });
+
+  it('空白の混入と短すぎる値は見つける', () => {
+    process.env.GEMINI_API_KEY = 'AIza with space 0123456789012345678';
+    expect(getBuildInfo().apiKeyLooksValid).toBe(false);
+
+    process.env.GEMINI_API_KEY = 'short';
+    expect(getBuildInfo().apiKeyLooksValid).toBe(false);
+  });
+});

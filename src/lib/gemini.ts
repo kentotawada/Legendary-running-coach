@@ -10,6 +10,7 @@ import {
   mentionsDiscomfort,
 } from './safety';
 import { stripInlineData, trimHistory } from './store';
+import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
 
 const DEFAULT_MODEL = 'gemini-3-pro-preview';
@@ -227,6 +228,28 @@ async function generateStep(
   throw new CoachApiError('利用できるモデルがありませんでした。', 'no candidate model succeeded');
 }
 
+/**
+ * 履歴に残す parts から、本文だけを整えたものに差し替える。
+ * 思考の署名など、次のターンへ返す必要があるパートは残す。
+ */
+function cleanParts(parts: Part[], cleanedText: string): Part[] {
+  let replaced = false;
+  const next: Part[] = [];
+
+  for (const part of parts) {
+    const isVisibleText = typeof part.text === 'string' && !part.thought && !part.functionCall;
+    if (!isVisibleText) {
+      next.push(part);
+      continue;
+    }
+    if (replaced) continue;
+    replaced = true;
+    if (cleanedText) next.push({ ...part, text: cleanedText });
+  }
+
+  return next;
+}
+
 export interface CoachTurnInput {
   state: CoachState;
   /** ユーザーの発言。初回の呼びかけを生成する場合は内部プロンプトを渡す。 */
@@ -312,7 +335,17 @@ export async function runCoachTurn({
       break;
     }
 
-    const candidate = finalText + result.text;
+    // モデルがツール呼び出しを本文に書いてしまうことがある。
+    // 取り除くだけだと渡したはずのメニューが記録されずに消えるので、実行してから取り除く。
+    const recovered = extractTextToolCalls(result.text);
+    for (const call of recovered.calls) {
+      const outcome = executeTool(profile, call.name, call.args, now);
+      profile = outcome.profile;
+      usedTools.push(`${call.name}(本文から回収)`);
+    }
+
+    const stepText = recovered.calls.length > 0 || recovered.truncated ? recovered.cleaned : result.text;
+    const candidate = finalText + stepText;
 
     if (strict && containsRunningPrescription(candidate) && rewrites < MAX_REWRITES) {
       // 走行メニューが混ざっていた。この発言は画面に出さず、まるごと書き直させる。
@@ -322,7 +355,7 @@ export async function runCoachTurn({
       continue;
     }
 
-    history.push({ role: 'model', parts: result.parts });
+    history.push({ role: 'model', parts: cleanParts(result.parts, stepText) });
     finalText = candidate;
 
     // 慎重モードでは、ここまで一切流していない。検査を通った本文をまとめて届ける。
