@@ -3,14 +3,43 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCoachChat } from '@/hooks/useCoachChat';
 import MessageBubble from './MessageBubble';
-import Composer from './Composer';
+import Composer, { type ComposerApi } from './Composer';
 import QuickCheckIn from './QuickCheckIn';
 import ProfileSheet from './ProfileSheet';
+import IdeaSheet from './IdeaSheet';
+import DailyStrip from './DailyStrip';
+import DailySheet from './DailySheet';
+import AuthSheet from './AuthSheet';
 import PhaseBadge from './PhaseBadge';
+import CoachAvatar from './CoachAvatar';
+import { findCharacter } from '@/lib/characters';
 
 export default function CoachApp() {
-  const { messages, streamingText, profile, busy, ready, error, send, reset } = useCoachChat();
+  const {
+    messages,
+    streamingText,
+    profile,
+    busy,
+    ready,
+    error,
+    errorDetail,
+    build,
+    send,
+    reset,
+    reportError,
+    updateProfile,
+    savingProfile,
+    daily,
+    saveWeight,
+    savingWeight,
+    gear,
+    auth,
+  } = useCoachChat();
+  const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
@@ -39,15 +68,14 @@ export default function CoachApp() {
   }, [celebration]);
 
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
+  const character = findCharacter(profile?.characterId);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg text-fg">
       <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-elevated px-4 pb-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg" aria-hidden="true">
-          🏃
-        </div>
+        <CoachAvatar character={character} size={40} />
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-bold leading-tight">伝説のパーソナルコーチ</h1>
+          <h1 className="truncate text-[15px] font-bold leading-tight">コーチ {character.name}</h1>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             {profile && <PhaseBadge phase={profile.phase} />}
             <p className="truncate text-[12px] text-muted">今日のあなたに合わせて</p>
@@ -62,6 +90,8 @@ export default function CoachApp() {
         </button>
       </header>
 
+      {daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
+
       {activePains.length > 0 && (
         <div className="border-b border-line bg-warn-soft px-4 py-2.5 text-[13px] leading-relaxed text-warn">
           <strong className="font-semibold">いまは走らない期間です。</strong>{' '}
@@ -73,11 +103,15 @@ export default function CoachApp() {
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} gear={gear} />
         ))}
 
         {streamingText !== null && (
-          <MessageBubble message={{ id: 'streaming', role: 'coach', text: streamingText }} pending />
+          <MessageBubble
+            message={{ id: 'streaming', role: 'coach', text: streamingText }}
+            gear={gear}
+            pending
+          />
         )}
 
         {busy && streamingText === null && (
@@ -90,7 +124,15 @@ export default function CoachApp() {
 
         {error && (
           <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3 text-[13px] leading-relaxed text-warn">
-            {error}
+            <p>{error}</p>
+            {errorDetail && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[12px] opacity-80">エラーの詳細を表示</summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-sunken px-3 py-2 text-[11px] leading-relaxed text-fg">
+                  {errorDetail}
+                </pre>
+              </details>
+            )}
           </div>
         )}
 
@@ -104,12 +146,62 @@ export default function CoachApp() {
       )}
 
       <footer className="safe-bottom border-t border-line bg-elevated">
-        <QuickCheckIn onPick={(message) => void send(message)} disabled={busy || !ready} />
-        <Composer onSend={(text) => void send(text)} disabled={busy || !ready} />
+        <QuickCheckIn
+          onPick={(message) => void send(message)}
+          onPickImage={() => composerRef.current?.openPicker()}
+          onOpenIdeas={() => setIdeasOpen(true)}
+          disabled={busy || !ready}
+        />
+        <Composer
+          onSend={(text, images) => void send(text, images)}
+          onError={reportError}
+          apiRef={composerRef}
+          disabled={busy || !ready}
+        />
       </footer>
 
+      {dailyOpen && daily && (
+        <DailySheet
+          daily={daily}
+          saving={savingWeight}
+          onSaveWeight={(kg) => void saveWeight(kg)}
+          onClose={() => setDailyOpen(false)}
+        />
+      )}
+
+      {authOpen && (
+        <AuthSheet
+          auth={auth}
+          onClose={() => setAuthOpen(false)}
+          onSignedOut={() => window.location.reload()}
+        />
+      )}
+
+      {ideasOpen && (
+        <IdeaSheet
+          onPick={(question) => {
+            composerRef.current?.setText(question);
+            setIdeasOpen(false);
+          }}
+          onClose={() => setIdeasOpen(false)}
+        />
+      )}
+
       {sheetOpen && (
-        <ProfileSheet profile={profile} onClose={() => setSheetOpen(false)} onReset={() => void reset()} />
+        <ProfileSheet
+          profile={profile}
+          build={build}
+          saving={savingProfile}
+          signedInAs={auth.isAuthenticated ? (auth.email ?? 'ログイン済み') : undefined}
+          authAvailable={auth.available}
+          onOpenAuth={() => {
+            setSheetOpen(false);
+            setAuthOpen(true);
+          }}
+          onSave={(edit) => void updateProfile(edit)}
+          onClose={() => setSheetOpen(false)}
+          onReset={() => void reset()}
+        />
       )}
     </div>
   );

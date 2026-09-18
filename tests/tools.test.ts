@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { coachTools, executeTool } from '@/lib/tools';
-import { createEmptyProfile } from '@/lib/types';
+import { createDefaultProfile } from '@/lib/types';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
-const base = () => createEmptyProfile('u1', NOW.toISOString());
+const base = () => createDefaultProfile('u1', NOW.toISOString());
 
 describe('coachTools', () => {
   it('コーチが学習に使う道具が一式そろっている', () => {
     expect(coachTools.map((t) => t.name).sort()).toEqual([
       'log_activity',
       'log_condition',
+      'log_weight',
       'set_coaching_phase',
       'set_today_plan',
       'update_pain',
@@ -101,5 +102,94 @@ describe('executeTool', () => {
   it('知らないツール名でも例外を投げない', () => {
     const { result } = executeTool(base(), 'delete_everything', {}, NOW);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('練習データの記録', () => {
+  it('読み取った計測値をカルテに残す', () => {
+    const { profile } = executeTool(
+      base(),
+      'log_activity',
+      {
+        type: 'run',
+        session: '閾値走',
+        distanceKm: 16.1,
+        durationMin: 68,
+        source: 'screenshot',
+        metrics: {
+          avgPace: '4:14/km',
+          avgHr: 168,
+          maxHr: 181,
+          cadence: 183,
+          strideM: 1.29,
+          elevationGainM: 84,
+        },
+      },
+      NOW,
+    );
+
+    expect(profile.activities[0]).toMatchObject({
+      session: '閾値走',
+      source: 'screenshot',
+      metrics: { avgPace: '4:14/km', avgHr: 168, cadence: 183 },
+    });
+  });
+
+  it('心拍の基準値が無いまま心拍を記録したら、ゾーン評価を止める', () => {
+    const { result } = executeTool(base(), 'log_activity', { type: 'run', metrics: { avgHr: 168 } }, NOW);
+
+    expect(result.needsHrReference).toBe(true);
+    expect(String(result.message)).toContain('推測せずに基準値を尋ねる');
+  });
+
+  it('最大心拍が分かっていれば、評価を止めない', () => {
+    const withHr = executeTool(base(), 'update_runner_profile', { maxHr: 190 }, NOW).profile;
+    const { result } = executeTool(withHr, 'log_activity', { type: 'run', metrics: { avgHr: 168 } }, NOW);
+
+    expect(result.needsHrReference).toBe(false);
+  });
+
+  it('読み取れなかった項目は、空のまま残して埋めない', () => {
+    const { profile } = executeTool(
+      base(),
+      'log_activity',
+      { type: 'run', metrics: { avgPace: '4:14/km' } },
+      NOW,
+    );
+
+    expect(profile.activities[0].metrics).toMatchObject({ avgPace: '4:14/km' });
+    expect(profile.activities[0].metrics?.cadence).toBeUndefined();
+    expect(profile.activities[0].metrics?.avgHr).toBeUndefined();
+  });
+
+  it('計測値が何も無ければ metrics を作らない', () => {
+    const { profile } = executeTool(base(), 'log_activity', { type: 'rest' }, NOW);
+    expect(profile.activities[0].metrics).toBeUndefined();
+  });
+
+  it('心拍とLTHRと故障歴をプロフィールに記録できる', () => {
+    const { profile } = executeTool(
+      base(),
+      'update_runner_profile',
+      { maxHr: 190, restingHr: 44, lthr: 172, injuryHistory: ['腸脛靭帯炎（右膝）'] },
+      NOW,
+    );
+
+    expect(profile).toMatchObject({ maxHr: 190, restingHr: 44, lthr: 172 });
+    expect(profile.injuryHistory).toEqual(['腸脛靭帯炎（右膝）']);
+  });
+});
+
+describe('体重の記録', () => {
+  it('会話から聞いた体重を残す', () => {
+    const { profile, result } = executeTool(base(), 'log_weight', { weightKg: 61.42 }, NOW);
+
+    expect(profile.bodyWeightKg).toBe(61.4);
+    expect(String(result.message)).toContain('はかったこと自体を評価');
+  });
+
+  it('あり得ない値は受け取らない', () => {
+    expect(executeTool(base(), 'log_weight', { weightKg: 3 }, NOW).result.ok).toBe(false);
+    expect(executeTool(base(), 'log_weight', {}, NOW).result.ok).toBe(false);
   });
 });

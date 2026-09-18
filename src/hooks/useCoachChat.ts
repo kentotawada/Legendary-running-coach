@@ -2,13 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
+import type { BuildInfo } from '@/lib/build-info';
+import type { DailyStatus } from '@/lib/daily';
+import type { ResolvedGear } from '@/lib/gear';
+import type { AuthState } from '@/components/AuthSheet';
+import type { PreparedImage } from '@/lib/downscale';
+import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
+import type { ProfileEdit } from '@/components/GoalEditor';
 
 interface DoneEvent {
   type: 'done';
   profile: RunnerProfile;
   meta?: { usedTools: string[]; rewrites: number };
 }
-type StreamEvent = { type: 'delta'; text: string } | DoneEvent | { type: 'error'; message: string };
+type StreamEvent =
+  | { type: 'delta'; text: string }
+  | DoneEvent
+  | { type: 'error'; message: string; detail?: string };
 
 export interface CoachChat {
   messages: ChatMessage[];
@@ -17,8 +27,25 @@ export interface CoachChat {
   busy: boolean;
   ready: boolean;
   error: string | null;
-  send: (text: string) => Promise<void>;
+  /** 原因の切り分けに使う、サーバー側が受け取った生のエラー文。 */
+  errorDetail: string | null;
+  /** どのビルドを見ているか。古いデプロイを見続けている事故を切り分けるため。 */
+  build: BuildInfo | null;
+  send: (text: string, images?: PreparedImage[]) => Promise<void>;
   reset: () => Promise<void>;
+  /** カルテ画面からの設定変更。 */
+  updateProfile: (edit: ProfileEdit) => Promise<void>;
+  savingProfile: boolean;
+  /** 今日のスタンプと連続日数。 */
+  daily: DailyStatus | null;
+  /** 道具カードのカタログ。リンクはサーバーが組み立てたもの。 */
+  gear: ResolvedGear[];
+  /** ログイン状態。 */
+  auth: AuthState;
+  saveWeight: (weightKg: number) => Promise<void>;
+  savingWeight: boolean;
+  /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
+  reportError: (message: string) => void;
 }
 
 export function useCoachChat(): CoachChat {
@@ -28,6 +55,13 @@ export function useCoachChat(): CoachChat {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [build, setBuild] = useState<BuildInfo | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [daily, setDaily] = useState<DailyStatus | null>(null);
+  const [gear, setGear] = useState<ResolvedGear[]>([]);
+  const [auth, setAuth] = useState<AuthState>({ available: false, isAuthenticated: false });
+  const [savingWeight, setSavingWeight] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
 
@@ -49,6 +83,7 @@ export function useCoachChat(): CoachChat {
         setProfile(event.profile);
       } else {
         setError(event.message);
+        setErrorDetail(event.detail ?? null);
       }
     };
 
@@ -82,14 +117,19 @@ export function useCoachChat(): CoachChat {
   }, []);
 
   const turn = useCallback(
-    async (text: string) => {
+    async (text: string, images: PreparedImage[] = []) => {
       setBusy(true);
       setError(null);
+      setErrorDetail(null);
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({
+            message: text,
+            // preview は画面表示用。サーバーへは送らない。
+            images: images.map(({ mimeType, data }) => ({ mimeType, data })),
+          }),
         });
         if (!response.ok) {
           const detail = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -98,6 +138,7 @@ export function useCoachChat(): CoachChat {
         await consume(response);
       } catch (e) {
         setError(e instanceof Error ? e.message : '通信に失敗しました。');
+        setErrorDetail(null);
         setStreamingText(null);
       } finally {
         setBusy(false);
@@ -107,11 +148,20 @@ export function useCoachChat(): CoachChat {
   );
 
   const send = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || busy) return;
-      setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: trimmed }]);
-      await turn(trimmed);
+    async (text: string, images: PreparedImage[] = []) => {
+      // 画像だけ送られた時も、何を頼んだのかが吹き出しに残るようにする。
+      const trimmed = text.trim() || (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '');
+      if ((!trimmed && images.length === 0) || busy) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: 'user',
+          text: trimmed,
+          ...(images.length > 0 ? { imagePreviews: images.map((image) => image.preview) } : {}),
+        },
+      ]);
+      await turn(trimmed, images);
     },
     [busy, turn],
   );
@@ -124,22 +174,57 @@ export function useCoachChat(): CoachChat {
     (async () => {
       try {
         const response = await fetch('/api/chat');
+        if (!response.ok) {
+          // 保存層の設定ミスなど、サーバーが理由を返している場合はそれを見せる。
+          const failure = (await response.json().catch(() => null)) as
+            | { error?: string; hint?: string }
+            | null;
+          if (failure?.error) {
+            setErrorDetail(failure.hint ?? null);
+            throw new Error(failure.error);
+          }
+          throw new Error(`サーバーが応答しませんでした (${response.status})`);
+        }
+
         const data = (await response.json()) as {
           messages: ChatMessage[];
           profile: RunnerProfile;
           hasApiKey: boolean;
+          build?: BuildInfo;
+          gear?: ResolvedGear[];
+          auth?: AuthState;
         };
         setMessages(data.messages.map((m) => ({ ...m, id: `server-${m.id}` })));
+
+        // 「今日ここを開いた」を記録する。スタンプはこれが起点。
+        void fetch('/api/daily', { method: 'POST' })
+          .then((r) => r.json())
+          .then((d: { daily?: DailyStatus }) => d.daily && setDaily(d.daily))
+          .catch(() => undefined);
         setProfile(data.profile);
+        setBuild(data.build ?? null);
+        setGear(data.gear ?? []);
+        if (data.auth) setAuth(data.auth);
         setReady(true);
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
           return;
         }
+        if (data.build && !data.build.apiKeyLooksValid) {
+          // 引用符や改行ごと貼り付けてしまう事故は、実際に呼ぶ前に気づけた方がいい。
+          setError(
+            'GEMINI_API_KEY の形が Google AI Studio のキー（AIza… で始まる文字列）と違います。' +
+              '引用符や改行が混ざっていないか確認してください。',
+          );
+        }
         if (data.messages.length === 0) await turn('');
-      } catch {
+      } catch (e) {
         setReady(true);
-        setError('コーチに接続できませんでした。通信環境を確認して、もう一度開いてください。');
+        setError(
+          e instanceof Error && e.message
+            ? e.message
+            : 'コーチに接続できませんでした。通信環境を確認して、もう一度開いてください。',
+        );
       }
     })();
   }, [turn]);
@@ -150,8 +235,78 @@ export function useCoachChat(): CoachChat {
     setProfile(null);
     setStreamingText(null);
     setError(null);
+    setErrorDetail(null);
     await turn('');
   }, [turn]);
 
-  return { messages, streamingText, profile, busy, ready, error, send, reset };
+  const updateProfile = useCallback(async (edit: ProfileEdit) => {
+    setSavingProfile(true);
+    setError(null);
+    setErrorDetail(null);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(edit),
+      });
+      const data = (await response.json()) as { profile?: RunnerProfile; error?: string };
+      if (!response.ok || !data.profile) {
+        throw new Error(data.error ?? '設定を保存できませんでした。');
+      }
+      setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '設定を保存できませんでした。');
+    } finally {
+      setSavingProfile(false);
+    }
+  }, []);
+
+  const saveWeight = useCallback(async (weightKg: number) => {
+    setSavingWeight(true);
+    try {
+      const response = await fetch('/api/daily', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weightKg }),
+      });
+      const data = (await response.json()) as {
+        daily?: DailyStatus;
+        profile?: RunnerProfile;
+        error?: string;
+      };
+      if (!response.ok || !data.daily) throw new Error(data.error ?? '体重を記録できませんでした。');
+      setDaily(data.daily);
+      if (data.profile) setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '体重を記録できませんでした。');
+    } finally {
+      setSavingWeight(false);
+    }
+  }, []);
+
+  const reportError = useCallback((message: string) => {
+    setError(message);
+    setErrorDetail(null);
+  }, []);
+
+  return {
+    messages,
+    streamingText,
+    profile,
+    busy,
+    ready,
+    error,
+    errorDetail,
+    build,
+    send,
+    reset,
+    reportError,
+    updateProfile,
+    savingProfile,
+    daily,
+    gear,
+    auth,
+    saveWeight,
+    savingWeight,
+  };
 }

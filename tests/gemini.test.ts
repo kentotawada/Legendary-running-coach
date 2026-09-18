@@ -9,8 +9,8 @@ vi.mock('@google/genai', () => ({
   },
 }));
 
-import { runCoachTurn } from '@/lib/gemini';
-import { createEmptyProfile } from '@/lib/types';
+import { CoachApiError, describeGeminiError, runCoachTurn } from '@/lib/gemini';
+import { createDefaultProfile } from '@/lib/types';
 import { upsertPain } from '@/lib/profile';
 import type { CoachState } from '@/lib/types';
 
@@ -34,7 +34,7 @@ function queueResponses(...responses: ReturnType<typeof chunksOf>[]) {
   });
 }
 
-function stateOf(profile = createEmptyProfile('u1', NOW.toISOString())): CoachState {
+function stateOf(profile = createDefaultProfile('u1', NOW.toISOString())): CoachState {
   return { profile, history: [] };
 }
 
@@ -88,7 +88,7 @@ describe('runCoachTurn', () => {
   it('痛みがある時は、検査を通すまで一文字も画面に流さない', async () => {
     queueResponses(chunksOf([{ text: '無理のない範囲で、体幹を10分だけやってみませんか。' }]));
     const deltas: string[] = [];
-    const hurt = upsertPain(createEmptyProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
+    const hurt = upsertPain(createDefaultProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
 
     const result = await runCoachTurn({
       state: stateOf(hurt),
@@ -108,7 +108,7 @@ describe('runCoachTurn', () => {
       chunksOf([{ text: '今は走らず、痛みの出ない範囲で体幹を整えましょう。' }]),
     );
     const deltas: string[] = [];
-    const hurt = upsertPain(createEmptyProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
+    const hurt = upsertPain(createDefaultProfile('u1', NOW.toISOString()), { site: '右膝', severity: 3 }, NOW);
 
     const result = await runCoachTurn({
       state: stateOf(hurt),
@@ -156,5 +156,178 @@ describe('runCoachTurn', () => {
     await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
       /GEMINI_API_KEY/,
     );
+  });
+});
+
+function apiError(message: string, status?: number): Error {
+  return Object.assign(new Error(message), status === undefined ? {} : { status });
+}
+
+describe('describeGeminiError', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+  });
+
+  it('キーが無効なら、キーを作り直せと言う', () => {
+    const error = describeGeminiError(apiError('API key not valid. Please pass a valid API key.', 400), 'm');
+    expect(error.message).toContain('GEMINI_API_KEY が無効です');
+  });
+
+  it('権限エラーなら、キーの制限と API の有効化を疑わせる', () => {
+    const error = describeGeminiError(apiError('PERMISSION_DENIED', 403), 'm');
+    expect(error.message).toContain('制限');
+  });
+
+  it('モデルが無ければ、差し替え先を具体的に示す', () => {
+    const error = describeGeminiError(apiError('models/foo is not found', 404), 'foo');
+    expect(error.message).toContain('モデル「foo」');
+    expect(error.message).toContain('GEMINI_MODEL');
+  });
+
+  it('レート制限とサーバー側の不調を区別する', () => {
+    expect(describeGeminiError(apiError('RESOURCE_EXHAUSTED', 429), 'm').message).toContain('利用上限');
+    expect(describeGeminiError(apiError('internal', 503), 'm').message).toContain('一時的な問題');
+  });
+
+  it('メッセージに API キーが混ざっていても外へ出さない', () => {
+    const error = describeGeminiError(apiError('bad key AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q'), 'm');
+    expect(error.detail).not.toContain('AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
+    expect(error.detail).toContain('AIza***');
+  });
+
+  it('翻訳済みのエラーは二重に包まない', () => {
+    const original = new CoachApiError('もう訳してある', 'detail');
+    expect(describeGeminiError(original, 'm')).toBe(original);
+  });
+});
+
+describe('モデルの退避', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    delete process.env.GEMINI_MODEL;
+    generateContentStream.mockReset();
+  });
+
+  it('既定のモデルが使えなければ、退避先のモデルで続行する', async () => {
+    generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
+      if (model === 'gemini-3-pro-preview') throw apiError('models/gemini-3-pro-preview is not found', 404);
+      return (async function* stream() {
+        for (const chunk of chunksOf([{ text: 'こんにちは！' }])) yield chunk;
+      })();
+    });
+
+    const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+
+    expect(result.text).toBe('こんにちは！');
+    expect(generateContentStream.mock.calls.map((c) => c[0].model)).toEqual([
+      'gemini-3-pro-preview',
+      'gemini-3-flash-preview',
+    ]);
+  });
+
+  it('上位モデルの割り当てが無い(429)時も、軽いモデルで一度試す', async () => {
+    generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
+      if (model === 'gemini-3-pro-preview') throw apiError('RESOURCE_EXHAUSTED', 429);
+      return (async function* stream() {
+        for (const chunk of chunksOf([{ text: 'いけました' }])) yield chunk;
+      })();
+    });
+
+    const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+    expect(result.text).toBe('いけました');
+  });
+
+  it('退避先も駄目なら、最後のエラーの理由をそのまま伝える', async () => {
+    generateContentStream.mockImplementation(async () => {
+      throw apiError('RESOURCE_EXHAUSTED', 429);
+    });
+
+    await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
+      /利用上限/,
+    );
+    expect(generateContentStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('モデルの問題でなければ退避せず、理由を持って失敗する', async () => {
+    generateContentStream.mockImplementation(async () => {
+      throw apiError('API key not valid', 400);
+    });
+
+    await expect(runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW })).rejects.toThrow(
+      /GEMINI_API_KEY が無効です/,
+    );
+    expect(generateContentStream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('画像つきのターン', () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    delete process.env.GEMINI_MODEL;
+    generateContentStream.mockReset();
+  });
+
+  it('画像をテキストより先に置いてモデルへ渡す', async () => {
+    queueResponses(chunksOf([{ text: '16.1km、平均4:14。狙いどおりです。' }]));
+
+    await runCoachTurn({
+      state: stateOf(),
+      userText: '今日の閾値走です',
+      images: [{ mimeType: 'image/jpeg', data: 'BASE64DATA' }],
+      now: NOW,
+    });
+
+    // contents はループ中に追記される同じ配列なので、最初のユーザー発言を直接見る。
+    const sent = generateContentStream.mock.calls[0][0].contents;
+    const parts = sent[0].parts;
+    expect(parts[0].inlineData).toMatchObject({ mimeType: 'image/jpeg', data: 'BASE64DATA' });
+    expect(parts[1].text).toBe('今日の閾値走です');
+  });
+
+  it('保存する履歴に画像データを残さない', async () => {
+    queueResponses(chunksOf([{ text: '読み取りました。' }]));
+
+    const result = await runCoachTurn({
+      state: stateOf(),
+      userText: '見てください',
+      images: [{ mimeType: 'image/jpeg', data: 'SHOULDNOTPERSIST' }],
+      now: NOW,
+    });
+
+    expect(JSON.stringify(result.state.history)).not.toContain('SHOULDNOTPERSIST');
+    expect(JSON.stringify(result.state.history)).toContain('画像が1枚');
+  });
+
+  it('画像から読み取った値は、ツール経由でカルテに入る', async () => {
+    queueResponses(
+      chunksOf([
+        {
+          functionCall: {
+            name: 'log_activity',
+            args: {
+              type: 'run',
+              session: '閾値走',
+              distanceKm: 16.1,
+              source: 'screenshot',
+              metrics: { avgPace: '4:14/km', avgHr: 168, cadence: 183 },
+            },
+          },
+        },
+      ]),
+      chunksOf([{ text: '平均4:14でこの心拍なら、閾値として成立しています。' }]),
+    );
+
+    const result = await runCoachTurn({
+      state: stateOf(),
+      userText: '',
+      images: [{ mimeType: 'image/jpeg', data: 'X' }],
+      now: NOW,
+    });
+
+    expect(result.state.profile.activities[0]).toMatchObject({
+      session: '閾値走',
+      source: 'screenshot',
+      metrics: { avgPace: '4:14/km', cadence: 183 },
+    });
   });
 });
