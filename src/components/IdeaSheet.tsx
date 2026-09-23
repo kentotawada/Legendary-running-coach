@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IDEA_CATEGORIES } from '@/lib/suggestions';
+import Sheet from './Sheet';
 
 interface Props {
   onPick: (question: string) => void;
@@ -17,28 +18,9 @@ export default function IdeaSheet({ onPick, onClose }: Props) {
   const [openId, setOpenId] = useState<string>(IDEA_CATEGORIES[0].id);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/45"
-      role="dialog"
-      aria-modal="true"
-      aria-label="相談アイデア"
-    >
-      <button type="button" className="flex-1" aria-label="閉じる" onClick={onClose} />
+    <Sheet label="相談アイデア" title="コーチに聞いてみる" onClose={onClose}>
+      <p className="-mt-1 mb-3 text-[12px] leading-relaxed text-muted">タップすると入力欄に入ります。言葉を足してから送ってください。</p>
 
-      <div className="safe-bottom max-h-[82dvh] animate-rise overflow-y-auto rounded-t-3xl border-t border-line bg-elevated">
-        <div className="sticky top-0 border-b border-line bg-elevated px-5 py-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[16px] font-bold">コーチに聞いてみる</h2>
-            <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
-              閉じる
-            </button>
-          </div>
-          <p className="mt-0.5 text-[12px] text-muted">
-            タップすると入力欄に入ります。言葉を足してから送ってください。
-          </p>
-        </div>
-
-        <div className="px-5 pb-8 pt-2">
           {IDEA_CATEGORIES.map((category) => {
             const open = openId === category.id;
             return (
@@ -79,8 +61,6 @@ export default function IdeaSheet({ onPick, onClose }: Props) {
               </section>
             );
           })}
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

@@ -6,45 +6,43 @@
   色・角丸・余白はすべてここに集約している。
 */
 :root {
-  --bg: #f7f5f2;
+  --bg: #fcfcfb;
   --bg-elevated: #ffffff;
-  --bg-sunken: #efece7;
-  --fg: #1c1a17;
-  --fg-muted: #6b6560;
-  --border: #e2ddd6;
-  --accent: #d95f27;
-  --accent-soft: #fbeade;
+  --bg-sunken: #f2f2f0;
+  --fg: #16161a;
+  --fg-muted: #71717a;
+  --border: #e7e7e3;
+  --accent: #cf4d18;
+  --accent-soft: #fdf0e8;
   --accent-fg: #ffffff;
-  --coach-bubble: #ffffff;
-  --user-bubble: #2a2724;
-  --user-bubble-fg: #f7f5f2;
+  --user-bubble: #f2f2f0;
+  --user-bubble-fg: #16161a;
   --warn: #b3541e;
-  --warn-soft: #fdf0e4;
+  --warn-soft: #fdf1e6;
   --good: #2f7d52;
-  --good-soft: #e6f2ea;
-  --radius: 18px;
+  --good-soft: #e9f3ed;
+  --radius: 16px;
   /* 本文の大きさ。カルテの「文字の大きさ」から書き換える。 */
   --chat-font-scale: 1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14120f;
-    --bg-elevated: #1f1c18;
-    --bg-sunken: #100e0c;
-    --fg: #f2efe9;
-    --fg-muted: #a09a91;
-    --border: #322d27;
-    --accent: #f07a3c;
-    --accent-soft: #3a2116;
+    --bg: #0f0f11;
+    --bg-elevated: #17171a;
+    --bg-sunken: #1d1d21;
+    --fg: #f4f4f5;
+    --fg-muted: #a1a1aa;
+    --border: #2a2a30;
+    --accent: #ff7a45;
+    --accent-soft: #2b1711;
     --accent-fg: #14120f;
-    --coach-bubble: #221e1a;
-    --user-bubble: #f07a3c;
-    --user-bubble-fg: #14120f;
+    --user-bubble: #1d1d21;
+    --user-bubble-fg: #f4f4f5;
     --warn: #f0a36c;
-    --warn-soft: #3a2415;
+    --warn-soft: #33210f;
     --good: #7cc79b;
-    --good-soft: #17301f;
+    --good-soft: #162c1e;
   }
 }
 
@@ -71,6 +69,7 @@ body {
 
 body {
   background: var(--bg);
+  letter-spacing: 0.01em;
   color: var(--fg);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
@@ -144,4 +143,32 @@ select {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   -webkit-overflow-scrolling: touch;
+}
+
+/* 下から出るシート。 */
+@keyframes coach-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sheet {
+  animation: coach-sheet 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet {
+    animation: none;
+  }
+}
+
+/* 横に流す画像。端でぴたりと止める。 */
+.scroll-area::-webkit-scrollbar {
+  height: 0;
+  width: 0;
 }

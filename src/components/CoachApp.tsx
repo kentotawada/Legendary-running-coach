@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useCoachChat } from '@/hooks/useCoachChat';
-import MessageBubble from './MessageBubble';
+import MessageItem from './MessageItem';
+import type { Feedback } from './MessageActions';
 import Composer, { type ComposerApi } from './Composer';
-import QuickCheckIn from './QuickCheckIn';
 import ProfileSheet from './ProfileSheet';
+import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
 import AuthSheet from './AuthSheet';
-import PhaseBadge from './PhaseBadge';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
@@ -28,6 +28,9 @@ export default function CoachApp() {
     errorDetail,
     build,
     send,
+    resend,
+    canResend,
+    regenerate,
     reset,
     reportError,
     updateProfile,
@@ -40,17 +43,19 @@ export default function CoachApp() {
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [coachSheetOpen, setCoachSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [fontSize, setFontSize] = useState<FontSizeId>('medium');
+  /** 返答への評価。端末を閉じるまでの記録で、コーチ側には送らない。 */
+  const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const readAloud = useReadAloud();
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
 
-  // 文字サイズはこの端末の設定。描画前に当てた値を、画面の状態にも取り込む。
   useEffect(() => {
     setFontSize(loadFontSize());
   }, []);
@@ -85,23 +90,31 @@ export default function CoachApp() {
   }, [celebration]);
 
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
-  const character = findCharacter(profile?.characterId);
+  const coach = findCharacter(profile?.characterId);
+  const lastCoachId = [...messages].reverse().find((m) => m.role === 'coach')?.id;
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg text-fg">
-      <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-elevated px-4 pb-3">
-        <CoachAvatar character={character} size={40} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-bold leading-tight">コーチ {character.name}</h1>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-            {profile && <PhaseBadge phase={profile.phase} />}
-            <p className="truncate text-[12px] text-muted">今日のあなたに合わせて</p>
-          </div>
-        </div>
+      <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-bg px-4 pb-3">
+        <button
+          type="button"
+          onClick={() => setCoachSheetOpen(true)}
+          aria-label={`${coach.name} のプロフィールを開く`}
+          className="shrink-0 transition active:scale-95"
+        >
+          <CoachAvatar character={coach} size={36} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setCoachSheetOpen(true)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <h1 className="truncate text-[16px] font-bold tracking-tight">{coach.name}</h1>
+        </button>
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
+          className="shrink-0 rounded-full border border-line px-3.5 py-2 text-[12px] font-medium"
         >
           カルテ
         </button>
@@ -116,42 +129,56 @@ export default function CoachApp() {
         </div>
       )}
 
-      <main className="scroll-area flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <main className="scroll-area flex-1 space-y-6 overflow-y-auto px-4 py-5">
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
         {messages.map((message) => (
-          <MessageBubble
+          <MessageItem
             key={message.id}
             message={message}
+            coach={coach}
             gear={gear}
+            busy={busy}
             canSpeak={readAloud.supported}
             speaking={readAloud.speakingId === message.id}
             onToggleSpeak={() => readAloud.toggle(message.id, message.text)}
-            onOpenImage={(index) =>
-              setLightbox({ images: message.imagePreviews ?? [], index })
-            }
+            feedback={feedback[message.id] ?? null}
+            onFeedback={(value) => setFeedback((prev) => ({ ...prev, [message.id]: value }))}
+            onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
+            onOpenImage={(index) => setLightbox({ images: message.imagePreviews ?? [], index })}
+            failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
           />
         ))}
 
         {streamingText !== null && (
-          <MessageBubble
+          <MessageItem
             message={{ id: 'streaming', role: 'coach', text: streamingText }}
+            coach={coach}
             gear={gear}
             pending
           />
         )}
 
         {busy && streamingText === null && (
-          <div className="flex justify-start">
-            <div className="rounded-[var(--radius)] rounded-bl-md border border-line bg-[var(--coach-bubble)] px-4 py-3">
-              <span className="animate-blink text-[13px] text-muted">考えています…</span>
-            </div>
+          <div className="flex items-center gap-2 text-[13px] text-muted">
+            <CoachAvatar character={coach} size={24} />
+            <span className="animate-blink">考えています…</span>
           </div>
         )}
 
         {error && (
-          <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3 text-[13px] leading-relaxed text-warn">
+          <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3.5 text-[13px] leading-relaxed text-warn">
             <p>{error}</p>
+            {canResend && (
+              <button
+                type="button"
+                onClick={() => void resend()}
+                disabled={busy}
+                className="mt-2.5 rounded-full bg-[color:var(--warn)] px-4 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+              >
+                同じ内容をもう一度送る
+              </button>
+            )}
             {errorDetail && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-[12px] opacity-80">エラーの詳細を表示</summary>
@@ -168,20 +195,15 @@ export default function CoachApp() {
 
       {celebration && (
         <div className="mx-4 mb-2 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
-          🎉 {celebration}
+          {celebration}
         </div>
       )}
 
-      <footer className="safe-bottom border-t border-line bg-elevated">
-        <QuickCheckIn
-          onPick={(message) => void send(message)}
-          onPickImage={() => composerRef.current?.openPicker()}
-          onOpenIdeas={() => setIdeasOpen(true)}
-          disabled={busy || !ready}
-        />
+      <footer className="safe-bottom border-t border-line bg-bg">
         <Composer
           onSend={(text, images) => void send(text, images)}
           onError={reportError}
+          onOpenIdeas={() => setIdeasOpen(true)}
           apiRef={composerRef}
           disabled={busy || !ready}
         />
@@ -192,6 +214,18 @@ export default function CoachApp() {
           images={lightbox.images}
           startIndex={lightbox.index}
           onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {coachSheetOpen && (
+        <CoachProfileSheet
+          currentId={profile?.characterId}
+          saving={savingProfile}
+          onSelect={(characterId) => {
+            void updateProfile({ characterId });
+            setCoachSheetOpen(false);
+          }}
+          onClose={() => setCoachSheetOpen(false)}
         />
       )}
 

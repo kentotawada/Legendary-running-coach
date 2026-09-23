@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Sheet from './Sheet';
 
 export interface AuthState {
   /** Supabase が設定されているか。未設定ならログイン機能そのものが出ない。 */
@@ -48,23 +49,8 @@ export default function AuthSheet({ auth, onClose, onSignedOut }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/45"
-      role="dialog"
-      aria-modal="true"
-      aria-label="アカウント"
-    >
-      <button type="button" className="flex-1" aria-label="閉じる" onClick={onClose} />
+    <Sheet label="アカウント" title="アカウント" onClose={onClose}>
 
-      <div className="safe-bottom max-h-[82dvh] animate-rise overflow-y-auto rounded-t-3xl border-t border-line bg-elevated">
-        <div className="sticky top-0 flex items-center justify-between border-b border-line bg-elevated px-5 py-4">
-          <h2 className="text-[16px] font-bold">アカウント</h2>
-          <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
-            閉じる
-          </button>
-        </div>
-
-        <div className="px-5 pb-8 pt-4">
           {!auth.available ? (
             <p className="text-[13px] leading-relaxed text-muted">
               ログイン機能は設定されていません。現在の記録はこの端末にのみ保存されています。
@@ -153,8 +139,6 @@ export default function AuthSheet({ auth, onClose, onSignedOut }: Props) {
               {error && <p className="mt-3 text-[13px] leading-relaxed text-warn">{error}</p>}
             </>
           )}
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { DailyStatus } from '@/lib/daily';
 import { MILESTONES } from '@/lib/daily';
+import Sheet from './Sheet';
 
 interface Props {
   daily: DailyStatus;
@@ -23,23 +24,8 @@ export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Pro
   const next = nextMilestone(daily.streakDays);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/45"
-      role="dialog"
-      aria-modal="true"
-      aria-label="今日のスタンプ"
-    >
-      <button type="button" className="flex-1" aria-label="閉じる" onClick={onClose} />
+    <Sheet label="今日のスタンプ" title="今日のスタンプ" onClose={onClose}>
 
-      <div className="safe-bottom max-h-[82dvh] animate-rise overflow-y-auto rounded-t-3xl border-t border-line bg-elevated">
-        <div className="sticky top-0 flex items-center justify-between border-b border-line bg-elevated px-5 py-4">
-          <h2 className="text-[16px] font-bold">今日のスタンプ</h2>
-          <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
-            閉じる
-          </button>
-        </div>
-
-        <div className="px-5 pb-8 pt-3">
           {daily.milestone && (
             <div className="mb-3 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
               🎉 <strong className="font-bold">{daily.milestone}日連続です。</strong>{' '}
@@ -111,8 +97,6 @@ export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Pro
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

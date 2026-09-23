@@ -8,6 +8,11 @@ import type { ResolvedGear } from '@/lib/gear';
 import type { AuthState } from '@/components/AuthSheet';
 import type { PreparedImage } from '@/lib/downscale';
 import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
+import {
+  TURN_TIMEOUT_MS,
+  describeHttpFailure,
+  describeStreamFailure,
+} from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
 
 interface DoneEvent {
@@ -18,6 +23,7 @@ interface DoneEvent {
 type StreamEvent =
   | { type: 'delta'; text: string }
   | DoneEvent
+  | { type: 'ping' }
   | { type: 'error'; message: string; detail?: string };
 
 export interface CoachChat {
@@ -32,9 +38,15 @@ export interface CoachChat {
   /** どのビルドを見ているか。古いデプロイを見続けている事故を切り分けるため。 */
   build: BuildInfo | null;
   send: (text: string, images?: PreparedImage[]) => Promise<void>;
+  /** 直前に失敗した送信を、書き直さずにもう一度送る。 */
+  resend: () => Promise<void>;
+  /** 送り直す価値のある失敗が残っているか。 */
+  canResend: boolean;
+  /** コーチの返答をもう一度作り直す。 */
+  regenerate: () => Promise<void>;
   reset: () => Promise<void>;
-  /** カルテ画面からの設定変更。 */
-  updateProfile: (edit: ProfileEdit) => Promise<void>;
+  /** カルテ画面からの設定変更。変える項目だけを渡してよい。 */
+  updateProfile: (edit: Partial<ProfileEdit>) => Promise<void>;
   savingProfile: boolean;
   /** 今日のスタンプと連続日数。 */
   daily: DailyStatus | null;
@@ -62,8 +74,11 @@ export function useCoachChat(): CoachChat {
   const [gear, setGear] = useState<ResolvedGear[]>([]);
   const [auth, setAuth] = useState<AuthState>({ available: false, isAuthenticated: false });
   const [savingWeight, setSavingWeight] = useState(false);
+  const [canResend, setCanResend] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
+  /** 失敗した時に備えて、送った中身（画像を含む）をそのまま持っておく。 */
+  const lastAttempt = useRef<{ text: string; images: PreparedImage[] } | null>(null);
 
   const nextId = () => `local-${(counter.current += 1)}`;
 
@@ -81,10 +96,14 @@ export function useCoachChat(): CoachChat {
         setStreamingText(text);
       } else if (event.type === 'done') {
         setProfile(event.profile);
-      } else {
+      } else if (event.type === 'error') {
         setError(event.message);
         setErrorDetail(event.detail ?? null);
+        // サーバーが理由を返してきた失敗も、送り直せば通ることがある。
+        setCanResend(true);
       }
+      // ping など、知らない種類の行は黙って読み飛ばす。
+      // 「知らない＝エラー」にすると、後から行を足した時に画面が壊れる。
     };
 
     for (;;) {
@@ -117,30 +136,51 @@ export function useCoachChat(): CoachChat {
   }, []);
 
   const turn = useCallback(
-    async (text: string, images: PreparedImage[] = []) => {
+    async (text: string, images: PreparedImage[] = [], mode: 'send' | 'regenerate' = 'send') => {
       setBusy(true);
       setError(null);
       setErrorDetail(null);
+      setCanResend(false);
+      if (mode === 'send') lastAttempt.current = { text, images };
+
+      // 応答が返らないまま固まり続けないよう、こちらからも打ち切る。
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), TURN_TIMEOUT_MS);
+
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abort.signal,
           body: JSON.stringify({
             message: text,
+            regenerate: mode === 'regenerate',
             // preview は画面表示用。サーバーへは送らない。
             images: images.map(({ mimeType, data }) => ({ mimeType, data })),
           }),
         });
+
         if (!response.ok) {
-          const detail = (await response.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(detail?.error ?? '通信に失敗しました。');
+          // ここに来るのは実行基盤が返した応答で、うちの JSON とは限らない。
+          // 本文をそのまま読んで、状態番号ごと画面に残す。
+          const body = await response.text().catch(() => '');
+          const failure = describeHttpFailure(response.status, response.statusText, body);
+          setError(failure.message);
+          setErrorDetail(failure.detail);
+          setCanResend(failure.retryable);
+          setStreamingText(null);
+          return;
         }
+
         await consume(response);
       } catch (e) {
-        setError(e instanceof Error ? e.message : '通信に失敗しました。');
-        setErrorDetail(null);
+        const failure = describeStreamFailure(e);
+        setError(failure.message);
+        setErrorDetail(failure.detail);
+        setCanResend(failure.retryable);
         setStreamingText(null);
       } finally {
+        clearTimeout(timer);
         setBusy(false);
       }
     },
@@ -165,6 +205,28 @@ export function useCoachChat(): CoachChat {
     },
     [busy, turn],
   );
+
+  /**
+   * 失敗した送信をもう一度。
+   * 長い練習報告を書き直させるのは、それだけで続ける気持ちを折る。
+   * 画像も本文もそのまま持っているので、同じ中身をそのまま送り直す。
+   */
+  const resend = useCallback(async () => {
+    const attempt = lastAttempt.current;
+    if (!attempt || busy) return;
+    await turn(attempt.text, attempt.images);
+  }, [busy, turn]);
+
+  /** 返答が的外れだった時に、同じ問いかけから作り直す。 */
+  const regenerate = useCallback(async () => {
+    if (busy) return;
+    // 画面からも直前の返答を外す。作り直した方だけが残るようにする。
+    setMessages((prev) => {
+      const lastCoach = [...prev].reverse().find((m) => m.role === 'coach');
+      return lastCoach ? prev.filter((m) => m.id !== lastCoach.id) : prev;
+    });
+    await turn('', [], 'regenerate');
+  }, [busy, turn]);
 
   // 初回ロード: これまでの会話を復元し、まだ何も無ければコーチから声をかける。
   useEffect(() => {
@@ -236,7 +298,7 @@ export function useCoachChat(): CoachChat {
     await turn('');
   }, [turn]);
 
-  const updateProfile = useCallback(async (edit: ProfileEdit) => {
+  const updateProfile = useCallback(async (edit: Partial<ProfileEdit>) => {
     setSavingProfile(true);
     setError(null);
     setErrorDetail(null);
@@ -296,6 +358,9 @@ export function useCoachChat(): CoachChat {
     errorDetail,
     build,
     send,
+    resend,
+    canResend,
+    regenerate,
     reset,
     reportError,
     updateProfile,
