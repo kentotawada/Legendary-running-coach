@@ -9,11 +9,20 @@ import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
 import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { StorageError, storageErrorResponse } from '@/lib/storage-error';
+import { rewindToLastUserTurn } from '@/lib/history';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-// 思考ありのモデルはひと呼吸置くことがある。既定の短い上限で切られないようにする。
-export const maxDuration = 60;
+/**
+ * 画像を何枚も読み取り、道具を呼び、必要なら書き直す。
+ * これを60秒に収めようとすると、スクリーンショットを数枚送った時に
+ * 実行基盤が途中で関数を打ち切り、画面には「通信に失敗しました」だけが残る。
+ * 契約プランの上限を超える値は基盤側で丸められる。
+ */
+export const maxDuration = 300;
+
+/** 沈黙が続くと途中の機器に切られる。生存確認を流し続ける間隔。 */
+const HEARTBEAT_MS = 10_000;
 
 /** 画面の初期表示用。これまでの会話とカルテを返す。 */
 export async function GET(request: NextRequest) {
@@ -48,6 +57,8 @@ export async function GET(request: NextRequest) {
 interface ChatRequestBody {
   message?: string;
   images?: unknown;
+  /** 直前の返答を作り直す。同じ問いかけをもう一度投げ直す。 */
+  regenerate?: unknown;
 }
 
 /**
@@ -76,9 +87,21 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let closed = false;
       const send = (payload: unknown) => {
+        if (closed) return;
         controller.enqueue(encoder.encode(`${JSON.stringify(payload)}\n`));
       };
+      const finish = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        controller.close();
+      };
+
+      // 最初の一文字が出るまで数十秒かかることがある。
+      // その間なにも流れないと、途中の機器や携帯回線に黙って切られる。
+      const heartbeat = setInterval(() => send({ type: 'ping' }), HEARTBEAT_MS);
 
       // 記録の読み書きは、対話そのものとは別の失敗として扱う。
       // まとめて「接続できませんでした」にすると、原因の見当がつかなくなる。
@@ -100,20 +123,32 @@ export async function POST(request: NextRequest) {
         state = await loadForSession(session);
       } catch (error) {
         sendStorageFailure(error, 'これまでの記録を読み込めませんでした');
-        controller.close();
+        finish();
         return;
       }
 
       const message = (body.message ?? '').trim();
       // 初回だけ、こちらから声をかける。
-      const userText =
+      let userText =
         message ||
         (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '') ||
         (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
 
+      // 作り直しは、直前の返答を無かったことにして同じ問いかけを投げ直す。
+      if (body.regenerate === true) {
+        const rewound = rewindToLastUserTurn(state.history);
+        if (!rewound) {
+          send({ type: 'error', message: '作り直せる返答がありません。' });
+          finish();
+          return;
+        }
+        state = { ...state, history: rewound.history };
+        userText = rewound.userText;
+      }
+
       if (!userText) {
         send({ type: 'error', message: 'メッセージが空です。' });
-        controller.close();
+        finish();
         return;
       }
 
@@ -142,7 +177,7 @@ export async function POST(request: NextRequest) {
             detail: (raw.trim() || '詳細不明のエラー').slice(0, 500),
           });
         }
-        controller.close();
+        finish();
         return;
       }
 
@@ -162,7 +197,7 @@ export async function POST(request: NextRequest) {
         saved,
         meta: { usedTools: result.usedTools, rewrites: result.rewrites },
       });
-      controller.close();
+      finish();
     },
   });
 

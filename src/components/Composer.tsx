@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { prepareImages, type PreparedImage } from '@/lib/downscale';
 import { MAX_IMAGES, MAX_TOTAL_BYTES } from '@/lib/images';
 import { useVoiceInput } from '@/hooks/useSpeech';
@@ -15,18 +15,21 @@ export interface ComposerApi {
 interface Props {
   onSend: (text: string, images: PreparedImage[]) => void;
   onError: (message: string) => void;
+  /** 何を聞けばいいか分からない時の相談例。 */
+  onOpenIdeas?: () => void;
   apiRef?: { current: ComposerApi | null };
   disabled?: boolean;
 }
 
 const MAX_HEIGHT = 140;
 
-export default function Composer({ onSend, onError, apiRef, disabled = false }: Props) {
+export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disabled = false }: Props) {
   const [value, setValue] = useState('');
   // 元のファイルも持っておく。枚数が変わるたびに圧縮率を計算し直すため。
   const [files, setFiles] = useState<File[]>([]);
   const [images, setImages] = useState<PreparedImage[]>([]);
   const [preparing, setPreparing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 話し始めた時点の文面。認識結果はこの後ろに足す。書きかけを消さないため。
@@ -61,6 +64,21 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
       },
     };
   }
+
+  // どこかを触ったらメニューを閉じる。開きっぱなしで入力を隠さない。
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    const timer = setTimeout(() => {
+      document.addEventListener('click', close);
+      document.addEventListener('touchstart', close);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', close);
+      document.removeEventListener('touchstart', close);
+    };
+  }, [menuOpen]);
 
   // 入力量に合わせて高さを伸ばす。上限を超えたら中でスクロールさせる。
   useLayoutEffect(() => {
@@ -119,7 +137,7 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
   const canSend = !disabled && !preparing && (value.trim().length > 0 || images.length > 0);
 
   return (
-    <div className="px-4 pb-2">
+    <div className="px-4 pb-2 pt-2">
       {images.length > 0 && (
         <p className="mb-1.5 text-[12px] text-muted">
           {images.length} / {MAX_IMAGES} 枚
@@ -166,20 +184,59 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
           className="hidden"
           onChange={(e) => void addFiles(e.target.files)}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={disabled || preparing}
-          aria-label="スクリーンショットを添付"
-          className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-line bg-elevated text-fg transition active:scale-95 disabled:opacity-40"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="3" />
-            <circle cx="8.5" cy="9.5" r="1.6" />
-            <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
-            <path d="m14 15 1.8-1.8a2 2 0 0 1 2.8 0L20 14.6" />
-          </svg>
-        </button>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            disabled={disabled || preparing}
+            aria-label="追加する"
+            aria-expanded={menuOpen}
+            className={`flex h-[46px] w-[46px] items-center justify-center rounded-full border border-line transition active:scale-95 disabled:opacity-40 ${
+              menuOpen ? 'bg-accent-soft text-accent' : 'bg-elevated text-fg'
+            }`}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute bottom-[54px] left-0 z-20 w-56 overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  fileRef.current?.click();
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken"
+              >
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="3" />
+                  <circle cx="8.5" cy="9.5" r="1.6" />
+                  <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
+                </svg>
+                練習データの画像を送る
+              </button>
+              {onOpenIdeas && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenIdeas();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken"
+                >
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 18h6" />
+                    <path d="M10 21h4" />
+                    <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3z" />
+                  </svg>
+                  何を相談するか迷ったら
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {voice.supported && (
           <button
@@ -218,7 +275,7 @@ export default function Composer({ onSend, onError, apiRef, disabled = false }: 
           }}
           placeholder="今日の練習と体の状態を"
           aria-label="コーチへのメッセージ"
-          className="scroll-area max-h-[140px] min-h-[46px] flex-1 resize-none rounded-[var(--radius)] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
+          className="scroll-area max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
         />
 
         <button

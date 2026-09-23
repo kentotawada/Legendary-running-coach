@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
-import PhaseBadge from './PhaseBadge';
+import Sheet from './Sheet';
 import GoalEditor, { type ProfileEdit } from './GoalEditor';
 import CoachAvatar from './CoachAvatar';
 import { findCharacter } from '@/lib/characters';
@@ -76,31 +76,23 @@ export default function ProfileSheet({
   const plan = profile?.plans.at(-1);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/45" role="dialog" aria-modal="true" aria-label="カルテ">
-      <button type="button" className="flex-1" aria-label="閉じる" onClick={onClose} />
-      <div className="safe-bottom max-h-[82dvh] animate-rise overflow-y-auto rounded-t-3xl border-t border-line bg-elevated">
-        <div className="sticky top-0 flex items-center justify-between border-b border-line bg-elevated px-5 py-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[16px] font-bold">コーチのカルテ</h2>
-            {profile && <PhaseBadge phase={profile.phase} />}
-          </div>
-          <div className="flex items-center gap-1">
-            {!editing && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="rounded-full border border-line px-3 py-1.5 text-[13px] font-medium"
-              >
-                編集
-              </button>
-            )}
-            <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[13px] text-muted">
-              閉じる
-            </button>
-          </div>
-        </div>
-
-        <div className="px-5 pb-8 pt-2">
+    <Sheet
+      label="カルテ"
+      title="カルテ"
+      onClose={onClose}
+      action={
+        !editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="shrink-0 rounded-full border border-line px-3.5 py-1.5 text-[13px] font-medium"
+          >
+            編集
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="pt-1">
           {editing ? (
             <GoalEditor
               profile={profile}
@@ -384,8 +376,7 @@ export default function ProfileSheet({
               </button>
             )}
           </div>
-        </div>
       </div>
-    </div>
+    </Sheet>
   );
 }
