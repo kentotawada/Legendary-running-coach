@@ -206,11 +206,17 @@ export async function deauthorize(
 }
 
 /**
- * Strava の設定画面。
- * Garmin とのリンクはここから行う。
- * 画面の表示名はアプリの版で変わるので、リンクで直接開けるようにしておく。
+ * Strava の入口。
+ *
+ * **設定ページの深いURLは案内に使わない。**
+ * あの手のページは認証が要るので、ログインしていない人には
+ * ログイン画面しか出ない。「まずここを押す」と書いてあるものが
+ * ログインを求めてくるのは、いちばん諦めやすい形になる。
+ *
+ * ここは入口だけを指し、道順は手順の文章で示す。
+ * スマホでアプリが入っていれば、このリンクはアプリ側が開く。
  */
-export const STRAVA_SETTINGS_URL = 'https://www.strava.com/settings/apps';
+export const STRAVA_URL = 'https://www.strava.com/';
 
 export interface StravaActivity {
   id: number;
