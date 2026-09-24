@@ -25,6 +25,20 @@ export const DEFAULT_FONT_SIZE: FontSizeId = 'medium';
 
 export const FONT_SIZE_STORAGE_KEY = 'coach.fontSize';
 
+/**
+ * 入力欄の文字の下限。
+ *
+ * iOS Safari は **16px 未満の入力欄にフォーカスすると画面を勝手に拡大する。**
+ * 拡大されると画面の端が切れ、送信ボタンまで見えなくなる。
+ * 本文を小さくしても、打ち込む場所だけはここを下回らせない。
+ */
+export const MIN_INPUT_FONT_PX = 16;
+
+/** 本文サイズと同じ比率で動かしつつ、入力欄としての下限を守る。 */
+export function inputFontSize(scale: number): number {
+  return Math.max(MIN_INPUT_FONT_PX, 15 * scale);
+}
+
 export function findFontSize(id: string | null | undefined): FontSizeOption {
   return FONT_SIZES.find((size) => size.id === id) ?? FONT_SIZES.find((size) => size.id === DEFAULT_FONT_SIZE)!;
 }
