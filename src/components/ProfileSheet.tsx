@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
@@ -13,6 +13,13 @@ import { RACE_PRIORITY_LABEL, daysUntil, racesOf, targetRace } from '@/lib/races
 import { FONT_SIZES, type FontSizeId } from '@/lib/display';
 import { heartRateZones } from '@/lib/zones';
 import { SHOE_ROLE_LABEL, shoeStatuses } from '@/lib/shoes';
+import {
+  currentSubscription,
+  pushAvailability,
+  subscribeToPush,
+  unsubscribeFromPush,
+  type PushAvailability,
+} from '@/lib/push-client';
 
 interface Props {
   profile: RunnerProfile | null;
@@ -30,6 +37,8 @@ interface Props {
   onReset: () => void;
   /** このアプリで Strava 連携が使える設定になっているか。 */
   stravaAvailable?: boolean;
+  /** このアプリで通知が使える設定になっているか。 */
+  pushAvailable?: boolean;
   syncing?: boolean;
   syncMessage?: string | null;
   onSyncStrava?: () => void;
@@ -71,6 +80,7 @@ export default function ProfileSheet({
   onSave,
   onReset,
   stravaAvailable = false,
+  pushAvailable = false,
   syncing = false,
   syncMessage,
   onSyncStrava,
@@ -87,6 +97,40 @@ export default function ProfileSheet({
   const recent = (profile?.activities ?? []).slice(-5).reverse();
   const shoes = profile ? shoeStatuses(profile) : [];
   const strava = profile?.connections?.strava;
+  const [pushState, setPushState] = useState<PushAvailability>('unsupported');
+  const [subscribed, setSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNote, setPushNote] = useState<string | null>(null);
+
+  // 端末側の状態は、描かれた後でないと分からない（サーバーでは判定できない）。
+  useEffect(() => {
+    setPushState(pushAvailability());
+    void currentSubscription().then((subscription) => setSubscribed(Boolean(subscription)));
+  }, []);
+
+  const toggleNotifications = async () => {
+    setPushBusy(true);
+    setPushNote(null);
+    try {
+      if (subscribed) {
+        await unsubscribeFromPush();
+        setSubscribed(false);
+        setPushNote('通知を止めました。');
+        return;
+      }
+      const result = await subscribeToPush();
+      setSubscribed(result.ok);
+      setPushNote(
+        result.ok
+          ? '通知を受け取れるようになりました。送るのは1日に1通までです。'
+          : result.reason === 'denied'
+            ? '端末側で通知が拒否されました。設定アプリから許可すると受け取れます。'
+            : '通知を設定できませんでした。',
+      );
+    } finally {
+      setPushBusy(false);
+    }
+  };
   const gearNotes = profile?.gearNotes ?? [];
   const plan = profile?.plans.at(-1);
 
@@ -165,6 +209,45 @@ export default function ProfileSheet({
                       >
                         ログインして引き継ぐ
                       </button>
+                    </>
+                  )}
+                </Row>
+              )}
+              {pushAvailable && (
+                <Row label="通知">
+                  {pushState === 'needs-install' ? (
+                    <>
+                      <span className="text-muted">
+                        iPhone では、<strong className="font-semibold text-fg">ホーム画面に追加</strong>
+                        すると通知を受け取れます
+                      </span>
+                      <span className="mt-1 block text-[12px] text-muted">
+                        共有ボタン → 「ホーム画面に追加」→ 追加したアイコンから開く
+                      </span>
+                    </>
+                  ) : pushState === 'unsupported' ? (
+                    <span className="text-muted">この端末では通知を使えません</span>
+                  ) : (
+                    <>
+                      <span className={subscribed ? 'font-medium text-good' : 'text-muted'}>
+                        {subscribed ? '受け取る設定になっています' : '靴の寿命や本番前に、こちらから声をかけます'}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] text-muted">
+                        送るのは1日に1通まで。走れていない日を責めることはしません
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void toggleNotifications()}
+                        disabled={pushBusy}
+                        className={`mt-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40 ${
+                          subscribed
+                            ? 'border border-line text-fg'
+                            : 'bg-accent text-[var(--accent-fg)]'
+                        }`}
+                      >
+                        {pushBusy ? '設定中…' : subscribed ? '通知を止める' : '通知を受け取る'}
+                      </button>
+                      {pushNote && <span className="mt-1.5 block text-[12px] text-accent">{pushNote}</span>}
                     </>
                   )}
                 </Row>

@@ -651,8 +651,13 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
  * 自分のトークンとはいえ、画面まで運ぶ理由がどこにも無い。
  */
 export function publicProfile(profile: RunnerProfile): RunnerProfile {
-  const strava = profile.connections?.strava;
-  if (!strava) return profile;
+  // 通知の宛先は、持っているだけでその端末へ送れてしまう。画面まで運ばない。
+  const withoutPush = profile.pushSubscriptions
+    ? { ...profile, pushSubscriptions: undefined }
+    : profile;
+
+  const strava = withoutPush.connections?.strava;
+  if (!strava) return withoutPush;
 
   const connections: Connections = {
     strava: {
@@ -663,7 +668,7 @@ export function publicProfile(profile: RunnerProfile): RunnerProfile {
       imported: strava.imported,
     },
   };
-  return { ...profile, connections };
+  return { ...withoutPush, connections };
 }
 
 /** 保存している Gemini の Content[] から、画面に出す発言だけを取り出す。 */

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CoachState } from './types';
+import type { CoachState, RunnerProfile } from './types';
 import { createDefaultProfile } from './types';
 import type { CoachStore } from './store';
 import { storageError } from './storage-error';
@@ -51,6 +51,36 @@ export class SupabaseCoachStore implements CoachStore {
       { onConflict: 'user_id' },
     );
 
+    if (error) throw storageError('カルテの保存', error.code, error.message);
+  }
+
+  /**
+   * 通知のために全員を見る。**会話履歴は読まない。**
+   * 履歴まで持ってくると、人数が増えた時に一発で重くなる。
+   */
+  async listProfiles(limit = 500): Promise<{ userId: string; profile: RunnerProfile }[]> {
+    const { data, error } = await this.client
+      .from(TABLE)
+      .select('user_id, profile')
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw storageError('カルテの一覧', error.code, error.message);
+    return (data ?? []).map((row) => {
+      const record = row as { user_id: string; profile: unknown };
+      return {
+        userId: record.user_id,
+        profile: {
+          ...createDefaultProfile(record.user_id),
+          ...(record.profile as object),
+          id: record.user_id,
+        },
+      };
+    });
+  }
+
+  async saveProfile(userId: string, profile: RunnerProfile): Promise<void> {
+    const { error } = await this.client.from(TABLE).update({ profile }).eq('user_id', userId);
     if (error) throw storageError('カルテの保存', error.code, error.message);
   }
 

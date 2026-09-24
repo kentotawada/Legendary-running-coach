@@ -207,6 +207,28 @@ export interface Connections {
   strava?: StravaConnection;
 }
 
+/**
+ * プッシュ通知の宛先。
+ *
+ * 端末ごとに1つ。これを持っている相手は、その端末へ通知を送れてしまうので、
+ * **ブラウザへ返さない**（publicProfile() が落とす）。
+ */
+export interface PushSubscriptionRecord {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  createdAt: string;
+  /** 送れなかった回数。続くようなら、その宛先はもう生きていない。 */
+  failures?: number;
+}
+
+/** 通知を出しすぎないための記録。 */
+export interface NotificationState {
+  lastSentAt?: string;
+  lastTag?: string;
+  /** 種類ごとの最終送信日（YYYY-MM-DD）。同じ知らせを続けて出さないため。 */
+  sentOn?: Record<string, string>;
+}
+
 export type PlanIntensity = 'rest' | 'easy' | 'moderate' | 'hard';
 
 export interface CoachPlan {
@@ -281,6 +303,10 @@ export interface RunnerProfile {
    * 画面へ渡す時は必ず publicProfile() を通すこと（profile.ts）。
    */
   connections?: Connections;
+  /** 通知の宛先。**ブラウザへ返してはならない。** */
+  pushSubscriptions?: PushSubscriptionRecord[];
+  /** 通知を出しすぎないための記録。 */
+  notifications?: NotificationState;
   /**
    * 送った画像の見返し用の控え。
    * カルテの内容ではないが、保存先の列を増やさずに済ませるためここに置いている。

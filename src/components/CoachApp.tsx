@@ -316,6 +316,7 @@ export default function CoachApp() {
           fontSize={fontSize}
           onChangeFontSize={changeFontSize}
           stravaAvailable={build?.stravaAvailable}
+          pushAvailable={build?.pushAvailable}
           syncing={syncing}
           syncMessage={syncMessage}
           onSyncStrava={() => void syncStrava()}
