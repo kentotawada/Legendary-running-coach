@@ -2,7 +2,14 @@ import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
-import { applyProfileUpdate, replaceInjuryHistory, replaceRaces, setGoal, setPhase } from '@/lib/profile';
+import {
+  applyProfileUpdate,
+  publicProfile,
+  replaceInjuryHistory,
+  replaceRaces,
+  setGoal,
+  setPhase,
+} from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
 import type { CoachingPhase, GoalKind, RacePriority, RunnerGoal } from '@/lib/types';
 
@@ -22,7 +29,8 @@ export async function GET(request: NextRequest) {
   }
 
   return Response.json(
-    { profile: state.profile },
+    // 接続の鍵を含むので、必ず publicProfile を通す。
+    { profile: publicProfile(state.profile) },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );
 }
@@ -187,7 +195,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   return Response.json(
-    { profile },
+    { profile: publicProfile(profile) },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );
 }

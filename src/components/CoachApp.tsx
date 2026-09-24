@@ -42,6 +42,11 @@ export default function CoachApp() {
     savingWeight,
     gear,
     auth,
+    syncStrava,
+    disconnectStrava,
+    syncing,
+    syncMessage,
+    clearSyncMessage,
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -86,6 +91,28 @@ export default function CoachApp() {
       historyLength.current = history.length;
     }
   }, [profile]);
+
+  /**
+   * Strava から戻ってきた直後。
+   * 結果をひとこと出して、URL のクエリは消す。
+   * 残しておくと、再読み込みのたびに同じ知らせが出る。
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('strava');
+    if (!result) return;
+
+    const message: Record<string, string> = {
+      connected: 'Stravaとつながりました。これまでの練習を取り込んでいます…',
+      denied: 'Stravaとの連携は許可されませんでした。',
+      state: '連携の手続きが途中で切れました。もう一度お試しください。',
+      failed: 'Stravaとの連携に失敗しました。時間をおいて、もう一度お試しください。',
+      unconfigured: 'このアプリでは Strava 連携が設定されていません。',
+    };
+    setCelebration(message[result] ?? null);
+    window.history.replaceState({}, '', window.location.pathname);
+    if (result === 'connected') void syncStrava();
+  }, [syncStrava]);
 
   useEffect(() => {
     if (!celebration) return;
@@ -208,6 +235,16 @@ export default function CoachApp() {
         </div>
       )}
 
+      {!sheetOpen && syncMessage && (
+        <button
+          type="button"
+          onClick={clearSyncMessage}
+          className="mx-4 mb-2 animate-rise rounded-[var(--radius)] border border-line bg-sunken px-4 py-2.5 text-left text-[13px] leading-relaxed text-muted"
+        >
+          {syncMessage}
+        </button>
+      )}
+
       <footer className="safe-bottom border-t border-line bg-bg">
         <Composer
           onSend={(text, images) => void send(text, images)}
@@ -278,6 +315,11 @@ export default function CoachApp() {
           }}
           fontSize={fontSize}
           onChangeFontSize={changeFontSize}
+          stravaAvailable={build?.stravaAvailable}
+          syncing={syncing}
+          syncMessage={syncMessage}
+          onSyncStrava={() => void syncStrava()}
+          onDisconnectStrava={() => void disconnectStrava()}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}

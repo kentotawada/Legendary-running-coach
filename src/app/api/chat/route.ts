@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getStore, loadForSession, rememberAttachments } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
-import { toDisplayMessages } from '@/lib/profile';
+import { publicProfile, toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
 import { CoachApiError, MissingApiKeyError, runCoachTurn } from '@/lib/gemini';
 import { getBuildInfo } from '@/lib/build-info';
@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
   return Response.json(
     {
       messages: toDisplayMessages(state.history, state.profile.attachments ?? []),
-      profile: state.profile,
+      // 接続の鍵を含むので、必ず publicProfile を通す。
+      profile: publicProfile(state.profile),
       hasApiKey: build.hasApiKey,
       build,
       // リンクはサーバー側で組み立てる。モデルにURLを書かせない。
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
 
       send({
         type: 'done',
-        profile: result.state.profile,
+        profile: publicProfile(result.state.profile),
         saved,
         // 流し終えた後に、サーバー側で整えた最終形を渡す。
         // 商品の名札（p1）を本当の商品名に差し替えた結果が、ここで初めて確定する。

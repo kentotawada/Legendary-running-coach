@@ -28,6 +28,12 @@ interface Props {
   onSave: (edit: ProfileEdit) => void;
   onClose: () => void;
   onReset: () => void;
+  /** このアプリで Strava 連携が使える設定になっているか。 */
+  stravaAvailable?: boolean;
+  syncing?: boolean;
+  syncMessage?: string | null;
+  onSyncStrava?: () => void;
+  onDisconnectStrava?: () => void;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -64,6 +70,11 @@ export default function ProfileSheet({
   onClose,
   onSave,
   onReset,
+  stravaAvailable = false,
+  syncing = false,
+  syncMessage,
+  onSyncStrava,
+  onDisconnectStrava,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -75,6 +86,7 @@ export default function ProfileSheet({
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
   const shoes = profile ? shoeStatuses(profile) : [];
+  const strava = profile?.connections?.strava;
   const gearNotes = profile?.gearNotes ?? [];
   const plan = profile?.plans.at(-1);
 
@@ -153,6 +165,66 @@ export default function ProfileSheet({
                       >
                         ログインして引き継ぐ
                       </button>
+                    </>
+                  )}
+                </Row>
+              )}
+              {(stravaAvailable || strava) && (
+                <Row label="ランニングアプリ">
+                  {strava ? (
+                    <>
+                      <span className="font-medium">Strava と連携中</span>
+                      {strava.athleteName && (
+                        <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
+                      )}
+                      <span className="mt-0.5 block text-[12px] text-muted">
+                        {strava.lastSyncedAt
+                          ? `最終取り込み ${new Date(strava.lastSyncedAt).toLocaleString('ja-JP', {
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}`
+                          : 'まだ取り込んでいません'}
+                        {strava.imported ? ` / これまで${strava.imported}件` : ''}
+                      </span>
+                      <span className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={onSyncStrava}
+                          disabled={syncing}
+                          className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                        >
+                          {syncing ? '取り込み中…' : '今すぐ取り込む'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onDisconnectStrava}
+                          disabled={syncing}
+                          className="text-[12px] text-muted underline underline-offset-4 disabled:opacity-40"
+                        >
+                          連携を解除
+                        </button>
+                      </span>
+                      {syncMessage && (
+                        <span className="mt-1.5 block text-[12px] text-accent">{syncMessage}</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted">
+                        つないでおくと、走り終えた時点で記録が入っています。
+                        スクリーンショットを送る必要がなくなります
+                      </span>
+                      <a
+                        href="/api/strava/connect"
+                        className="mt-1.5 inline-block rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                      >
+                        Strava とつなぐ
+                      </a>
+                      <span className="mt-1 block text-[12px] text-muted">
+                        ガーミンの時計も、Strava へ自動連携していればそのまま入ります
+                      </span>
                     </>
                   )}
                 </Row>

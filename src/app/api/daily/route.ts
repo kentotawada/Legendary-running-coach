@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
+import { publicProfile } from '@/lib/profile';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
 import { dailyStatus, logWeight, markOpened } from '@/lib/daily';
@@ -72,5 +73,6 @@ export async function PATCH(request: NextRequest) {
     return storageErrorResponse(error, '体重を記録できませんでした');
   }
 
-  return Response.json({ daily: dailyStatus(profile), profile });
+  // 接続の鍵を含むので、必ず publicProfile を通す。
+  return Response.json({ daily: dailyStatus(profile), profile: publicProfile(profile) });
 }
