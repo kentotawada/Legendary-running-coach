@@ -10,6 +10,7 @@ import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
+import ReviewSheet from './ReviewSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
@@ -53,6 +54,7 @@ export default function CoachApp() {
   const [coachSheetOpen, setCoachSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -146,8 +148,15 @@ export default function CoachApp() {
         </button>
         <button
           type="button"
+          onClick={() => setReviewOpen(true)}
+          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
+        >
+          ふりかえり
+        </button>
+        <button
+          type="button"
           onClick={() => setSheetOpen(true)}
-          className="shrink-0 rounded-full border border-line px-3.5 py-2 text-[12px] font-medium"
+          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
         >
           カルテ
         </button>
@@ -274,6 +283,8 @@ export default function CoachApp() {
           onClose={() => setCoachSheetOpen(false)}
         />
       )}
+
+      {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
 
       {dailyOpen && daily && (
         <DailySheet
