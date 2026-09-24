@@ -205,6 +205,13 @@ export async function deauthorize(
   }
 }
 
+/**
+ * Strava の設定画面。
+ * Garmin とのリンクはここから行う。
+ * 画面の表示名はアプリの版で変わるので、リンクで直接開けるようにしておく。
+ */
+export const STRAVA_SETTINGS_URL = 'https://www.strava.com/settings/apps';
+
 export interface StravaActivity {
   id: number;
   name?: string;
@@ -219,6 +226,22 @@ export interface StravaActivity {
   average_cadence?: number;
   total_elevation_gain?: number;
   gear_id?: string | null;
+  /** 取り込み元の識別子。Garmin からの自動連携だと "garmin_push_..." の形で入る。 */
+  external_id?: string | null;
+  /** 詳細を取った時だけ入る。一覧には無いことが多い。 */
+  device_name?: string | null;
+}
+
+/**
+ * Garmin から自動で流れてきた記録か。
+ *
+ * **確実な判定ではない。** 一覧に識別子が入らない場合もあるので、
+ * 「Garmin が見つからない＝連携できていない」とは言い切らないこと。
+ * 見つかった時にだけ「確認できました」と言うために使う。
+ */
+export function isFromGarmin(activity: StravaActivity): boolean {
+  const source = `${activity.external_id ?? ''} ${activity.device_name ?? ''}`.toLowerCase();
+  return source.includes('garmin');
 }
 
 /** after（UNIX秒）以降の練習を、新しい順ではなく古い順に集める。 */

@@ -229,6 +229,30 @@ describe('シューズ', () => {
   });
 });
 
+describe('Garminからの自動連携', () => {
+  it('取り込んだ記録の出どころが Garmin なら、確認できたと返す', async () => {
+    const result = await syncStrava(connected(), {
+      now: NOW,
+      env,
+      fetchImpl: mall({
+        activities: [[run(1, '2026-09-22', { external_id: 'garmin_push_9876543210' })]],
+      }) as never,
+    });
+    expect(result.garminDetected).toBe(true);
+  });
+
+  it('出どころが分からない時は、断定しない', async () => {
+    const result = await syncStrava(connected(), {
+      now: NOW,
+      env,
+      fetchImpl: mall({ activities: [[run(1, '2026-09-22')]] }) as never,
+    });
+    // 「確認できなかった」であって「つながっていない」ではない
+    expect(result.garminDetected).toBe(false);
+    expect(result.imported).toBe(1);
+  });
+});
+
 describe('鍵の扱い', () => {
   it('画面へ返すカルテには、鍵が入らない', () => {
     const shown = publicProfile(connected());
@@ -247,13 +271,13 @@ describe('鍵の扱い', () => {
 
 describe('取り込みの知らせ方', () => {
   it('新しい練習が無ければ、そう言う', () => {
-    expect(describeSync({ profile: connected(), imported: 0, skipped: 3, shoes: 0, firstTime: false })).toContain(
+    expect(describeSync({ profile: connected(), imported: 0, skipped: 3, shoes: 0, firstTime: false, garminDetected: false })).toContain(
       '新しい練習はありません',
     );
   });
 
   it('取り込んだ数と、更新した靴の数を言う', () => {
-    const text = describeSync({ profile: connected(), imported: 4, skipped: 1, shoes: 2, firstTime: true });
+    const text = describeSync({ profile: connected(), imported: 4, skipped: 1, shoes: 2, firstTime: true, garminDetected: true });
     expect(text).toContain('4件');
     expect(text).toContain('シューズ2足');
   });
@@ -291,6 +315,8 @@ describe('コーチへの伝え方', () => {
     const text = connectionDoctrine(profile, true, NOW)!;
     expect(text).toContain('3回');
     expect(text).toContain('案内は一度だけ');
+    // 手順そのものを会話で喋らせない（画面に用意してある）
+    expect(text).toContain('手順を会話で長々と説明しない');
   });
 
   it('アプリ側で連携が使えない設定なら、何も言わせない', () => {

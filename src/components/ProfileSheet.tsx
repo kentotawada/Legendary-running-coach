@@ -43,6 +43,8 @@ interface Props {
   syncMessage?: string | null;
   onSyncStrava?: () => void;
   onDisconnectStrava?: () => void;
+  /** Garmin など、時計とのつなぎ方の手順を開く。 */
+  onOpenDeviceGuide?: () => void;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -85,6 +87,7 @@ export default function ProfileSheet({
   syncMessage,
   onSyncStrava,
   onDisconnectStrava,
+  onOpenDeviceGuide,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -292,6 +295,13 @@ export default function ProfileSheet({
                       {syncMessage && (
                         <span className="mt-1.5 block text-[12px] text-accent">{syncMessage}</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={onOpenDeviceGuide}
+                        className="mt-1.5 block text-[12px] text-muted underline underline-offset-4"
+                      >
+                        Garmin の時計とつなぐ手順
+                      </button>
                     </>
                   ) : (
                     <>
@@ -305,9 +315,13 @@ export default function ProfileSheet({
                       >
                         Strava とつなぐ
                       </a>
-                      <span className="mt-1 block text-[12px] text-muted">
-                        ガーミンの時計も、Strava へ自動連携していればそのまま入ります
-                      </span>
+                      <button
+                        type="button"
+                        onClick={onOpenDeviceGuide}
+                        className="mt-1.5 block text-[12px] text-muted underline underline-offset-4"
+                      >
+                        Garmin の時計をお使いの方へ（つなぎ方の手順）
+                      </button>
                     </>
                   )}
                 </Row>
