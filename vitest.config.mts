@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    // 図の検査だけは JSX を書く必要があるので、tsx も拾う。
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
   resolve: {
     alias: {

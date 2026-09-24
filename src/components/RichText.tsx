@@ -10,7 +10,7 @@ import type {
   ZonesBlock,
 } from '@/lib/richtext';
 import { FIGURE_CATEGORY_LABEL, findFigure } from '@/lib/figures';
-import { figureArt } from './FigureArt';
+import { FIGURE_VIEWBOX, figureArt } from './FigureArt';
 import { parseInline, parseRichText } from '@/lib/richtext';
 import { stripToolTextForDisplay } from '@/lib/tool-text';
 import type { ResolvedGear } from '@/lib/gear';
@@ -405,7 +405,7 @@ function FigureCard({ block }: { block: FigureBlock }) {
 
       <div className="bg-sunken px-3 py-2">
         <svg
-          viewBox="0 0 240 160"
+          viewBox={FIGURE_VIEWBOX}
           className="mx-auto block h-auto w-full max-w-[280px] text-fg"
           role="img"
           aria-label={`${figure.title}の図`}
