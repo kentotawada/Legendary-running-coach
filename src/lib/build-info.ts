@@ -21,6 +21,11 @@ export interface BuildInfo {
   storage: 'supabase' | 'file';
   /** ログイン機能が使えるか。 */
   authAvailable: boolean;
+  /**
+   * 実在する商品の候補を取れるか。
+   * 「環境変数を入れたのに商品が出ない」を、ここだけ見て切り分けられるようにする。
+   */
+  productSearch: boolean;
 }
 
 /** 環境変数に紛れ込んだ引用符や空白を落とす。貼り付け事故がここで死なないように。 */
@@ -50,5 +55,6 @@ export function getBuildInfo(): BuildInfo {
     // service_role キーが無いと読み書きできないので、保存先の判定はこれで行う。
     storage: supabaseUrl && supabaseServiceKey ? 'supabase' : 'file',
     authAvailable: Boolean(supabaseUrl && supabaseAnonKey),
+    productSearch: cleanEnv(process.env.RAKUTEN_APP_ID).length > 0,
   };
 }

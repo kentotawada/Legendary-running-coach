@@ -45,6 +45,36 @@ export interface GearBlock {
   note?: string;
 }
 
+/**
+ * 実際の商品。
+ * 名前・価格・リンクはモールから来た値で、モデルが書いたものではない。
+ * （モデルは名札だけを出し、サーバー側でここに差し替えている）
+ */
+export interface ProductItem {
+  name: string;
+  url: string;
+  price?: number;
+  shop?: string;
+  image?: string;
+  /** その人にとってなぜこれなのか。ここだけがモデルの言葉。 */
+  why?: string;
+  affiliate?: boolean;
+  reviewAverage?: number;
+  reviewCount?: number;
+}
+
+export interface ProductBlock {
+  type: 'product';
+  items: ProductItem[];
+  note?: string;
+  /** どの条件で選んだか。カルテから計算した値。 */
+  spec?: string[];
+  /** 買わなくてよい場合。 */
+  skipIf?: string;
+  /** 価格を見た日。値段は動くので、いつの値かを必ず添える。 */
+  asOf?: string;
+}
+
 /** 説明図。中身は id だけで、絵と手順はアプリ側が持っている。 */
 export interface FigureBlock {
   type: 'figure';
@@ -61,6 +91,7 @@ export type RichBlock =
   | MenuBlock
   | ZonesBlock
   | GearBlock
+  | ProductBlock
   | FigureBlock
   /** 生成途中の囲みブロック。閉じるまでは中身を出さない。 */
   | { type: 'pending' };
@@ -84,7 +115,7 @@ export function parseInline(text: string): InlineText[] {
   return parts.filter((part) => part.value.length > 0);
 }
 
-const FENCE = /^```(menu|zones|gear|figure)\s*$/;
+const FENCE = /^```(menu|zones|gear|product|figure)\s*$/;
 const BULLET = /^\s*(?:[-*・]|●)\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
@@ -124,6 +155,61 @@ function gearFrom(raw: string): GearBlock | null {
       type: 'gear',
       categories,
       note: typeof data.note === 'string' ? data.note : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function productFrom(raw: string): ProductBlock | null {
+  try {
+    const data = JSON.parse(raw) as {
+      items?: unknown;
+      note?: unknown;
+      spec?: unknown;
+      skipIf?: unknown;
+      asOf?: unknown;
+    };
+    if (!Array.isArray(data.items)) return null;
+
+    const items = data.items
+      .map((entry): ProductItem | null => {
+        const item = entry as Record<string, unknown>;
+        const name = typeof item.name === 'string' ? item.name.trim() : '';
+        const url = typeof item.url === 'string' ? item.url.trim() : '';
+        // リンク先は必ず http(s)。それ以外の形の文字列は表示しない。
+        if (!name || !/^https?:\/\//i.test(url)) return null;
+        return {
+          name,
+          url,
+          price: numberOrUndefined(item.price),
+          shop: typeof item.shop === 'string' ? item.shop : undefined,
+          image: typeof item.image === 'string' && /^https?:\/\//i.test(item.image) ? item.image : undefined,
+          why: typeof item.why === 'string' && item.why.trim() ? item.why.trim() : undefined,
+          affiliate: item.affiliate === true,
+          reviewAverage: numberOrUndefined(item.reviewAverage),
+          reviewCount: numberOrUndefined(item.reviewCount),
+        };
+      })
+      .filter((item): item is ProductItem => item !== null);
+
+    if (items.length === 0) return null;
+
+    const spec = Array.isArray(data.spec)
+      ? data.spec.filter((line): line is string => typeof line === 'string' && line.trim().length > 0)
+      : undefined;
+
+    return {
+      type: 'product',
+      items,
+      note: typeof data.note === 'string' && data.note.trim() ? data.note.trim() : undefined,
+      spec: spec && spec.length > 0 ? spec : undefined,
+      skipIf: typeof data.skipIf === 'string' && data.skipIf.trim() ? data.skipIf.trim() : undefined,
+      asOf: typeof data.asOf === 'string' ? data.asOf : undefined,
     };
   } catch {
     return null;
@@ -224,10 +310,15 @@ export function parseRichText(text: string): RichBlock[] {
           ? menuFrom(raw)
           : fence[1] === 'gear'
             ? gearFrom(raw)
-            : fence[1] === 'figure'
-              ? figureFrom(raw)
-              : zonesFrom(raw);
+            : fence[1] === 'product'
+              ? productFrom(raw)
+              : fence[1] === 'figure'
+                ? figureFrom(raw)
+                : zonesFrom(raw);
       if (parsed) blocks.push(parsed);
+      // 商品ブロックは、名札のままの状態（サーバーが差し替える前）が一瞬だけ通る。
+      // 中身の JSON を本文として出してしまうと、その一瞬が画面に残る。
+      else if (fence[1] === 'product') blocks.push({ type: 'pending' });
       else if (raw) blocks.push({ type: 'paragraph', content: parseInline(raw) });
       continue;
     }

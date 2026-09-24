@@ -2,6 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentConfig, Part } from '@google/genai';
 import type { CoachState, ImageAttachment, RunnerProfile } from './types';
 import { coachTools, executeTool } from './tools';
+import { FIND_GEAR, runFindGear } from './gear-tool';
+import { emptyBasket, resolveProductBlocks } from './products';
 import { buildSystemInstruction } from './prompt';
 import {
   RUNNING_PRESCRIPTION_RETRY_DIRECTIVE,
@@ -302,6 +304,17 @@ export async function runCoachTurn({
   let retryDirective: string | null = null;
   let finalText = '';
 
+  // 検索して見つけた商品を、このターンのあいだ持っておく。
+  // モデルが書くのは名札（p1）だけなので、本当の名前と価格はここから埋める。
+  const basket = emptyBasket();
+  const resolve = (text: string) => resolveProductBlocks(text, basket, now);
+  const resolveParts = (parts: Part[]): Part[] =>
+    parts.map((part) =>
+      typeof part.text === 'string' && !part.thought && part.text.includes('```product')
+        ? { ...part, text: resolve(part.text) }
+        : part,
+    );
+
   const cautious = assessSafety(profile, now).runningForbidden || mentionsDiscomfort(userText);
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
@@ -313,22 +326,26 @@ export async function runCoachTurn({
     const result = await generateStep(history, systemInstruction, strict ? undefined : onDelta);
 
     if (result.calls.length > 0) {
-      history.push({ role: 'model', parts: result.parts });
       const responseParts: Part[] = [];
       for (const call of result.calls) {
-        const outcome = executeTool(profile, call.name, call.args, now);
-        profile = outcome.profile;
+        // 商品検索だけは外の世界を叩くので、ほかのツールと分けて扱う。
+        let response: Record<string, unknown>;
+        if (call.name === FIND_GEAR) {
+          response = await runFindGear(profile, call.args, basket, now);
+        } else {
+          const outcome = executeTool(profile, call.name, call.args, now);
+          profile = outcome.profile;
+          response = outcome.result;
+        }
         usedTools.push(call.name);
         responseParts.push({
-          functionResponse: {
-            id: call.id,
-            name: call.name,
-            response: outcome.result,
-          },
+          functionResponse: { id: call.id, name: call.name, response },
         });
       }
+      // 名札を埋めるのは、検索が終わってから。順番を逆にすると何も埋まらない。
+      history.push({ role: 'model', parts: resolveParts(result.parts) });
       history.push({ role: 'user', parts: responseParts });
-      finalText += result.text;
+      finalText += resolve(result.text);
       retryDirective = null;
       continue;
     }
@@ -347,7 +364,9 @@ export async function runCoachTurn({
       usedTools.push(`${call.name}(本文から回収)`);
     }
 
-    const stepText = recovered.calls.length > 0 || recovered.truncated ? recovered.cleaned : result.text;
+    const rawStepText = recovered.calls.length > 0 || recovered.truncated ? recovered.cleaned : result.text;
+    // 画面と保存の両方で、名札ではなく本当の商品が残るようにする。
+    const stepText = resolve(rawStepText);
     const candidate = finalText + stepText;
 
     if (strict && containsRunningPrescription(candidate) && rewrites < MAX_REWRITES) {

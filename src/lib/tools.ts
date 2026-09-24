@@ -20,6 +20,7 @@ import {
   upsertPain,
 } from './profile';
 import { logWeight } from './daily';
+import { GEAR_CATEGORY_IDS } from './gear';
 
 /**
  * コーチが「学習」するための手段。
@@ -233,6 +234,26 @@ export const coachTools: FunctionDeclaration[] = [
         date: { type: 'string', description: 'YYYY-MM-DD。省略時は今日。' },
       },
       required: ['weightKg'],
+    },
+  },
+  {
+    name: 'find_gear',
+    description:
+      '具体的な商品を勧める価値がある場面で呼ぶ。このランナーの体・練習量・故障歴・本番までの日数から「どういう条件の物が要るか」を計算し、実在する商品の候補を名札（p1, p2…）付きで返す。**返ってきた候補の中からだけ選ぶこと。商品名・価格・URLを自分で書いてはならない。**',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: GEAR_CATEGORY_IDS,
+          description: '探す道具のカテゴリ',
+        },
+        keywords: {
+          type: 'string',
+          description: '検索語に足したい語。例: "ワイド 2E"。思いつかなければ省略してよい。',
+        },
+      },
+      required: ['category'],
     },
   },
   {

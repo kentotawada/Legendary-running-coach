@@ -75,6 +75,73 @@ describe('runCoachTurn', () => {
     expect(result.state.history[2].parts?.[0].functionResponse?.name).toBe('log_activity');
   });
 
+  it('商品は検索して見つけたものに差し替わる（モデルは名札しか書かない）', async () => {
+    process.env.RAKUTEN_APP_ID = 'app-id';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        Items: [
+          {
+            Item: {
+              itemCode: 'a',
+              itemName: '【送料無料】エナジージェル 12個セット',
+              itemPrice: 4980,
+              itemUrl: 'https://item.rakuten.co.jp/a/',
+              affiliateUrl: 'https://hb.afl.rakuten.co.jp/a/',
+              shopName: '補給食の店',
+              reviewAverage: 4.2,
+              reviewCount: 31,
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    queueResponses(
+      chunksOf([{ functionCall: { name: 'find_gear', args: { category: 'gels' } } }]),
+      chunksOf([
+        { text: '本番の補給を決めましょう。\n```product\n' },
+        { text: '{"category":"gels","picks":[{"ref":"p1","why":"1本25gなので本数を合わせやすい"}]}\n```' },
+      ]),
+    );
+
+    try {
+      const result = await runCoachTurn({ state: stateOf(), userText: 'ジェルは何がいい？', now: NOW });
+
+      expect(result.usedTools).toEqual(['find_gear']);
+      expect(result.text).toContain('エナジージェル 12個セット');
+      expect(result.text).toContain('hb.afl.rakuten.co.jp');
+      expect(result.text).not.toContain('"ref"');
+      // 保存される履歴も、差し替え後の本文になっている（読み直してもカードが出る）。
+      expect(JSON.stringify(result.state.history)).toContain('エナジージェル 12個セット');
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.RAKUTEN_APP_ID;
+    }
+  });
+
+  it('候補が取れなければ、名札のブロックごと消える（商品名が幻で残らない）', async () => {
+    process.env.RAKUTEN_APP_ID = 'app-id';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ Items: [] }) }));
+
+    queueResponses(
+      chunksOf([{ functionCall: { name: 'find_gear', args: { category: 'gels' } } }]),
+      chunksOf([
+        { text: '候補はこちらです。\n```product\n{"picks":[{"ref":"p1","why":"これ"}]}\n```\n試してみてください。' },
+      ]),
+    );
+
+    try {
+      const result = await runCoachTurn({ state: stateOf(), userText: 'ジェルは何がいい？', now: NOW });
+      expect(result.text).not.toContain('product');
+      expect(result.text).toContain('試してみてください。');
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.RAKUTEN_APP_ID;
+    }
+  });
+
   it('モデルの思考パートの署名を落とさずに履歴へ戻す', async () => {
     queueResponses(chunksOf([{ text: '考え中', thought: true, thoughtSignature: 'sig-1' }, { text: 'こんにちは' }]));
 

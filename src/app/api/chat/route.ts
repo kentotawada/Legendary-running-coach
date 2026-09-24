@@ -211,6 +211,9 @@ export async function POST(request: NextRequest) {
         type: 'done',
         profile: result.state.profile,
         saved,
+        // 流し終えた後に、サーバー側で整えた最終形を渡す。
+        // 商品の名札（p1）を本当の商品名に差し替えた結果が、ここで初めて確定する。
+        text: result.text,
         meta: { usedTools: result.usedTools, rewrites: result.rewrites },
       });
       finish();

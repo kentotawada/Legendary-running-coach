@@ -70,6 +70,8 @@ export const GEAR_CATEGORIES: GearCategory[] = [
   },
 ];
 
+export const GEAR_CATEGORY_IDS = GEAR_CATEGORIES.map((category) => category.id);
+
 export interface GearLink {
   /** 表示名。 */
   shop: string;
@@ -140,7 +142,10 @@ export function gearDoctrine(): string {
     '- **商品名・型番・価格を自分で書いてはならない。** 存在しない商品や古い価格を出すと、買い物を誤らせる。',
     '- 道具の話が本当に役に立つ場面（走行距離が増えた、マメが出る、心拍を測りたい、毎日はかりたい等）でのみ触れる。',
     '  聞かれてもいないのに勧めない。コーチは販売員ではない。',
-    '- 勧める時は、下のブロックでカテゴリの id だけを出す。リンクはアプリが用意する。',
+    '- **具体的な商品名で答えた方が親切な場面（どのジェル、どのシューズ）では、まず find_gear を呼ぶこと。**',
+    '  「具体的な商品を勧める時」に書いてある手順で、この人の条件に合う実在の候補が返る。',
+    '- カテゴリを示すだけで足りる場面、または find_gear で候補が返らなかった場面では、',
+    '  下のブロックでカテゴリの id だけを出す。リンクはアプリが用意する。',
     '',
     '```gear',
     '{"categories":["shoes-daily"],"note":"週70kmまで来たので、2足を交互に履く運用にしたい"}',

@@ -70,6 +70,16 @@ describe('toSpokenText', () => {
     expect(spoken).not.toContain('categories');
   });
 
+  it('商品カードは、値段ではなく選んだ理由を読む', () => {
+    const spoken = toSpokenText(
+      '```product\n{"items":[{"name":"シューズ X","url":"https://example.com/a","price":15400,"why":"週70kmを2足で回すため"}],"skipIf":"500km以下なら不要"}\n```',
+    );
+    expect(spoken).toContain('週70キロを2足で回すため');
+    expect(spoken).toContain('画面');
+    expect(spoken).not.toContain('15400');
+    expect(spoken).not.toContain('https');
+  });
+
   it('本文に紛れ込んだツール呼び出しは読み上げない', () => {
     const spoken = toSpokenText('了解です。\nset_today_plan {"title":"閾値走","steps":["20分"]}');
     expect(spoken).not.toContain('set_today_plan');

@@ -18,6 +18,20 @@ describe('buildSystemInstruction', () => {
     expect(prompt).toContain('回復最優先モード');
   });
 
+  it('商品は、候補の中から選ばせる（名前を自分で書かせない）', () => {
+    const profile = applyProfileUpdate(
+      createDefaultProfile('u1'),
+      { goal: { kind: 'time', summary: 'サブ3.5', targetTime: '3:30:00' }, bodyWeightKg: 60 },
+      NOW,
+    );
+    const prompt = buildSystemInstruction(profile, NOW);
+
+    expect(prompt).toContain('find_gear');
+    expect(prompt).toContain('商品名・型番・価格・URLを自分で書いてはならない');
+    // 本数のような計算済みの数字は、モデルに計算し直させない。
+    expect(prompt).toContain('ジェルは6本');
+  });
+
   it('目標がある人には、逆算のロードマップを求める', () => {
     const profile = setPhase(
       applyProfileUpdate(

@@ -76,6 +76,16 @@ function blockToSpeech(block: RichBlock): string {
       return [block.note ? sentence(block.note) : '', '道具の候補を画面に出しています。']
         .filter(Boolean)
         .join('');
+    case 'product': {
+      // 値段と店名は耳で追えない。選んだ理由だけを読み、あとは画面に任せる。
+      const lines = [block.note ? sentence(block.note) : ''];
+      for (const item of block.items) {
+        if (item.why) lines.push(sentence(item.why));
+      }
+      lines.push('商品の候補を画面に出しています。');
+      if (block.skipIf) lines.push(sentence(`買わなくていい場合は、${block.skipIf}`));
+      return lines.filter(Boolean).join('');
+    }
     case 'pending':
     default:
       return '';

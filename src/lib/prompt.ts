@@ -8,6 +8,8 @@ import { zoneDoctrine } from './zones';
 import { characterVoice, findCharacter } from './characters';
 import { dailyDoctrine } from './daily';
 import { gearDoctrine } from './gear';
+import { fuelDoctrine } from './gear-spec';
+import { productDoctrine } from './products';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
 
@@ -185,7 +187,9 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
       : null,
     IMAGE_POLICY,
     figureDoctrine(),
+    fuelDoctrine(profile, now),
     gearDoctrine(),
+    productDoctrine(),
     TOOL_POLICY,
     TONE,
   ].filter((section): section is string => Boolean(section));
