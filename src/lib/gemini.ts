@@ -256,6 +256,8 @@ export interface CoachTurnInput {
   userText: string;
   /** ランニングアプリのスクリーンショットなど。読み取りはモデルに任せる。 */
   images?: ImageAttachment[];
+  /** 添付の見返し用の控えと結びつける id。保存する履歴のマーカーに埋め込む。 */
+  attachmentGroupId?: string;
   now?: Date;
   onDelta?: (delta: string) => void;
 }
@@ -279,6 +281,7 @@ export async function runCoachTurn({
   state,
   userText,
   images,
+  attachmentGroupId,
   now = new Date(),
   onDelta,
 }: CoachTurnInput): Promise<CoachTurnResult> {
@@ -372,7 +375,7 @@ export async function runCoachTurn({
 
   return {
     // 画像の本体は保存しない。読み取った数値はカルテ側に残る。
-    state: { profile, history: stripInlineData(trimHistory(history)) },
+    state: { profile, history: stripInlineData(trimHistory(history), attachmentGroupId) },
     text: finalText,
     rewrites,
     usedTools,

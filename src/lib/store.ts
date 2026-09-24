@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { CoachState, RunnerProfile } from './types';
+import type { AttachmentGroup, CoachState, RunnerProfile } from './types';
 import { createDefaultProfile } from './types';
 import type { Content, Part } from '@google/genai';
 import { imagePlaceholder } from './markers';
@@ -41,18 +41,61 @@ export function trimHistory(history: Content[], max: number = MAX_HISTORY_CONTEN
  * base64 を抱えたまま保存すると、保存先がすぐに膨れ上がる。
  * 読み取った数値はカルテに残っているので、ここでは「添付があった」跡だけを残す。
  */
-export function stripInlineData(history: Content[]): Content[] {
+export function stripInlineData(history: Content[], group?: string): Content[] {
   return history.map((content) => {
     const parts = content.parts ?? [];
     const imageCount = parts.filter((part) => part.inlineData).length;
     if (imageCount === 0) return content;
 
-    const kept: Part[] = [{ text: imagePlaceholder(imageCount) }];
+    // 本体を落とす代わりに、見返し用の控えへの手がかりを残す。
+    const kept: Part[] = [{ text: imagePlaceholder(imageCount, group) }];
     for (const part of parts) {
       if (!part.inlineData) kept.push(part);
     }
     return { ...content, parts: kept };
   });
+}
+
+/**
+ * 控えを保存できる量に収める。
+ * 際限なく貯めると保存先の1行が膨れ、読み書きそのものが遅くなる。
+ * 新しいものから順に入れて、入らなくなったところで切る。
+ */
+export const MAX_ATTACHMENT_CHARS = 2_400_000;
+
+export function pruneAttachments(
+  groups: AttachmentGroup[],
+  maxChars: number = MAX_ATTACHMENT_CHARS,
+): AttachmentGroup[] {
+  const kept: AttachmentGroup[] = [];
+  let total = 0;
+  for (let i = groups.length - 1; i >= 0; i -= 1) {
+    const size = groups[i].images.reduce((sum, image) => sum + image.length, 0);
+    if (total + size > maxChars && kept.length > 0) break;
+    total += size;
+    kept.unshift(groups[i]);
+  }
+  return kept;
+}
+
+/**
+ * 送った画像の控えをカルテに残す。
+ * 控えが無い（縮小に失敗した等）時は何もしない。跡だけが残り、枚数は履歴から読める。
+ */
+export function rememberAttachments(
+  profile: RunnerProfile,
+  groupId: string | undefined,
+  thumbnails: string[],
+  now: Date = new Date(),
+): RunnerProfile {
+  if (!groupId || thumbnails.length === 0) return profile;
+  return {
+    ...profile,
+    attachments: pruneAttachments([
+      ...(profile.attachments ?? []),
+      { id: groupId, images: thumbnails, createdAt: now.toISOString() },
+    ]),
+  };
 }
 
 function emptyState(userId: string): CoachState {

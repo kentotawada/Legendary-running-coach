@@ -8,6 +8,7 @@ import { zoneDoctrine } from './zones';
 import { characterVoice, findCharacter } from './characters';
 import { dailyDoctrine } from './daily';
 import { gearDoctrine } from './gear';
+import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
 
 export { INTERNAL_PREFIX } from './markers';
@@ -145,6 +146,13 @@ const TONE = `# 話し方と書き方
 {"basis":"最大心拍 190 から算出（LTHRは推定値）","rows":[{"zone":"Z2","name":"イージー","range":"124〜142","note":"週の大半をここで"},{"zone":"Z4","name":"閾値","range":"162〜175","note":"20〜40分持続"}]}
 \`\`\`
 
+**ストレッチ・走り方・補強の動きを説明する時は、図のブロックを使う。**
+使える図の id は「図を使って説明する」に一覧がある。
+
+\`\`\`figure
+{"id":"stretch-hamstring"}
+\`\`\`
+
 ブロックの中身は**必ず正しい JSON** にすること。壊れていると画面に表示されない。
 カードの前後には、必ず一言ずつ地の文を添える。カードだけを投げつけない。`;
 
@@ -176,6 +184,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
       : null,
     IMAGE_POLICY,
+    figureDoctrine(),
     gearDoctrine(),
     TOOL_POLICY,
     TONE,

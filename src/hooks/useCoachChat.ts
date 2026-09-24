@@ -155,8 +155,8 @@ export function useCoachChat(): CoachChat {
           body: JSON.stringify({
             message: text,
             regenerate: mode === 'regenerate',
-            // preview は画面表示用。サーバーへは送らない。
-            images: images.map(({ mimeType, data }) => ({ mimeType, data })),
+            // preview は画面表示用なので送らない。thumbnail は後から見返すために保存される。
+            images: images.map(({ mimeType, data, thumbnail }) => ({ mimeType, data, thumbnail })),
           }),
         });
 

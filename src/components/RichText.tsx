@@ -1,5 +1,7 @@
-import type { GearBlock, InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
-import { parseRichText } from '@/lib/richtext';
+import type { FigureBlock, GearBlock, InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
+import { FIGURE_CATEGORY_LABEL, findFigure } from '@/lib/figures';
+import { figureArt } from './FigureArt';
+import { parseInline, parseRichText } from '@/lib/richtext';
 import { stripToolTextForDisplay } from '@/lib/tool-text';
 import type { ResolvedGear } from '@/lib/gear';
 import { hasAffiliate } from '@/lib/gear';
@@ -148,6 +150,73 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
   );
 }
 
+/**
+ * 説明図。
+ * 知らない id が来ても画面を壊さず、黙って何も出さない。
+ * 存在しない絵の枠だけが残る方が、読む人を混乱させる。
+ */
+function FigureCard({ block }: { block: FigureBlock }) {
+  const figure = findFigure(block.id);
+  const art = figureArt(block.id);
+  if (!figure || !art) return null;
+
+  return (
+    <figure className="my-3 overflow-hidden rounded-[14px] border border-line bg-bg">
+      <figcaption className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
+        <span className="text-[0.87em] font-bold">{figure.title}</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
+          {FIGURE_CATEGORY_LABEL[figure.category]}
+        </span>
+      </figcaption>
+
+      <div className="bg-sunken px-3 py-2">
+        <svg
+          viewBox="0 0 240 160"
+          className="mx-auto block h-auto w-full max-w-[280px] text-fg"
+          role="img"
+          aria-label={`${figure.title}の図`}
+        >
+          {art}
+        </svg>
+      </div>
+
+      <p className="px-3.5 pt-2.5 text-[0.8em] leading-relaxed text-muted">{figure.purpose}</p>
+
+      <ol className="mt-1.5 space-y-1.5 px-3.5">
+        {figure.steps.map((step, index) => (
+          <li key={index} className="flex gap-2.5 text-[0.87em] leading-relaxed">
+            <span className="mt-[0.15em] flex h-[1.35em] w-[1.35em] shrink-0 items-center justify-center rounded-full bg-sunken text-[0.76em] font-bold tabular-nums">
+              {index + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <Inline parts={parseInline(step)} />
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <ul className="mt-2.5 space-y-1 border-t border-line px-3.5 py-2.5">
+        {figure.cautions.map((caution) => (
+          <li key={caution} className="flex gap-2 text-[0.8em] leading-relaxed text-warn">
+            <span aria-hidden="true" className="mt-[0.5em] h-1 w-1 shrink-0 rounded-full bg-[color:var(--warn)]" />
+            <span className="min-w-0 flex-1">
+              <Inline parts={parseInline(caution)} />
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {(figure.dose || block.note) && (
+        <p className="border-t border-line px-3.5 py-2 text-[0.8em] leading-relaxed">
+          {figure.dose && <span className="font-semibold">{figure.dose}</span>}
+          {figure.dose && block.note && <span className="text-muted"> / </span>}
+          {block.note && <span className="text-muted">{block.note}</span>}
+        </p>
+      )}
+    </figure>
+  );
+}
+
 function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }) {
   switch (block.type) {
     case 'heading':
@@ -188,6 +257,8 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
       return <ZonesCard block={block} />;
     case 'gear':
       return <GearCard block={block} catalog={catalog} />;
+    case 'figure':
+      return <FigureCard block={block} />;
     case 'pending':
       return <p className="my-1 text-[0.8em] text-muted">…</p>;
     case 'paragraph':

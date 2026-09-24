@@ -9,13 +9,27 @@ export const INTERNAL_PREFIX = '[[coach:internal]]';
 /** 画像添付の跡。画像そのものは保存しないので、あったことだけを残す。 */
 export const IMAGE_MARKER = '[[coach:image]]';
 
-export function imagePlaceholder(count: number): string {
-  return `${IMAGE_MARKER} （この発言には画像が${count}枚添付されていました。数値は読み取り済みで、カルテに記録してあります）`;
+/** 控えの id が付くと `[[coach:image:xxx]]` になるので、判定は前半だけで行う。 */
+const IMAGE_MARKER_PREFIX = '[[coach:image';
+
+export function imagePlaceholder(count: number, group?: string): string {
+  const tag = group ? `${IMAGE_MARKER_PREFIX}:${group}]]` : IMAGE_MARKER;
+  return `${tag} （この発言には画像が${count}枚添付されていました。数値は読み取り済みで、カルテに記録してあります）`;
 }
 
 /** マーカー付きテキストから、添付枚数を取り出す。 */
 export function attachmentCountOf(text: string): number {
-  if (!text.startsWith(IMAGE_MARKER)) return 0;
+  if (!text.startsWith(IMAGE_MARKER_PREFIX)) return 0;
   const match = text.match(/画像が(\d+)枚/);
   return match ? Number(match[1]) : 1;
+}
+
+/**
+ * マーカー付きテキストから、見返し用の控えの id を取り出す。
+ * 古い記録にはこの id が無い。その場合は枚数だけを出す。
+ */
+export function attachmentGroupOf(text: string): string | undefined {
+  if (!text.startsWith(IMAGE_MARKER_PREFIX)) return undefined;
+  const match = text.match(/^\[\[coach:image:([a-zA-Z0-9_-]+)\]\]/);
+  return match ? match[1] : undefined;
 }

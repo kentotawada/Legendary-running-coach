@@ -11,6 +11,21 @@ export const DEFAULT_IMAGE_MESSAGE = '練習データのスクリーンショッ
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 /**
+ * ファイル選択で見せる形式。
+ * image/* だけにすると、iPhone の「ファイル」から選ぶ時に
+ * iCloud 上の HEIC がグレーアウトして選べないことがある。拡張子も並べておく。
+ */
+export const FILE_ACCEPT = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
+
+/** 画像として扱えるファイルか。拡張子しか手がかりが無い場合にも答えを出す。 */
+export function looksLikeImage(file: { type?: string; name?: string }): boolean {
+  const type = (file.type ?? '').toLowerCase();
+  if (type.startsWith('image/')) return true;
+  // iCloud 経由などで type が空のことがある。名前で判断する。
+  return /\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?)$/i.test(file.name ?? '');
+}
+
+/**
  * 1回に添付できる枚数。
  * 心拍・ペース・ピッチ・高度・ラップなど、アプリの詳細画面をまとめて送れるようにしている。
  */
@@ -31,8 +46,13 @@ export const MAX_TOTAL_BYTES = 3_000_000;
 
 export interface ImageValidation {
   images: ImageAttachment[];
+  /** 見返し用の控え（data URL）。送られてこなければ空。 */
+  thumbnails: string[];
   error?: string;
 }
+
+/** 控え1枚の上限。これを超えるものは保存せず、捨てる。 */
+const MAX_THUMBNAIL_CHARS = 200_000;
 
 /** base64 文字列の実バイト数。 */
 export function base64Bytes(data: string): number {
@@ -45,19 +65,24 @@ export function base64Bytes(data: string): number {
  * data URL の接頭辞が付いたまま送られてきても受け取れるようにしておく。
  */
 export function validateImages(input: unknown): ImageValidation {
-  if (input === undefined || input === null) return { images: [] };
-  if (!Array.isArray(input)) return { images: [], error: '画像の形式が正しくありません。' };
-  if (input.length === 0) return { images: [] };
+  if (input === undefined || input === null) return { images: [], thumbnails: [] };
+  if (!Array.isArray(input)) {
+    return { images: [], thumbnails: [], error: '画像の形式が正しくありません。' };
+  }
+  if (input.length === 0) return { images: [], thumbnails: [] };
   if (input.length > MAX_IMAGES) {
-    return { images: [], error: `画像は一度に${MAX_IMAGES}枚までです。` };
+    return { images: [], thumbnails: [], error: `画像は一度に${MAX_IMAGES}枚までです。` };
   }
 
   const images: ImageAttachment[] = [];
+  const thumbnails: string[] = [];
   let total = 0;
 
   for (const raw of input) {
-    if (!raw || typeof raw !== 'object') return { images: [], error: '画像の形式が正しくありません。' };
-    const candidate = raw as { mimeType?: unknown; data?: unknown };
+    if (!raw || typeof raw !== 'object') {
+      return { images: [], thumbnails: [], error: '画像の形式が正しくありません。' };
+    }
+    const candidate = raw as { mimeType?: unknown; data?: unknown; thumbnail?: unknown };
     const mimeType = typeof candidate.mimeType === 'string' ? candidate.mimeType.toLowerCase() : '';
     let data = typeof candidate.data === 'string' ? candidate.data : '';
 
@@ -66,17 +91,31 @@ export function validateImages(input: unknown): ImageValidation {
     if (data.startsWith('data:') && commaIndex > 0) data = data.slice(commaIndex + 1);
 
     if (!ALLOWED_TYPES.includes(mimeType)) {
-      return { images: [], error: '対応していない画像形式です。JPEG / PNG / WebP で送ってください。' };
+      return {
+        images: [],
+        thumbnails: [],
+        error: '対応していない画像形式です。JPEG / PNG / WebP で送ってください。',
+      };
     }
-    if (!data) return { images: [], error: '画像データが空です。' };
+    if (!data) return { images: [], thumbnails: [], error: '画像データが空です。' };
 
     total += base64Bytes(data);
     if (total > MAX_TOTAL_BYTES) {
-      return { images: [], error: '画像の合計サイズが大きすぎます。枚数を減らして送ってください。' };
+      return {
+        images: [],
+        thumbnails: [],
+        error: '画像の合計サイズが大きすぎます。枚数を減らして送ってください。',
+      };
     }
 
     images.push({ mimeType, data });
+
+    // 控えは無くても対話は成立する。壊れていたら黙って捨てる。
+    const thumbnail = typeof candidate.thumbnail === 'string' ? candidate.thumbnail : '';
+    if (thumbnail.startsWith('data:image/') && thumbnail.length <= MAX_THUMBNAIL_CHARS) {
+      thumbnails.push(thumbnail);
+    }
   }
 
-  return { images };
+  return { images, thumbnails };
 }

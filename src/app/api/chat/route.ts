@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { getStore, loadForSession } from '@/lib/store';
+import { getStore, loadForSession, rememberAttachments } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { toDisplayMessages } from '@/lib/profile';
 import { FIRST_TURN_PROMPT } from '@/lib/prompt';
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const build = getBuildInfo();
   return Response.json(
     {
-      messages: toDisplayMessages(state.history),
+      messages: toDisplayMessages(state.history, state.profile.attachments ?? []),
       profile: state.profile,
       hasApiKey: build.hasApiKey,
       build,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'リクエストの形式が正しくありません。' }, { status: 400 });
   }
 
-  const { images, error: imageError } = validateImages(body.images);
+  const { images, thumbnails, error: imageError } = validateImages(body.images);
   if (imageError) {
     return Response.json({ error: imageError }, { status: 400 });
   }
@@ -152,12 +152,19 @@ export async function POST(request: NextRequest) {
         return;
       }
 
+      // 添付があるターンだけ、見返し用の控えに id を振る。
+      const attachmentGroupId =
+        images.length > 0 && thumbnails.length > 0
+          ? `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+          : undefined;
+
       let result;
       try {
         result = await runCoachTurn({
           state,
           userText,
           images,
+          attachmentGroupId,
           onDelta: (delta) => send({ type: 'delta', text: delta }),
         });
       } catch (error) {
@@ -180,6 +187,10 @@ export async function POST(request: NextRequest) {
         finish();
         return;
       }
+
+      // 送った画像を後から開き直せるよう、小さくした控えを残す。
+      // 本体は保存しない（すぐに保存先が膨れる）ので、これが唯一の手がかりになる。
+      result.state.profile = rememberAttachments(result.state.profile, attachmentGroupId, thumbnails);
 
       // ここまで来たらコーチの返答は届いている。
       // 保存に失敗しても、返答を無かったことにはしない。

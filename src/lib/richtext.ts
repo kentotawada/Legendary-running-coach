@@ -45,6 +45,14 @@ export interface GearBlock {
   note?: string;
 }
 
+/** 説明図。中身は id だけで、絵と手順はアプリ側が持っている。 */
+export interface FigureBlock {
+  type: 'figure';
+  id: string;
+  /** その人の状況に合わせた一言。図の下に出す。 */
+  note?: string;
+}
+
 export type RichBlock =
   | { type: 'paragraph'; content: InlineText[] }
   | { type: 'heading'; content: InlineText[] }
@@ -53,6 +61,7 @@ export type RichBlock =
   | MenuBlock
   | ZonesBlock
   | GearBlock
+  | FigureBlock
   /** 生成途中の囲みブロック。閉じるまでは中身を出さない。 */
   | { type: 'pending' };
 
@@ -75,7 +84,7 @@ export function parseInline(text: string): InlineText[] {
   return parts.filter((part) => part.value.length > 0);
 }
 
-const FENCE = /^```(menu|zones|gear)\s*$/;
+const FENCE = /^```(menu|zones|gear|figure)\s*$/;
 const BULLET = /^\s*(?:[-*・]|●)\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
@@ -115,6 +124,20 @@ function gearFrom(raw: string): GearBlock | null {
       type: 'gear',
       categories,
       note: typeof data.note === 'string' ? data.note : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function figureFrom(raw: string): FigureBlock | null {
+  try {
+    const data = JSON.parse(raw) as { id?: unknown; note?: unknown };
+    if (typeof data.id !== 'string' || !data.id.trim()) return null;
+    return {
+      type: 'figure',
+      id: data.id.trim(),
+      note: typeof data.note === 'string' && data.note.trim() ? data.note.trim() : undefined,
     };
   } catch {
     return null;
@@ -197,7 +220,13 @@ export function parseRichText(text: string): RichBlock[] {
 
       const raw = body.join('\n').trim();
       const parsed =
-        fence[1] === 'menu' ? menuFrom(raw) : fence[1] === 'gear' ? gearFrom(raw) : zonesFrom(raw);
+        fence[1] === 'menu'
+          ? menuFrom(raw)
+          : fence[1] === 'gear'
+            ? gearFrom(raw)
+            : fence[1] === 'figure'
+              ? figureFrom(raw)
+              : zonesFrom(raw);
       if (parsed) blocks.push(parsed);
       else if (raw) blocks.push({ type: 'paragraph', content: parseInline(raw) });
       continue;
