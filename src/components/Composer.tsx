@@ -33,6 +33,8 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
   const [dragging, setDragging] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** 「＋」とその中身。外を触った時だけ閉じるために使う。 */
+  const menuRef = useRef<HTMLDivElement>(null);
   // 話し始めた時点の文面。認識結果はこの後ろに足す。書きかけを消さないため。
   const dictationBase = useRef('');
 
@@ -86,20 +88,27 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  });
+    // files が変わると枚数の上限判定が変わるので、その都度張り直す。
+  }, [disabled, files]);
 
-  // どこかを触ったらメニューを閉じる。開きっぱなしで入力を隠さない。
+  /**
+   * メニューの外を触ったら閉じる。
+   *
+   * **メニューの中は対象外にすること。** 中まで閉じてしまうと、
+   * スマホでは touchstart の時点でメニューごと消え、
+   * 続く click が届かなくなる（＝押しても何も起きない）。
+   */
   useEffect(() => {
     if (!menuOpen) return;
-    const close = () => setMenuOpen(false);
-    const timer = setTimeout(() => {
-      document.addEventListener('click', close);
-      document.addEventListener('touchstart', close);
-    }, 0);
+    const onDown = (event: MouseEvent | TouchEvent) => {
+      if (menuRef.current?.contains(event.target as Node | null)) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
     return () => {
-      clearTimeout(timer);
-      document.removeEventListener('click', close);
-      document.removeEventListener('touchstart', close);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
     };
   }, [menuOpen]);
 
@@ -192,7 +201,7 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
       onDragOver={(e) => {
         if (disabled) return;
         e.preventDefault();
-        setDragging(true);
+        if (!dragging) setDragging(true);
       }}
       onDragLeave={(e) => {
         // 子要素をまたぐ時にも leave が飛ぶ。外に出た時だけ解除する。
@@ -257,7 +266,7 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
           className="hidden"
           onChange={(e) => void addFiles(e.target.files)}
         />
-        <div className="relative shrink-0">
+        <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}

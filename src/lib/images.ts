@@ -12,10 +12,13 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'i
 
 /**
  * ファイル選択で見せる形式。
- * image/* だけにすると、iPhone の「ファイル」から選ぶ時に
- * iCloud 上の HEIC がグレーアウトして選べないことがある。拡張子も並べておく。
+ *
+ * **拡張子を混ぜないこと。** iOS Safari は accept を UTI に変換するが、
+ * 対応の取れない拡張子が混ざると写真ライブラリを出さず、
+ * 「ファイル」だけの画面になることがある。それでは写真を選べない。
+ * image/* だけにしておけば、写真・撮影・ファイルの3つが出る。
  */
-export const FILE_ACCEPT = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
+export const FILE_ACCEPT = 'image/*';
 
 /** 画像として扱えるファイルか。拡張子しか手がかりが無い場合にも答えを出す。 */
 export function looksLikeImage(file: { type?: string; name?: string }): boolean {
