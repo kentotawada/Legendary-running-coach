@@ -24,6 +24,8 @@
   --radius: 16px;
   /* 本文の大きさ。カルテの「文字の大きさ」から書き換える。 */
   --chat-font-scale: 1;
+  /* キーボードが覆っている高さ。出ていない間は 0。 */
+  --keyboard-inset: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -87,11 +89,23 @@ body {
   font-size: calc(15px * var(--chat-font-scale, 1));
 }
 
-/* 入力欄が 16px 未満だと iOS Safari が自動でズームしてしまう。 */
+/*
+  入力欄が 16px 未満だと、iOS Safari がフォーカス時に画面を勝手に拡大する。
+  拡大されると画面の端が切れ、送信ボタンまで見えなくなる。
+*/
 input,
 textarea,
 select {
   font-size: 16px;
+}
+
+/*
+  本文と同じ大きさで打ちたい入力欄。
+  「大」では本文に追従して大きくなり、「小」「中」では 16px で止める。
+  ここを .chat-body にすると 15px（小なら 13px）になり、上の拡大が起きる。
+*/
+.chat-input {
+  font-size: max(16px, calc(15px * var(--chat-font-scale, 1)));
 }
 
 .safe-top {
@@ -143,6 +157,17 @@ select {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   -webkit-overflow-scrolling: touch;
+}
+
+/*
+  画面の外枠。
+  iOS はキーボードが出ても 100dvh を縮めないため、そのままだと
+  入力欄がキーボードの下に隠れ、Safari が画面ごとずらして端を切る。
+  覆われた分だけ自分で縮める。
+*/
+.app-shell {
+  height: 100dvh;
+  height: calc(100dvh - var(--keyboard-inset, 0px));
 }
 
 /* 下から出るシート。 */

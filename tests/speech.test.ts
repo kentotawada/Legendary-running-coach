@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { speakableNumbers, toSpokenText } from '../src/lib/speech';
-import { DEFAULT_FONT_SIZE, FONT_SIZES, findFontSize } from '../src/lib/display';
+import {
+  DEFAULT_FONT_SIZE,
+  FONT_SIZES,
+  MIN_INPUT_FONT_PX,
+  findFontSize,
+  inputFontSize,
+} from '../src/lib/display';
 
 describe('speakableNumbers', () => {
   it('ペースを耳で分かる形に直す', () => {
@@ -91,5 +97,23 @@ describe('文字サイズ', () => {
   it('未知の値では今までの大きさに落ちる', () => {
     expect(findFontSize('huge').id).toBe(DEFAULT_FONT_SIZE);
     expect(findFontSize(null).id).toBe(DEFAULT_FONT_SIZE);
+  });
+});
+
+describe('入力欄の文字の大きさ', () => {
+  it('どの設定でも 16px を下回らない（下回ると iOS が勝手に拡大する）', () => {
+    for (const size of FONT_SIZES) {
+      expect(inputFontSize(size.scale), size.id).toBeGreaterThanOrEqual(MIN_INPUT_FONT_PX);
+    }
+  });
+
+  it('「大」では本文に合わせて大きくなる', () => {
+    const large = FONT_SIZES.find((s) => s.id === 'large')!;
+    expect(inputFontSize(large.scale)).toBeGreaterThan(MIN_INPUT_FONT_PX);
+  });
+
+  it('極端に小さい倍率でも下限で止まる', () => {
+    expect(inputFontSize(0.1)).toBe(MIN_INPUT_FONT_PX);
+    expect(inputFontSize(0)).toBe(MIN_INPUT_FONT_PX);
   });
 });

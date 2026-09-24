@@ -15,6 +15,7 @@ import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
 import { useReadAloud } from '@/hooks/useSpeech';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
 
 export default function CoachApp() {
@@ -54,6 +55,8 @@ export default function CoachApp() {
   /** 返答への評価。端末を閉じるまでの記録で、コーチ側には送らない。 */
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const readAloud = useReadAloud();
+  // キーボードで画面がずれて端が切れるのを防ぐ。
+  useKeyboardInset();
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLength = useRef(0);
 
@@ -97,7 +100,7 @@ export default function CoachApp() {
   const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg text-fg">
+    <div className="app-shell flex flex-col overflow-hidden bg-bg text-fg">
       <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-bg px-4 pb-3">
         <button
           type="button"

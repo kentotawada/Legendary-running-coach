@@ -164,7 +164,7 @@ export default function MessageItem({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               aria-label="送った文章を書き直す"
-              className="scroll-area chat-body max-h-[40dvh] min-h-[72px] w-full resize-none bg-transparent px-1.5 py-1 leading-[1.75] text-fg outline-none"
+              className="scroll-area chat-input max-h-[40dvh] min-h-[72px] w-full resize-none bg-transparent px-1.5 py-1 leading-[1.75] text-fg outline-none"
             />
             <div className="mt-1.5 flex items-center justify-end gap-2">
               <button

@@ -369,7 +369,7 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
           }}
           placeholder="今日の練習と体の状態を"
           aria-label="コーチへのメッセージ"
-          className="scroll-area max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
+          className="scroll-area chat-input max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
         />
 
         <button
