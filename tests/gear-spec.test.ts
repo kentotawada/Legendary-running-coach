@@ -8,7 +8,7 @@ import {
   recentCadence,
 } from '@/lib/gear-spec';
 import { createDefaultProfile } from '@/lib/types';
-import { addActivity, addRace, applyProfileUpdate, upsertPain } from '@/lib/profile';
+import { addActivity, addRace, addShoes, applyProfileUpdate, upsertPain } from '@/lib/profile';
 import type { RunnerProfile } from '@/lib/types';
 
 const NOW = new Date('2026-09-24T09:00:00Z');
@@ -149,6 +149,26 @@ describe('シューズの条件', () => {
     const spec = gearSpecFor('shoes-race', profile, NOW)!;
     expect(spec.timing).toContain('3回');
     expect(spec.query).toContain('カーボン');
+  });
+});
+
+describe('今履いている靴を踏まえる', () => {
+  it('まだ余裕があれば、急がなくていいと言う', () => {
+    const profile = addShoes(applyProfileUpdate(base(), { weeklyVolumeKm: 40 }, NOW), { name: 'A', km: 120 }, NOW);
+    expect(gearSpecFor('shoes-daily', profile, NOW)!.skipIf).toContain('残り580km');
+  });
+
+  it('寿命が近ければ、残りの距離を条件に入れる', () => {
+    const profile = addShoes(applyProfileUpdate(base(), { weeklyVolumeKm: 50 }, NOW), { name: 'A', km: 620 }, NOW);
+    const spec = gearSpecFor('shoes-daily', profile, NOW)!;
+
+    expect(spec.requirements[0]).toContain('残り80km');
+    expect(spec.skipIf).toContain('履き切ってから');
+  });
+
+  it('目安を超えていれば、超えていると言う', () => {
+    const profile = addShoes(base(), { name: 'A', km: 900 }, NOW);
+    expect(gearSpecFor('shoes-daily', profile, NOW)!.requirements[0]).toContain('すでに超えている');
   });
 });
 

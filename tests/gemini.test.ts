@@ -11,7 +11,7 @@ vi.mock('@google/genai', () => ({
 
 import { CoachApiError, describeGeminiError, runCoachTurn } from '@/lib/gemini';
 import { createDefaultProfile } from '@/lib/types';
-import { upsertPain } from '@/lib/profile';
+import { addRace, applyProfileUpdate, upsertPain } from '@/lib/profile';
 import type { CoachState } from '@/lib/types';
 
 const NOW = new Date('2026-09-16T09:00:00Z');
@@ -140,6 +140,34 @@ describe('runCoachTurn', () => {
       vi.unstubAllGlobals();
       delete process.env.RAKUTEN_APP_ID;
     }
+  });
+
+  it('持ち物リストは、この人の数字で埋められてから届く', async () => {
+    const profile = addRace(
+      applyProfileUpdate(
+        createDefaultProfile('u1', NOW.toISOString()),
+        { bodyWeightKg: 62, goal: { kind: 'time', summary: 'サブ3.5', targetTime: '3:30:00' } },
+        NOW,
+      ),
+      { name: '東京マラソン', date: '2026-09-27', distance: 'フル', priority: 'A' },
+      NOW,
+    );
+
+    queueResponses(
+      chunksOf([{ text: '持ち物をまとめました。\n```checklist\n{}\n```\n当日の朝にもう一度開いてください。' }]),
+    );
+
+    const result = await runCoachTurn({
+      state: stateOf(profile),
+      userText: '本番の持ち物を教えて',
+      now: NOW,
+    });
+
+    expect(result.text).toContain('東京マラソン');
+    expect(result.text).toContain('ジェル 6本');
+    expect(result.text).toContain('当日の朝にもう一度開いてください。');
+    // 保存される履歴も、埋めた後の本文になっている。
+    expect(JSON.stringify(result.state.history)).toContain('ジェル 6本');
   });
 
   it('モデルの思考パートの署名を落とさずに履歴へ戻す', async () => {

@@ -24,6 +24,9 @@ export const COACH_TOOL_NAMES = [
   'set_today_plan',
   'log_weight',
   'set_coaching_phase',
+  'add_shoes',
+  'retire_shoes',
+  'log_gear_feedback',
   // 本文に書かれても記録としては実行できない（商品検索は非同期のため）が、
   // 内部処理用の JSON を画面に残さないよう、取り除く対象には入れておく。
   'find_gear',

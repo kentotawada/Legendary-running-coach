@@ -10,6 +10,9 @@ import { dailyDoctrine } from './daily';
 import { gearDoctrine } from './gear';
 import { fuelDoctrine } from './gear-spec';
 import { productDoctrine } from './products';
+import { shoeDoctrine } from './shoes';
+import { gearNoteDoctrine } from './gear-notes';
+import { checklistDoctrine } from './checklist';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
 
@@ -109,6 +112,12 @@ const TOOL_POLICY = `# 記録ツールの使い方
   metrics には読み取った心拍・ピッチ・ストライド・高度を入れる。読めなかった項目は空のままにする。
 - set_today_plan: メニューを提示した時。alternatives に「時間が取れない時」「疲労が強い時」を必ず入れる。
 - set_coaching_phase: 目的や心境が変わった時。reason には本人の言葉を残す。
+- add_shoes / retire_shoes: シューズの銘柄を聞いた時に登録し、履くのをやめた時に引退させる。
+  **登録時は「だいたい何km履いたか」を必ず尋ねる。** 0kmと決めつけると、寿命の判断が丸ごと狂う。
+- log_activity の shoes: 2足以上登録がある時に、どの靴で走ったかが分かればそこに入れる。
+  分からないまま推測で入れない。1足しか無ければ自動で積まれるので、指定は要らない。
+- log_gear_feedback: 「あのジェルは胃に来た」「この靴下でマメが消えた」を聞いた時。
+  合わなかった物は、次に商品を探す時に自動で候補から外れる。
 
 ツールを呼んだことを会話文で報告する必要はありません。自然な対話の中で静かに記録してください。
 
@@ -188,6 +197,9 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     IMAGE_POLICY,
     figureDoctrine(),
     fuelDoctrine(profile, now),
+    shoeDoctrine(profile, now),
+    gearNoteDoctrine(profile),
+    checklistDoctrine(profile, now),
     gearDoctrine(),
     productDoctrine(),
     TOOL_POLICY,

@@ -86,6 +86,17 @@ function blockToSpeech(block: RichBlock): string {
       if (block.skipIf) lines.push(sentence(`買わなくていい場合は、${block.skipIf}`));
       return lines.filter(Boolean).join('');
     }
+    case 'checklist': {
+      // 全部読み上げると長すぎる。何のリストかと、章立てだけを伝える。
+      const lines = [
+        sentence(
+          `${block.race}の持ち物と段取りを画面に出しています` +
+            `${block.daysLeft !== undefined ? `。本番まであと${block.daysLeft}日です` : ''}`,
+        ),
+      ];
+      lines.push(sentence(`項目は、${block.sections.map((section) => section.title).join('、')}`));
+      return lines.filter(Boolean).join('');
+    }
     case 'pending':
     default:
       return '';

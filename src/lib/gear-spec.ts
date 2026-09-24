@@ -16,6 +16,7 @@ import type { RaceEntry, RunnerProfile } from './types';
 import { GEAR_CATEGORIES } from './gear';
 import { MARATHON_KM, marathonPaceSeconds, parseDuration } from './goals';
 import { daysUntil, targetRace } from './races';
+import { activeShoes, shoeStatusOf } from './shoes';
 
 export interface GearSpec {
   categoryId: string;
@@ -210,9 +211,40 @@ function shoeBase(profile: RunnerProfile): { requirements: string[]; terms: stri
   return { requirements, terms };
 }
 
+/**
+ * 今履いている靴の状態から、「買う時期かどうか」を決める。
+ * 走行距離を記録しているなら、一般論ではなくその数字で答えられる。
+ */
+function currentShoeLine(
+  profile: RunnerProfile,
+  role: 'daily' | 'race',
+): { requirement?: string; skipIf?: string } {
+  const owned = activeShoes(profile)
+    .filter((shoe) => shoe.role === role)
+    .map((shoe) => shoeStatusOf(shoe, profile));
+  if (owned.length === 0) return {};
+
+  const worn = owned.find((status) => status.level !== 'ok');
+  if (worn) {
+    return {
+      requirement:
+        worn.level === 'over'
+          ? `今の${worn.shoe.name}は${Math.round(worn.shoe.km)}km（目安${worn.lifespan.replace}km）。すでに超えている`
+          : `今の${worn.shoe.name}は残り${worn.remainingKm}km${worn.weeksLeft !== undefined ? `（約${worn.weeksLeft}週）` : ''}。届いてから履き始められるよう、今のうちに`,
+      skipIf: '今の1足を最後まで履き切ってからでよい。ただし痛みが出たら、そこで替える',
+    };
+  }
+
+  const freshest = owned[owned.length - 1];
+  return {
+    skipIf: `${freshest.shoe.name}はまだ残り${freshest.remainingKm}kmある。急いで増やす必要はない`,
+  };
+}
+
 function dailyShoeSpec(profile: RunnerProfile): Omit<GearSpec, 'categoryId' | 'title'> {
   const { requirements, terms } = shoeBase(profile);
   const weekly = profile.weeklyVolumeKm;
+  const current = currentShoeLine(profile, 'daily');
 
   if (weekly !== undefined && weekly >= 50) {
     requirements.unshift(
@@ -223,10 +255,12 @@ function dailyShoeSpec(profile: RunnerProfile): Omit<GearSpec, 'categoryId' | 't
     requirements.unshift(`週${weekly}km。まず1足を履き切ってよい範囲。買い替えの目安は500〜700km`);
   }
 
+  if (current.requirement) requirements.unshift(current.requirement);
+
   return {
     requirements: requirements.length > 0 ? requirements : ['毎日の練習を受け止められる、クッションのあるモデル'],
     query: ['ランニングシューズ', ...terms].join(' '),
-    skipIf: '今の靴がまだ500km以下で、痛みもマメも出ていないなら、買い替えはまだ先でよい',
+    skipIf: current.skipIf ?? '今の靴がまだ500km以下で、痛みもマメも出ていないなら、買い替えはまだ先でよい',
   };
 }
 
@@ -234,6 +268,7 @@ function raceShoeSpec(profile: RunnerProfile, now: Date): Omit<GearSpec, 'catego
   const { requirements, terms } = shoeBase(profile);
   const pace = marathonPaceSeconds(profile.goal?.targetTime);
   const left = daysToRace(profile, now);
+  const current = currentShoeLine(profile, 'race');
 
   if (pace !== undefined) {
     if (pace <= 255) {
@@ -263,11 +298,14 @@ function raceShoeSpec(profile: RunnerProfile, now: Date): Omit<GearSpec, 'catego
     }
   }
 
+  if (current.requirement) requirements.unshift(current.requirement);
+
   return {
     requirements,
     query: ['ランニングシューズ レーシング', ...terms].join(' '),
     timing,
-    skipIf: 'レースペースでの練習がまだ始まっていないなら、今は練習用シューズに回した方が効く',
+    skipIf:
+      current.skipIf ?? 'レースペースでの練習がまだ始まっていないなら、今は練習用シューズに回した方が効く',
   };
 }
 

@@ -125,7 +125,50 @@ export interface ActivityLog {
   metrics?: WorkoutMetrics;
   /** 画像から読み取った値かどうか。読み取り誤りを疑えるようにしておく。 */
   source?: ActivitySource;
+  /** どのシューズで走ったか。走行距離を積む先。 */
+  shoeId?: string;
   createdAt: string;
+}
+
+/** シューズの用途。寿命の目安が大きく違うので分けて持つ。 */
+export type ShoeRole = 'daily' | 'race';
+
+/**
+ * 登録しているシューズ。
+ *
+ * ミッドソールは見た目では分からないまま潰れる。
+ * 「まだ履けそう」で走り続けて故障するのは、いちばんもったいない壊れ方なので、
+ * 走った距離を積んで、寿命が近づいたらこちらから知らせる。
+ */
+export interface ShoeEntry {
+  id: string;
+  /** 「ゲルカヤノ31」など、本人の呼び方のままでよい。 */
+  name: string;
+  role: ShoeRole;
+  /** これまでに走った距離(km)。登録時にすでに履いていた分を含む。 */
+  km: number;
+  /** 使い始めた日 YYYY-MM-DD。分からなければ空。 */
+  since?: string;
+  /** 引退した日。入っていれば、もう距離を積まない。 */
+  retiredAt?: string;
+  note?: string;
+  updatedAt: string;
+}
+
+/**
+ * 合った・合わなかった道具の記録。
+ * 「あのジェルは胃に来た」を覚えていれば、次に勧める候補から外せる。
+ */
+export interface GearNote {
+  id: string;
+  /** 道具のカテゴリ id。分からなければ空でよい。 */
+  category?: string;
+  /** 商品名・銘柄。本人の言い方のまま残す。 */
+  name: string;
+  verdict: 'good' | 'bad';
+  /** 「胃に来た」「幅が狭い」など、その人の言葉。 */
+  reason?: string;
+  at: string;
 }
 
 export type PlanIntensity = 'rest' | 'easy' | 'moderate' | 'hard';
@@ -192,6 +235,10 @@ export interface RunnerProfile {
   plans: CoachPlan[];
   /** 毎日の記録。スタンプと連続日数の土台。 */
   dailyLog?: DailyRecord[];
+  /** 持っているシューズ。走った距離を積み、寿命が近づいたら知らせる。 */
+  shoes?: ShoeEntry[];
+  /** 合った・合わなかった道具。次に勧める時の判断材料。 */
+  gearNotes?: GearNote[];
   /**
    * 送った画像の見返し用の控え。
    * カルテの内容ではないが、保存先の列を増やさずに済ませるためここに置いている。

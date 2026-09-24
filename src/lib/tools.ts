@@ -12,14 +12,19 @@ import {
   addActivity,
   addConditionLog,
   addRace,
+  addShoeDistance,
+  addShoes,
   applyProfileUpdate,
+  logGearNote,
   removeRace,
+  retireShoes,
   setPhase,
   setPlan,
   today,
   upsertPain,
 } from './profile';
 import { logWeight } from './daily';
+import { SHOE_ROLE_LABEL, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
 
 /**
@@ -177,6 +182,11 @@ export const coachTools: FunctionDeclaration[] = [
           enum: ['self-report', 'screenshot'],
           description: '画像から読み取った場合は screenshot。',
         },
+        shoes: {
+          type: 'string',
+          description:
+            'その練習で履いたシューズの名前（登録済みのもの）。2足以上登録があり、どれか分からない時は空にする。推測で入れない。',
+        },
         metrics: {
           type: 'object',
           description: '計測データ。読み取れた項目だけを入れる。',
@@ -234,6 +244,52 @@ export const coachTools: FunctionDeclaration[] = [
         date: { type: 'string', description: 'YYYY-MM-DD。省略時は今日。' },
       },
       required: ['weightKg'],
+    },
+  },
+  {
+    name: 'add_shoes',
+    description:
+      'シューズを聞いた時に登録する。すでに何km履いているかが分かれば km に入れる（分からなければ本人に尋ねる。0 と決めつけない）。' +
+      '同じ名前で呼ばれたら上書きするので、買い替えた時は retire_shoes で古い方を引退させてから登録すること。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '銘柄。本人の呼び方のままでよい。例: "ゲルカヤノ31"' },
+        role: {
+          type: 'string',
+          enum: ['daily', 'race'],
+          description: 'daily=練習用, race=レース用。寿命の目安が大きく違う。',
+        },
+        km: { type: 'number', description: '登録時点ですでに履いている距離(km)' },
+        since: { type: 'string', description: '使い始めた日 YYYY-MM-DD' },
+        note: { type: 'string', description: '「幅がきつい」など、本人の感想' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'retire_shoes',
+    description: '履くのをやめたシューズを引退させる。記録は残るが、以降の走行距離は積まれない。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: { name: { type: 'string', description: '引退させるシューズの名前' } },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'log_gear_feedback',
+    description:
+      '使ってみた道具の合う・合わないを聞いた時に記録する。「あのジェルは胃に来た」「この靴下でマメが消えた」など。' +
+      '**合わなかったものは、次に商品を探す時に候補から外される。**',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '商品名・銘柄。本人の言い方のままでよい。' },
+        verdict: { type: 'string', enum: ['good', 'bad'], description: 'good=合った, bad=合わなかった' },
+        category: { type: 'string', enum: GEAR_CATEGORY_IDS, description: '道具のカテゴリ。分かる時だけ。' },
+        reason: { type: 'string', description: '「胃に来た」「幅が狭い」など、本人の言葉。' },
+      },
+      required: ['name', 'verdict'],
     },
   },
   {
@@ -517,11 +573,40 @@ export function executeTool(
       const needsHrReference =
         metrics.avgHr !== undefined && next.maxHr === undefined && next.lthr === undefined;
 
+      // 走った距離をシューズに積む。どの足か決められない時は積まない。
+      const distanceKm = num(args.distanceKm);
+      let withShoes = next;
+      let shoeMessage: string | undefined;
+      if (type === 'run' && distanceKm !== undefined && distanceKm > 0) {
+        const session = str(args.session) ?? '';
+        const shoe = attributeRun(next, str(args.shoes), /レース|race/i.test(session) ? 'race' : 'daily');
+        if (shoe) {
+          withShoes = addShoeDistance(next, shoe.id, distanceKm, now);
+          // 積んだ後の状態で見る。今日の1本で目安を越えることがある。
+          const updated = withShoes.shoes?.find((entry) => entry.id === shoe.id);
+          const status = updated ? shoeStatusOf(updated, withShoes) : undefined;
+          withShoes = {
+            ...withShoes,
+            activities: withShoes.activities.map((activity, index) =>
+              index === withShoes.activities.length - 1 ? { ...activity, shoeId: shoe.id } : activity,
+            ),
+          };
+          shoeMessage =
+            status && status.level !== 'ok'
+              ? `${shoe.name}は${Math.round(status.shoe.km)}km。目安${status.lifespan.replace}kmに達している。` +
+                '距離だけを理由に買い替えを迫らず、脚の張りや違和感と結びつけて一度だけ伝えること。'
+              : status
+                ? `${shoe.name}に${distanceKm}kmを積んだ（累計${Math.round(status.shoe.km)}km）。この報告は不要。`
+                : undefined;
+        }
+      }
+
       return {
-        profile: next,
+        profile: withShoes,
         result: {
           ok: true,
           needsHrReference,
+          shoes: shoeMessage,
           message: needsHrReference
             ? '練習を記録した。ただし最大心拍もLTHRも未取得のため、心拍ゾーンの評価はできない。推測せずに基準値を尋ねること。'
             : '練習を記録した。狙いに対して成立したかを、数字を挙げて評価すること。',
@@ -582,6 +667,63 @@ export function executeTool(
         result: {
           ok: true,
           message: '体重を記録した。増減ではなく、はかったこと自体を評価すること。',
+        },
+      };
+    }
+
+    case 'add_shoes': {
+      const name = str(args.name);
+      if (!name) return { profile, result: { ok: false, error: 'name は必須。' } };
+      const role = oneOf<'daily' | 'race'>(args.role, ['daily', 'race'] as const) ?? 'daily';
+      const km = num(args.km);
+      const next = addShoes(profile, { name, role, km, since: str(args.since), note: str(args.note) }, now);
+      const registered = next.shoes?.find((shoe) => shoe.name === name);
+      const lifespan = lifespanFor(role, next.bodyWeightKg);
+
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          lifespanKm: lifespan.replace,
+          km: registered?.km ?? 0,
+          message:
+            km === undefined
+              ? `${name}（${SHOE_ROLE_LABEL[role]}）を登録した。走行距離が0kmとして始まる。` +
+                'すでに履いている靴なら、だいたい何km走ったかを一度だけ尋ねて add_shoes で入れ直すこと。'
+              : `${name}（${SHOE_ROLE_LABEL[role]}）を登録した。交換の目安は${lifespan.replace}km。`,
+        },
+      };
+    }
+
+    case 'retire_shoes': {
+      const name = str(args.name);
+      if (!name) return { profile, result: { ok: false, error: 'name は必須。' } };
+      const next = retireShoes(profile, name, now);
+      if (next === profile) {
+        return { profile, result: { ok: false, error: `${name} という登録が見つからない。` } };
+      }
+      return { profile: next, result: { ok: true, message: `${name}を引退させた。` } };
+    }
+
+    case 'log_gear_feedback': {
+      const name = str(args.name);
+      const verdict = oneOf<'good' | 'bad'>(args.verdict, ['good', 'bad'] as const);
+      if (!name || !verdict) {
+        return { profile, result: { ok: false, error: 'name と verdict は必須。' } };
+      }
+      const next = logGearNote(
+        profile,
+        { name, verdict, category: str(args.category), reason: str(args.reason) },
+        now,
+      );
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          message:
+            verdict === 'bad'
+              ? `${name}を「合わなかった」として記録した。次に商品を探す時、これは候補から外れる。`
+              : `${name}を「合った」として記録した。次に同じ場面が来たら、まずこれを思い出すこと。`,
         },
       };
     }

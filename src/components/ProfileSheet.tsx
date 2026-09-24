@@ -12,6 +12,7 @@ import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
 import { RACE_PRIORITY_LABEL, daysUntil, racesOf, targetRace } from '@/lib/races';
 import { FONT_SIZES, type FontSizeId } from '@/lib/display';
 import { heartRateZones } from '@/lib/zones';
+import { SHOE_ROLE_LABEL, shoeStatuses } from '@/lib/shoes';
 
 interface Props {
   profile: RunnerProfile | null;
@@ -73,6 +74,8 @@ export default function ProfileSheet({
   const focus = profile ? targetRace(profile) : undefined;
   const pains = profile?.pains.filter((p) => p.status !== 'resolved') ?? [];
   const recent = (profile?.activities ?? []).slice(-5).reverse();
+  const shoes = profile ? shoeStatuses(profile) : [];
+  const gearNotes = profile?.gearNotes ?? [];
   const plan = profile?.plans.at(-1);
 
   return (
@@ -247,6 +250,56 @@ export default function ProfileSheet({
                   </ul>
                 </Row>
               ) : null}
+              {shoes.length > 0 && (
+                <Row label="シューズ">
+                  <ul className="space-y-2.5">
+                    {shoes.map(({ shoe, lifespan, remainingKm, ratio, level, weeksLeft }) => (
+                      <li key={shoe.id}>
+                        <span className="font-medium">{shoe.name}</span>
+                        <span className="ml-1.5 text-[12px] text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
+                        <span
+                          aria-hidden="true"
+                          className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-sunken"
+                        >
+                          <span
+                            className={`block h-full rounded-full ${
+                              level === 'over' ? 'bg-warn' : level === 'caution' ? 'bg-accent' : 'bg-good'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
+                          />
+                        </span>
+                        <span className="mt-1 block text-[12px] text-muted tabular-nums">
+                          {Math.round(shoe.km)} km / 目安 {lifespan.replace} km
+                          {level === 'over'
+                            ? `（${-remainingKm}km 超過）`
+                            : weeksLeft !== undefined
+                              ? `（残り ${remainingKm}km・約${weeksLeft}週）`
+                              : `（残り ${remainingKm}km）`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Row>
+              )}
+              {gearNotes.length > 0 && (
+                <Row label="道具の相性">
+                  <ul className="space-y-1">
+                    {gearNotes
+                      .slice()
+                      .reverse()
+                      .slice(0, 8)
+                      .map((note) => (
+                        <li key={note.id} className={note.verdict === 'bad' ? 'text-warn' : 'text-good'}>
+                          {note.verdict === 'bad' ? '合わなかった' : '合った'}: {note.name}
+                          {note.reason ? <span className="text-muted">（{note.reason}）</span> : null}
+                        </li>
+                      ))}
+                  </ul>
+                  <span className="mt-1 block text-[12px] text-muted">
+                    「合わなかった」ものは、商品を探す時に候補から外れます
+                  </span>
+                </Row>
+              )}
               {vdot !== undefined && (
                 <Row label="VDOT">
                   <span className="font-medium">{vdot.toFixed(1)}</span>

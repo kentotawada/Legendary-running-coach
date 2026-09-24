@@ -75,6 +75,30 @@ export interface ProductBlock {
   asOf?: string;
 }
 
+/**
+ * 本番の持ち物と段取り。
+ * 中身はカルテから計算したもので、モデルが書いたものではない。
+ */
+export interface ChecklistItem {
+  label: string;
+  detail?: string;
+}
+
+export interface ChecklistSection {
+  title: string;
+  items: ChecklistItem[];
+}
+
+export interface ChecklistBlock {
+  type: 'checklist';
+  race: string;
+  date?: string;
+  daysLeft?: number;
+  sections: ChecklistSection[];
+  /** チェックの状態を端末に覚えさせるための鍵。 */
+  key?: string;
+}
+
 /** 説明図。中身は id だけで、絵と手順はアプリ側が持っている。 */
 export interface FigureBlock {
   type: 'figure';
@@ -92,6 +116,7 @@ export type RichBlock =
   | ZonesBlock
   | GearBlock
   | ProductBlock
+  | ChecklistBlock
   | FigureBlock
   /** 生成途中の囲みブロック。閉じるまでは中身を出さない。 */
   | { type: 'pending' };
@@ -115,7 +140,7 @@ export function parseInline(text: string): InlineText[] {
   return parts.filter((part) => part.value.length > 0);
 }
 
-const FENCE = /^```(menu|zones|gear|product|figure)\s*$/;
+const FENCE = /^```(menu|zones|gear|product|checklist|figure)\s*$/;
 const BULLET = /^\s*(?:[-*・]|●)\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
@@ -210,6 +235,52 @@ function productFrom(raw: string): ProductBlock | null {
       spec: spec && spec.length > 0 ? spec : undefined,
       skipIf: typeof data.skipIf === 'string' && data.skipIf.trim() ? data.skipIf.trim() : undefined,
       asOf: typeof data.asOf === 'string' ? data.asOf : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function checklistFrom(raw: string): ChecklistBlock | null {
+  try {
+    const data = JSON.parse(raw) as {
+      race?: unknown;
+      date?: unknown;
+      daysLeft?: unknown;
+      sections?: unknown;
+      key?: unknown;
+    };
+    if (!Array.isArray(data.sections)) return null;
+
+    const sections = data.sections
+      .map((entry): ChecklistSection | null => {
+        const section = entry as { title?: unknown; items?: unknown };
+        if (typeof section.title !== 'string' || !Array.isArray(section.items)) return null;
+        const items = section.items
+          .map((item): ChecklistItem | null => {
+            if (typeof item === 'string') return { label: item };
+            const record = item as { label?: unknown; detail?: unknown };
+            return typeof record.label === 'string' && record.label.trim()
+              ? {
+                  label: record.label,
+                  detail: typeof record.detail === 'string' ? record.detail : undefined,
+                }
+              : null;
+          })
+          .filter((item): item is ChecklistItem => item !== null);
+        return items.length > 0 ? { title: section.title, items } : null;
+      })
+      .filter((section): section is ChecklistSection => section !== null);
+
+    if (sections.length === 0) return null;
+
+    return {
+      type: 'checklist',
+      race: typeof data.race === 'string' ? data.race : '本番',
+      date: typeof data.date === 'string' ? data.date : undefined,
+      daysLeft: typeof data.daysLeft === 'number' ? data.daysLeft : undefined,
+      sections,
+      key: typeof data.key === 'string' ? data.key : undefined,
     };
   } catch {
     return null;
@@ -312,13 +383,15 @@ export function parseRichText(text: string): RichBlock[] {
             ? gearFrom(raw)
             : fence[1] === 'product'
               ? productFrom(raw)
-              : fence[1] === 'figure'
-                ? figureFrom(raw)
-                : zonesFrom(raw);
+              : fence[1] === 'checklist'
+                ? checklistFrom(raw)
+                : fence[1] === 'figure'
+                  ? figureFrom(raw)
+                  : zonesFrom(raw);
       if (parsed) blocks.push(parsed);
-      // 商品ブロックは、名札のままの状態（サーバーが差し替える前）が一瞬だけ通る。
+      // 商品と持ち物のブロックは、サーバーが中身を埋める前の状態が一瞬だけ通る。
       // 中身の JSON を本文として出してしまうと、その一瞬が画面に残る。
-      else if (fence[1] === 'product') blocks.push({ type: 'pending' });
+      else if (fence[1] === 'product' || fence[1] === 'checklist') blocks.push({ type: 'pending' });
       else if (raw) blocks.push({ type: 'paragraph', content: parseInline(raw) });
       continue;
     }

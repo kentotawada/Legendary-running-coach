@@ -8,13 +8,17 @@ import type {
   PainPoint,
   RaceEntry,
   RacePriority,
+  GearNote,
   RunnerGoal,
   RunnerProfile,
+  ShoeEntry,
+  ShoeRole,
 } from './types';
 import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
+import { SHOE_ROLE_LABEL, activeShoes, findShoe } from './shoes';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
 const MAX_CONDITION_LOGS = 120;
@@ -194,6 +198,122 @@ export function setPlan(
   return {
     ...profile,
     plans: tail([...others, entry].sort((a, b) => a.date.localeCompare(b.date)), MAX_PLANS),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/** 持てるシューズの数。履かなくなったものまで全部覚えていても、判断の役には立たない。 */
+const MAX_SHOES = 12;
+
+/** 合った・合わなかったの記録。多すぎると、いつの話か分からなくなる。 */
+const MAX_GEAR_NOTES = 40;
+
+export interface ShoeInput {
+  name: string;
+  role?: ShoeRole;
+  /** 登録時点ですでに履いている距離(km)。 */
+  km?: number;
+  since?: string;
+  note?: string;
+}
+
+/**
+ * シューズを登録する。
+ * 同じ名前のものが現役で残っていれば、二重に作らず上書きする。
+ * （同じ銘柄の2足目を買う人は「31の2足目」のように呼び分ける）
+ */
+export function addShoes(profile: RunnerProfile, input: ShoeInput, now: Date = new Date()): RunnerProfile {
+  const name = input.name.trim();
+  if (!name) return profile;
+
+  const existing = activeShoes(profile).find(
+    (shoe) => shoe.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  const entry: ShoeEntry = {
+    id: existing?.id ?? newId(),
+    name,
+    role: input.role ?? existing?.role ?? 'daily',
+    km: Math.max(0, Math.round(input.km ?? existing?.km ?? 0)),
+    since: input.since ?? existing?.since,
+    note: input.note ?? existing?.note,
+    updatedAt: now.toISOString(),
+  };
+
+  const others = (profile.shoes ?? []).filter((shoe) => shoe.id !== entry.id);
+  return {
+    ...profile,
+    shoes: tail([...others, entry], MAX_SHOES),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/** 履くのをやめた1足。記録は消さない。何kmで替えたかは、次を選ぶ時の材料になる。 */
+export function retireShoes(profile: RunnerProfile, nameOrId: string, now: Date = new Date()): RunnerProfile {
+  const target = findShoe(profile, nameOrId);
+  if (!target || target.retiredAt) return profile;
+  return {
+    ...profile,
+    shoes: (profile.shoes ?? []).map((shoe) =>
+      shoe.id === target.id ? { ...shoe, retiredAt: today(now), updatedAt: now.toISOString() } : shoe,
+    ),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/** 走った距離を1足に積む。 */
+export function addShoeDistance(
+  profile: RunnerProfile,
+  shoeId: string,
+  km: number,
+  now: Date = new Date(),
+): RunnerProfile {
+  if (!(km > 0)) return profile;
+  const shoes = profile.shoes ?? [];
+  if (!shoes.some((shoe) => shoe.id === shoeId)) return profile;
+  return {
+    ...profile,
+    shoes: shoes.map((shoe) =>
+      shoe.id === shoeId
+        ? { ...shoe, km: Math.round((shoe.km + km) * 10) / 10, updatedAt: now.toISOString() }
+        : shoe,
+    ),
+    updatedAt: now.toISOString(),
+  };
+}
+
+export interface GearNoteInput {
+  name: string;
+  verdict: 'good' | 'bad';
+  category?: string;
+  reason?: string;
+}
+
+/**
+ * 「これは合わなかった」を残す。
+ * 同じ物について言い直したら、新しい方だけを残す。前の判断が並んでいると、どちらが今なのか分からない。
+ */
+export function logGearNote(
+  profile: RunnerProfile,
+  input: GearNoteInput,
+  now: Date = new Date(),
+): RunnerProfile {
+  const name = input.name.trim();
+  if (!name) return profile;
+
+  const entry: GearNote = {
+    id: newId(),
+    name,
+    verdict: input.verdict,
+    category: input.category,
+    reason: input.reason,
+    at: today(now),
+  };
+  const others = (profile.gearNotes ?? []).filter(
+    (note) => note.name.trim().toLowerCase() !== name.toLowerCase(),
+  );
+  return {
+    ...profile,
+    gearNotes: tail([...others, entry], MAX_GEAR_NOTES),
     updatedAt: now.toISOString(),
   };
 }

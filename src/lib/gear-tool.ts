@@ -10,6 +10,7 @@ import type { RunnerProfile } from './types';
 import { GEAR_CATEGORIES } from './gear';
 import { gearQueryFor, gearSpecFor } from './gear-spec';
 import { DEFAULT_CANDIDATE_LIMIT, isCatalogConfigured, searchCatalog } from './catalog';
+import { badGearFor, goodGearFor } from './gear-notes';
 import { addToBasket, type ProductBasket } from './products';
 
 export const FIND_GEAR = 'find_gear';
@@ -53,6 +54,9 @@ export async function runFindGear(
   }
 
   const spec = gearSpecFor(category, profile, now);
+  // 合わなかったと聞いている物は、最初から候補に入れない。
+  const avoid = badGearFor(profile, category);
+  const liked = goodGearFor(profile, category);
   const shared = {
     category,
     title: known.title,
@@ -60,6 +64,14 @@ export async function runFindGear(
     quantity: spec?.quantity,
     timing: spec?.timing,
     skipIf: spec?.skipIf,
+    excluded:
+      avoid.length > 0
+        ? avoid.map((note) => `${note.name}${note.reason ? `（${note.reason}）` : ''}`)
+        : undefined,
+    alreadyWorks:
+      liked.length > 0
+        ? liked.map((note) => `${note.name}${note.reason ? `（${note.reason}）` : ''}`)
+        : undefined,
   };
 
   if (!isCatalogConfigured(options.env ?? process.env)) {
@@ -77,6 +89,7 @@ export async function runFindGear(
   const found = await searchCatalog(query, {
     limit: options.limit ?? DEFAULT_CANDIDATE_LIMIT,
     minPrice: MIN_PRICE[category],
+    exclude: avoid.map((note) => note.name),
     env: options.env,
     fetchImpl: options.fetchImpl,
   });
@@ -112,6 +125,11 @@ export async function runFindGear(
     })),
     note:
       'この候補の中から選び、product ブロックで名札（ref）だけを指すこと。' +
-      '名前・価格・リンクはアプリが埋める。why には、この人のどの事情に効くのかを書く。',
+      '名前・価格・リンクはアプリが埋める。why には、この人のどの事情に効くのかを書く。' +
+      (avoid.length > 0
+        ? '合わなかったと聞いている物は、すでに候補から除外済み。' +
+          '外したことに触れるなら「前に合わなかったと聞いたので外しました」と一言だけ添える。'
+        : '') +
+      (liked.length > 0 ? '合ったと言っていた物があるなら、まずそれを思い出させること。' : ''),
   };
 }
