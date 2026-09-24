@@ -31,6 +31,7 @@ export default function CoachApp() {
     resend,
     canResend,
     regenerate,
+    editLast,
     reset,
     reportError,
     updateProfile,
@@ -92,6 +93,8 @@ export default function CoachApp() {
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
   const coach = findCharacter(profile?.characterId);
   const lastCoachId = [...messages].reverse().find((m) => m.role === 'coach')?.id;
+  // 書き直せるのは直前の発言だけ。それより前を書き換えると、後の会話と噛み合わなくなる。
+  const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg text-fg">
@@ -145,6 +148,9 @@ export default function CoachApp() {
             feedback={feedback[message.id] ?? null}
             onFeedback={(value) => setFeedback((prev) => ({ ...prev, [message.id]: value }))}
             onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
+            canEdit={message.id === lastUserId && !busy}
+            onEdit={(text) => void editLast(text, message.imagePreviews ?? [])}
+            onReuseImages={(previews) => composerRef.current?.attachAgain(previews)}
             onOpenImage={(index) => setLightbox({ images: message.imagePreviews ?? [], index })}
             failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
           />

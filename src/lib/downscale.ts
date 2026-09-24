@@ -129,3 +129,31 @@ export async function prepareImages(files: File[]): Promise<PrepareResult> {
 
   return { images, failed, accepted };
 }
+
+/**
+ * 保存してある表示用の画像を、もう一度送れるファイルに戻す。
+ *
+ * 一度送った画像をもう一度使いたい場面は多い（同じ練習の続きを相談する、
+ * 本文だけ直して送り直す）。そのたびに写真アプリを開かせるのは手間でしかない。
+ */
+export function dataUrlToFile(dataUrl: string, name: string): File | null {
+  const comma = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:image/') || comma < 0) return null;
+
+  const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'));
+  try {
+    const binary = atob(dataUrl.slice(comma + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], name, { type: mimeType });
+  } catch {
+    // 壊れた data URL。黙って諦める（呼び出し側が枚数で気づける）。
+    return null;
+  }
+}
+
+/** 拡張子まで含めた、再添付用の名前。 */
+export function reattachName(index: number, dataUrl: string): string {
+  const extension = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+  return `再添付-${index + 1}.${extension}`;
+}

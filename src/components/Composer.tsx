@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { prepareImages, type PreparedImage } from '@/lib/downscale';
+import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
 import { FILE_ACCEPT, MAX_IMAGES, MAX_TOTAL_BYTES, looksLikeImage } from '@/lib/images';
 import { useVoiceInput } from '@/hooks/useSpeech';
 
@@ -10,6 +10,8 @@ export interface ComposerApi {
   openPicker: () => void;
   /** 相談アイデアから質問文を差し込む。送信はせず、書き換えられる状態で置く。 */
   setText: (text: string) => void;
+  /** 前に送った画像を、もう一度添付欄に戻す。 */
+  attachAgain: (previews: string[]) => void;
 }
 
 interface Props {
@@ -55,6 +57,16 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
   if (apiRef) {
     apiRef.current = {
       openPicker: () => fileRef.current?.click(),
+      attachAgain: (previews) => {
+        const restored = previews
+          .map((preview, index) => dataUrlToFile(preview, reattachName(index, preview)))
+          .filter((file): file is File => file !== null);
+        if (restored.length === 0) {
+          onError('この画像はもう一度添付できませんでした。');
+          return;
+        }
+        void addFiles(restored);
+      },
       setText: (text) => {
         setValue(text);
         // 差し込んだ直後に、続きを書き足せる位置へカーソルを置く。

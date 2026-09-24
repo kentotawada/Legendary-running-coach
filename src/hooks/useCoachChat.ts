@@ -6,7 +6,7 @@ import type { BuildInfo } from '@/lib/build-info';
 import type { DailyStatus } from '@/lib/daily';
 import type { ResolvedGear } from '@/lib/gear';
 import type { AuthState } from '@/components/AuthSheet';
-import type { PreparedImage } from '@/lib/downscale';
+import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
 import { DEFAULT_IMAGE_MESSAGE } from '@/lib/images';
 import {
   TURN_TIMEOUT_MS,
@@ -44,6 +44,11 @@ export interface CoachChat {
   canResend: boolean;
   /** コーチの返答をもう一度作り直す。 */
   regenerate: () => Promise<void>;
+  /**
+   * 直前に送った本文を書き直して送り直す。
+   * 古いやり取りは履歴からも画面からも消える。
+   */
+  editLast: (text: string, previews: string[]) => Promise<void>;
   reset: () => Promise<void>;
   /** カルテ画面からの設定変更。変える項目だけを渡してよい。 */
   updateProfile: (edit: Partial<ProfileEdit>) => Promise<void>;
@@ -136,12 +141,16 @@ export function useCoachChat(): CoachChat {
   }, []);
 
   const turn = useCallback(
-    async (text: string, images: PreparedImage[] = [], mode: 'send' | 'regenerate' = 'send') => {
+    async (
+      text: string,
+      images: PreparedImage[] = [],
+      mode: 'send' | 'regenerate' | 'replace' = 'send',
+    ) => {
       setBusy(true);
       setError(null);
       setErrorDetail(null);
       setCanResend(false);
-      if (mode === 'send') lastAttempt.current = { text, images };
+      if (mode !== 'regenerate') lastAttempt.current = { text, images };
 
       // 応答が返らないまま固まり続けないよう、こちらからも打ち切る。
       const abort = new AbortController();
@@ -155,6 +164,7 @@ export function useCoachChat(): CoachChat {
           body: JSON.stringify({
             message: text,
             regenerate: mode === 'regenerate',
+            replaceLast: mode === 'replace',
             // preview は画面表示用なので送らない。thumbnail は後から見返すために保存される。
             images: images.map(({ mimeType, data, thumbnail }) => ({ mimeType, data, thumbnail })),
           }),
@@ -216,6 +226,42 @@ export function useCoachChat(): CoachChat {
     if (!attempt || busy) return;
     await turn(attempt.text, attempt.images);
   }, [busy, turn]);
+
+  /**
+   * 書き直して送り直す。
+   *
+   * 画像は前回そのままを使う。同じセッション中なら送った時の画質のまま、
+   * 読み込み直した後は保存してある見返し用の版から組み立て直す。
+   */
+  const editLast = useCallback(
+    async (text: string, previews: string[]) => {
+      const trimmed = text.trim();
+      if (!trimmed || busy) return;
+
+      const attempt = lastAttempt.current;
+      const images =
+        attempt && attempt.images.length === previews.length && attempt.images.length > 0
+          ? attempt.images
+          : (
+              await prepareImages(
+                previews
+                  .map((preview, index) => dataUrlToFile(preview, reattachName(index, preview)))
+                  .filter((file): file is File => file !== null),
+              )
+            ).images;
+
+      setMessages((prev) => {
+        // 直前のユーザー発言と、それに続く返答をまとめて外す。
+        const lastUserIndex = prev.map((m) => m.role).lastIndexOf('user');
+        if (lastUserIndex < 0) return prev;
+        const original = prev[lastUserIndex];
+        return [...prev.slice(0, lastUserIndex), { ...original, id: nextId(), text: trimmed }];
+      });
+
+      await turn(trimmed, images, 'replace');
+    },
+    [busy, turn],
+  );
 
   /** 返答が的外れだった時に、同じ問いかけから作り直す。 */
   const regenerate = useCallback(async () => {
@@ -361,6 +407,7 @@ export function useCoachChat(): CoachChat {
     resend,
     canResend,
     regenerate,
+    editLast,
     reset,
     reportError,
     updateProfile,
