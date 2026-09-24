@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { prepareImages, type PreparedImage } from '@/lib/downscale';
-import { MAX_IMAGES, MAX_TOTAL_BYTES } from '@/lib/images';
+import { FILE_ACCEPT, MAX_IMAGES, MAX_TOTAL_BYTES, looksLikeImage } from '@/lib/images';
 import { useVoiceInput } from '@/hooks/useSpeech';
 
 export interface ComposerApi {
@@ -30,6 +30,7 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
   const [images, setImages] = useState<PreparedImage[]>([]);
   const [preparing, setPreparing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 話し始めた時点の文面。認識結果はこの後ろに足す。書きかけを消さないため。
@@ -65,6 +66,28 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
     };
   }
 
+  /**
+   * 貼り付け。
+   * スクリーンショットを撮ってそのまま貼る、が一番短い道なのに、
+   * これが無いと一度ファイルに保存させることになる。
+   */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (disabled) return;
+      const items = Array.from(event.clipboardData?.items ?? []);
+      const pictures = items
+        .filter((item) => item.kind === 'file')
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file) && looksLikeImage(file!));
+      if (pictures.length === 0) return;
+      // 画像が入っていた時だけ、本文への貼り付けを止める。
+      event.preventDefault();
+      void addFiles(pictures);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  });
+
   // どこかを触ったらメニューを閉じる。開きっぱなしで入力を隠さない。
   useEffect(() => {
     if (!menuOpen) return;
@@ -96,14 +119,20 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
   const rebuild = async (nextFiles: File[]) => {
     setPreparing(true);
     try {
-      const prepared = await prepareImages(nextFiles);
+      const { images: prepared, failed, accepted } = await prepareImages(nextFiles);
       const total = prepared.reduce((sum, image) => sum + image.bytes, 0);
       if (total > MAX_TOTAL_BYTES) {
         onError('画像の合計サイズが大きすぎます。枚数を減らすか、何回かに分けて送ってください。');
         return;
       }
-      setFiles(nextFiles);
+      setFiles(accepted);
       setImages(prepared);
+      if (failed.length > 0) {
+        onError(
+          `${failed.join('、')} は、この端末で開けない形式でした。` +
+            'スクリーンショットを撮り直すか、JPEG か PNG で保存し直して送ってください。',
+        );
+      }
     } catch (error) {
       onError(error instanceof Error ? error.message : '画像を読み込めませんでした。');
     } finally {
@@ -112,16 +141,37 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
     }
   };
 
-  const addFiles = async (selected: FileList | null) => {
-    if (!selected || selected.length === 0) return;
+  /**
+   * 受け取ったファイルを足す。
+   * 画像でないものが混ざっていた時に黙って無視すると、
+   * 「貼り付けたのに何も起きない」という一番困る状態になる。必ず理由を言う。
+   */
+  const addFiles = async (incoming: File[] | FileList | null) => {
+    const all = incoming ? Array.from(incoming) : [];
+    if (all.length === 0) return;
+
+    const pictures = all.filter((file) => looksLikeImage(file));
+    const rejected = all.length - pictures.length;
+    if (pictures.length === 0) {
+      onError(
+        rejected === 1
+          ? `「${all[0].name || 'このファイル'}」は画像ではないため送れません。練習画面のスクリーンショットを送ってください。`
+          : '画像ではないファイルは送れません。練習画面のスクリーンショットを送ってください。',
+      );
+      return;
+    }
+    if (rejected > 0) {
+      onError(`画像以外の${rejected}件は送れないため、外しました。`);
+    }
+
     const room = MAX_IMAGES - files.length;
     if (room <= 0) {
       onError(`画像は一度に${MAX_IMAGES}枚までです。`);
       return;
     }
-    const dropped = selected.length - room;
+    const dropped = pictures.length - room;
     if (dropped > 0) onError(`画像は一度に${MAX_IMAGES}枚までです。${dropped}枚は追加されませんでした。`);
-    await rebuild([...files, ...Array.from(selected).slice(0, room)]);
+    await rebuild([...files, ...pictures.slice(0, room)]);
   };
 
   const submit = () => {
@@ -137,7 +187,30 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
   const canSend = !disabled && !preparing && (value.trim().length > 0 || images.length > 0);
 
   return (
-    <div className="px-4 pb-2 pt-2">
+    <div
+      className={`relative px-4 pb-2 pt-2 ${dragging ? 'bg-accent-soft' : ''}`}
+      onDragOver={(e) => {
+        if (disabled) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        // 子要素をまたぐ時にも leave が飛ぶ。外に出た時だけ解除する。
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (disabled) return;
+        e.preventDefault();
+        setDragging(false);
+        void addFiles(e.dataTransfer?.files ?? null);
+      }}
+    >
+      {dragging && (
+        <p className="mb-2 rounded-xl border border-dashed border-[color:var(--accent)] py-3 text-center text-[13px] text-accent">
+          ここに落とすと画像を添付します
+        </p>
+      )}
       {images.length > 0 && (
         <p className="mb-1.5 text-[12px] text-muted">
           {images.length} / {MAX_IMAGES} 枚
@@ -179,7 +252,7 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept={FILE_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => void addFiles(e.target.files)}

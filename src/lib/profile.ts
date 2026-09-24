@@ -1,5 +1,6 @@
 import type {
   ActivityLog,
+  AttachmentGroup,
   ChatMessage,
   CoachPlan,
   CoachingPhase,
@@ -12,7 +13,7 @@ import type {
 } from './types';
 import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
-import { INTERNAL_PREFIX, attachmentCountOf } from './markers';
+import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
@@ -482,8 +483,13 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
 }
 
 /** 保存している Gemini の Content[] から、画面に出す発言だけを取り出す。 */
-export function toDisplayMessages(history: Content[]): ChatMessage[] {
+export function toDisplayMessages(
+  history: Content[],
+  attachments: AttachmentGroup[] = [],
+): ChatMessage[] {
   const messages: ChatMessage[] = [];
+  const byGroup = new Map(attachments.map((group) => [group.id, group.images]));
+
   history.forEach((content, index) => {
     const parts = (content.parts ?? []).filter(
       (part) => typeof part.text === 'string' && part.text.length > 0 && !part.thought,
@@ -493,6 +499,10 @@ export function toDisplayMessages(history: Content[]): ChatMessage[] {
       (total, part) => total + attachmentCountOf(part.text as string),
       0,
     );
+    // 控えが残っていれば、送った時と同じように開ける。
+    const previews = parts
+      .map((part) => byGroup.get(attachmentGroupOf(part.text as string) ?? ''))
+      .find((images) => images && images.length > 0);
     const text = parts
       .filter((part) => {
         const value = part.text as string;
@@ -508,6 +518,7 @@ export function toDisplayMessages(history: Content[]): ChatMessage[] {
       role: content.role === 'user' ? 'user' : 'coach',
       text,
       ...(attachmentCount > 0 ? { attachmentCount } : {}),
+      ...(previews && previews.length > 0 ? { imagePreviews: previews } : {}),
     });
   });
   return messages;

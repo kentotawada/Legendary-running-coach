@@ -192,6 +192,12 @@ export interface RunnerProfile {
   plans: CoachPlan[];
   /** 毎日の記録。スタンプと連続日数の土台。 */
   dailyLog?: DailyRecord[];
+  /**
+   * 送った画像の見返し用の控え。
+   * カルテの内容ではないが、保存先の列を増やさずに済ませるためここに置いている。
+   * プロンプトには載せない。
+   */
+  attachments?: AttachmentGroup[];
   createdAt: string;
   updatedAt: string;
 }
@@ -209,6 +215,21 @@ export interface CoachState {
 export interface ImageAttachment {
   mimeType: string;
   data: string;
+}
+
+/**
+ * 1回の送信で添付された画像の、見返し用の控え。
+ *
+ * 送った画像そのものは保存しない（すぐに保存先が膨れる）。
+ * かわりに小さくしたものをここに残し、後から開き直せるようにする。
+ * 古いものから落とすので、いつまでも全部が残るわけではない。
+ */
+export interface AttachmentGroup {
+  /** 会話履歴の添付マーカーと結びつける id。 */
+  id: string;
+  /** data URL。画面にそのまま出せる形。 */
+  images: string[];
+  createdAt: string;
 }
 
 /** UI に返す表示用メッセージ。 */

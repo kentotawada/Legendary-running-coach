@@ -22,9 +22,19 @@ const MAX_BUDGET_PER_IMAGE = 900_000;
 export interface PreparedImage extends ImageAttachment {
   /** 画面にサムネイルを出すための data URL。 */
   preview: string;
+  /**
+   * 保存して後から見返すための小さい版。
+   * 送った画像そのものを保存すると保存先がすぐ膨れるので、
+   * 「後で確かめられる大きさ」まで落としたものを別に作る。
+   */
+  thumbnail: string;
   /** 送信時の実バイト数。合計の見積もりに使う。 */
   bytes: number;
 }
+
+/** 見返し用の大きさ。画面いっぱいに開いても文字がつぶれない下限。 */
+const THUMBNAIL_MAX_DIMENSION = 560;
+const THUMBNAIL_QUALITY = 0.62;
 
 /** 枚数から1枚あたりの目安サイズを決める。 */
 export function budgetForCount(count: number): number {
@@ -83,16 +93,39 @@ export async function prepareImage(file: File, budgetBytes: number): Promise<Pre
     mimeType: 'image/jpeg',
     data: dataUrl.slice(dataUrl.indexOf(',') + 1),
     preview: dataUrl,
+    thumbnail: render(image, THUMBNAIL_MAX_DIMENSION, THUMBNAIL_QUALITY),
     bytes,
   };
 }
 
-/** まとめて準備する。枚数が確定してから圧縮するので、合計が上限を超えにくい。 */
-export async function prepareImages(files: File[]): Promise<PreparedImage[]> {
+export interface PrepareResult {
+  images: PreparedImage[];
+  /** 読み込めなかったファイル。読めた分は捨てずに残す。 */
+  failed: string[];
+  /** 実際に使えたファイル。添付欄の並びをここに合わせる。 */
+  accepted: File[];
+}
+
+/**
+ * まとめて準備する。枚数が確定してから圧縮するので、合計が上限を超えにくい。
+ *
+ * 1枚読めなかっただけで全部やり直しにしない。
+ * 10枚送ろうとして1枚が壊れていた時に、9枚まで捨てられるのは理不尽すぎる。
+ */
+export async function prepareImages(files: File[]): Promise<PrepareResult> {
   const budget = budgetForCount(files.length);
-  const prepared: PreparedImage[] = [];
+  const images: PreparedImage[] = [];
+  const accepted: File[] = [];
+  const failed: string[] = [];
+
   for (const file of files) {
-    prepared.push(await prepareImage(file, budget));
+    try {
+      images.push(await prepareImage(file, budget));
+      accepted.push(file);
+    } catch {
+      failed.push(file.name || '名前のないファイル');
+    }
   }
-  return prepared;
+
+  return { images, failed, accepted };
 }
