@@ -4,59 +4,240 @@
  * 全て手で描いている。その場で生成させると、指が6本あったり膝が逆に曲がったりして、
  * それを見て真似た人が故障する。お手本の絵は間違ってはいけない。
  *
- * 線は currentColor、強調だけアクセント色。明るい画面でも暗い画面でも同じように読める。
- * 文字は入れない。手順と注意はカード側の文章で出す。
+ * **棒人間をやめた。** 線だけだと、胴も顔の向きも足も無いので、
+ * 「人が何をしているのか」がそもそも読めなかった。
+ * 子どもが見ても分かる図にするために、この5つを入れている。
+ *
+ *  1. **体がある**（胴は太く、頭には鼻、足は地面に着く）
+ *  2. **奥の手足は薄く**。どちらの脚の話かが一目で分かる
+ *  3. **伸びる場所は色の面**で示す。線を太くするだけでは「そこが伸びる」と読めない
+ *  4. **動く向きは矢印**で示す。静止画では「上げる」が伝わらない
+ *  5. **図の中に短い言葉**を置く。ひらがな多め、指し示す線つき
+ *
+ * 5 は以前あえて入れなかったが、それは間違いだった。
+ * カードの下に文章があっても、**絵と目が合った瞬間に分からなければ図の意味がない。**
  */
 
-const LIMB = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 5.5,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-} as const;
+export const FIGURE_VIEWBOX = '0 0 260 190';
 
-const TORSO = { ...LIMB, strokeWidth: 10 } as const;
+/** 地面の高さ。全部の図でここに立たせる。 */
+const G = 166;
 
-/** 伸びている場所・効いている場所。 */
-const HILITE = { ...LIMB, stroke: 'var(--accent)', strokeWidth: 8 } as const;
-const HILITE_TORSO = { ...HILITE, strokeWidth: 11 } as const;
+type P = readonly [number, number];
 
-/** 基準線。まっすぐであること、真下であることを示す。 */
-const GUIDE = {
-  fill: 'none',
-  stroke: 'var(--accent)',
-  strokeWidth: 2,
-  strokeDasharray: '5 5',
-  strokeLinecap: 'round',
-  opacity: 0.8,
-} as const;
+/** 奥側の手足。薄くして、手前と見分ける。 */
+const FAR_OPACITY = 0.3;
 
-/** 壁・床・段差など、体ではないもの。 */
-const PROP = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 3,
-  strokeLinecap: 'round',
-  opacity: 0.28,
-} as const;
-
-function Ground({ y = 142, from = 16, to = 224 }: { y?: number; from?: number; to?: number }) {
-  return <line x1={from} y1={y} x2={to} y2={y} {...PROP} />;
+function path(points: readonly P[]): string {
+  return points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`).join(' ');
 }
 
-function Head({ cx, cy, r = 11 }: { cx: number; cy: number; r?: number }) {
-  return <circle cx={cx} cy={cy} r={r} fill="currentColor" />;
+/** 手足。太い丸端の線で描くと、棒ではなく腕や脚に見える。 */
+function Limb({
+  points,
+  far = false,
+  width = 9,
+}: {
+  points: readonly P[];
+  far?: boolean;
+  width?: number;
+}) {
+  return (
+    <path
+      d={path(points)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      opacity={far ? FAR_OPACITY : 1}
+    />
+  );
+}
+
+/** 胴。太い丸端の線にすると、体の塊として読める。 */
+function Torso({ neck, hip, width = 20 }: { neck: P; hip: P; width?: number }) {
+  return (
+    <path
+      d={path([neck, hip])}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={width}
+      strokeLinecap="round"
+    />
+  );
+}
+
+/**
+ * 頭。
+ * **鼻をつけるかどうかで、図の読みやすさが変わる。**
+ * どちらを向いているか分からない人物は、何をしているかも分からない。
+ */
+function Head({ at, angle = 0, r = 13 }: { at: P; angle?: number; r?: number }) {
+  const [x, y] = at;
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`}>
+      <circle cx={0} cy={0} r={r} fill="currentColor" />
+      {/* 鼻。向きを示すだけの小さな出っぱり。 */}
+      <path d={`M${r - 2} -3 L${r + 5} 1 L${r - 2} 4 Z`} fill="currentColor" />
+    </g>
+  );
+}
+
+/** 正面を向いた頭。目があるだけで「こちらを向いている」と分かる。 */
+function FrontHead({ at, r = 13 }: { at: P; r?: number }) {
+  const [x, y] = at;
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="currentColor" />
+      <circle cx={x - 4.5} cy={y - 1} r={2} fill="var(--bg-sunken)" />
+      <circle cx={x + 4.5} cy={y - 1} r={2} fill="var(--bg-sunken)" />
+    </g>
+  );
+}
+
+/** 足。地面に着いていることを示す。足が無いと、立っているのか浮いているのか分からない。 */
+function Foot({ from, to, far = false }: { from: P; to: P; far?: boolean }) {
+  return <Limb points={[from, to]} far={far} width={7} />;
+}
+
+/** 伸びている場所・効いている場所。線ではなく面で示す。 */
+function Spot({
+  at,
+  rx = 17,
+  ry = 12,
+  angle = 0,
+}: {
+  at: P;
+  rx?: number;
+  ry?: number;
+  angle?: number;
+}) {
+  const [x, y] = at;
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`}>
+      <ellipse rx={rx} ry={ry} fill="var(--accent)" opacity={0.22} />
+      <ellipse rx={rx} ry={ry} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={0.55} />
+    </g>
+  );
+}
+
+/** 動く向き。まっすぐでも曲がっていても、先は必ず三角で閉じる。 */
+function Arrow({ from, to, bend = 0 }: { from: P; to: P; bend?: number }) {
+  const [x1, y1] = from;
+  const [x2, y2] = to;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.hypot(dx, dy) || 1;
+  // 曲げる時は、線の垂直方向へ制御点をずらす。
+  const cx = mx - (dy / length) * bend;
+  const cy = my + (dx / length) * bend;
+  // 矢じりの向きは、終点へ入ってくる向きに合わせる。
+  const ix = x2 - (bend === 0 ? x1 : cx);
+  const iy = y2 - (bend === 0 ? y1 : cy);
+  const angle = (Math.atan2(iy, ix) * 180) / Math.PI;
+
+  return (
+    <g stroke="var(--accent)" fill="var(--accent)">
+      <path
+        d={bend === 0 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}`}
+        fill="none"
+        strokeWidth={3}
+        strokeLinecap="round"
+      />
+      <g transform={`translate(${x2} ${y2}) rotate(${angle})`}>
+        <path d="M0 0 L-9 -5 L-9 5 Z" stroke="none" />
+      </g>
+    </g>
+  );
+}
+
+type Tone = 'accent' | 'good' | 'warn' | 'muted';
+
+const TONE_COLOR: Record<Tone, string> = {
+  accent: 'var(--accent)',
+  good: 'var(--good)',
+  warn: 'var(--warn)',
+  muted: 'var(--fg-muted)',
+};
+
+/**
+ * 図の中の言葉。
+ * ひらがな多め、短く。指し示す先があるなら細い線でつなぐ。
+ */
+function Note({
+  at,
+  text,
+  to,
+  tone = 'accent',
+  anchor = 'start',
+}: {
+  at: P;
+  text: string;
+  to?: P;
+  tone?: Tone;
+  anchor?: 'start' | 'middle' | 'end';
+}) {
+  const [x, y] = at;
+  const color = TONE_COLOR[tone];
+  return (
+    <g>
+      {to && (
+        <path
+          d={path([at, to])}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          strokeDasharray="3 3"
+          opacity={0.7}
+        />
+      )}
+      <text x={x} y={y} fontSize={12} fontWeight={700} fill={color} textAnchor={anchor}>
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/** まっすぐであってほしい線。 */
+function Guide({ from, to, tone = 'accent' }: { from: P; to: P; tone?: Tone }) {
+  return (
+    <path
+      d={path([from, to])}
+      fill="none"
+      stroke={TONE_COLOR[tone]}
+      strokeWidth={2}
+      strokeDasharray="6 5"
+      strokeLinecap="round"
+      opacity={0.75}
+    />
+  );
+}
+
+/** 床・壁・段差。体ではないものは、薄い面で置く。 */
+function Ground({ y = G, from = 10, to = 250 }: { y?: number; from?: number; to?: number }) {
+  return <line x1={from} y1={y} x2={to} y2={y} stroke="currentColor" strokeWidth={3} opacity={0.25} strokeLinecap="round" />;
+}
+
+function Block({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  return (
+    <g opacity={0.22}>
+      <rect x={x} y={y} width={w} height={h} rx={3} fill="currentColor" />
+    </g>
+  );
 }
 
 /** 良い例の印。 */
-function Check({ x, y }: { x: number; y: number }) {
+function Check({ at }: { at: P }) {
+  const [x, y] = at;
   return (
     <path
-      d={`M${x} ${y + 5} l5 5 l10 -12`}
+      d={`M${x} ${y + 5} l5 6 l12 -14`}
       fill="none"
       stroke="var(--good)"
-      strokeWidth="4"
+      strokeWidth={4.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -64,11 +245,37 @@ function Check({ x, y }: { x: number; y: number }) {
 }
 
 /** 避けたい例の印。 */
-function Cross({ x, y }: { x: number; y: number }) {
+function Cross({ at }: { at: P }) {
+  const [x, y] = at;
   return (
-    <g fill="none" stroke="var(--warn)" strokeWidth="4" strokeLinecap="round">
-      <path d={`M${x} ${y} l12 12`} />
-      <path d={`M${x + 12} ${y} l-12 12`} />
+    <g fill="none" stroke="var(--warn)" strokeWidth={4.5} strokeLinecap="round">
+      <path d={`M${x} ${y} l13 13`} />
+      <path d={`M${x + 13} ${y} l-13 13`} />
+    </g>
+  );
+}
+
+/** 足あと。歩幅と歩数は、足あとで見せるのがいちばん早い。 */
+function Footprint({ at, tone = 'muted' }: { at: P; tone?: Tone }) {
+  const [x, y] = at;
+  return (
+    <g fill={TONE_COLOR[tone]} opacity={tone === 'muted' ? 0.45 : 0.85}>
+      <ellipse cx={x} cy={y} rx={4.5} ry={7} />
+      <ellipse cx={x} cy={y + 9} rx={3.5} ry={3} />
+    </g>
+  );
+}
+
+/** 走っている人。小さく置いて、足あとの主を示す。 */
+function MiniRunner({ at, scale = 1 }: { at: P; scale?: number }) {
+  const [x, y] = at;
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`} opacity={0.85}>
+      <Torso neck={[0, -30]} hip={[2, -2]} width={13} />
+      <Limb points={[[0, -26], [12, -14], [4, -4]]} width={6} />
+      <Limb points={[[2, -2], [16, 12], [26, 24]]} width={6} />
+      <Limb points={[[2, -2], [-10, 10], [-6, 24]]} width={6} far />
+      <Head at={[-2, -40]} r={9} />
     </g>
   );
 }
@@ -79,262 +286,331 @@ export function figureArt(id: string): React.ReactNode {
     // --- ストレッチ ---
     case 'stretch-hamstring':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 後ろ脚（支え） */}
-          <path d="M92 92 L88 118 L86 142" {...LIMB} />
-          {/* 前脚：ここが伸びる */}
-          <path d="M92 92 L128 120 L158 140" {...HILITE} />
-          <path d="M158 140 L167 127" {...LIMB} />
-          {/* 股関節から前傾した胴 */}
-          <path d="M92 92 L128 62" {...TORSO} />
-          <Head cx={141} cy={51} />
-          {/* 前ももに置いた手 */}
-          <path d="M128 64 L137 92 L131 111" {...LIMB} />
-        </>
+          {/* 後ろ脚（奥） */}
+          <Limb points={[[140, 100], [126, 134], [118, 162]]} far />
+          <Foot from={[118, 164]} to={[136, 166]} far />
+          {/* 胴：股関節から前に倒す */}
+          <Torso neck={[176, 76]} hip={[140, 100]} />
+          {/* 前脚（手前）：かかとだけ地面、つま先は上 */}
+          <Limb points={[[140, 100], [176, 132], [200, 162]]} />
+          <Foot from={[200, 163]} to={[214, 148]} />
+          {/* 腕：前ももに手を置く */}
+          <Limb points={[[174, 82], [194, 104], [180, 124]]} width={8} />
+          <Head at={[190, 64]} angle={35} />
+          <Spot at={[160, 118]} rx={20} ry={11} angle={42} />
+          <Guide from={[136, 104]} to={[196, 62]} tone="good" />
+          <Note at={[16, 150]} text="ここが のびる" to={[146, 122]} />
+          <Note at={[112, 34]} text="せなかは まっすぐ" to={[166, 82]} tone="good" />
+          <Note at={[210, 182]} text="つまさき 上" to={[212, 152]} anchor="middle" />
+        </g>
       );
 
     case 'stretch-calf':
       return (
-        <>
+        <g>
           <Ground />
           {/* 壁 */}
-          <line x1="206" y1="26" x2="206" y2="142" {...PROP} strokeWidth={4} />
-          {/* 前脚（曲げる） */}
-          <path d="M88 98 L120 118 L144 142" {...LIMB} />
-          {/* 後ろ脚：ふくらはぎが伸びる */}
-          <path d="M88 98 L70 120" {...LIMB} />
-          <path d="M70 120 L50 142" {...HILITE} />
-          <path d="M88 98 L80 58" {...TORSO} />
-          <Head cx={76} cy={45} />
-          {/* 壁についた腕 */}
-          <path d="M80 60 L140 72 L198 64" {...LIMB} />
-        </>
+          <Block x={236} y={26} w={10} h={140} />
+          {/* 前脚（奥）：膝を曲げる */}
+          <Limb points={[[138, 104], [178, 126], [186, 158]]} far />
+          <Foot from={[180, 165]} to={[202, 165]} far />
+          <Torso neck={[148, 74]} hip={[134, 104]} />
+          {/* 後ろ脚（手前）：まっすぐ、かかとは床 */}
+          <Limb points={[[134, 104], [114, 132], [98, 158]]} />
+          <Foot from={[90, 165]} to={[114, 165]} />
+          {/* 腕：壁に手をつく */}
+          <Limb points={[[150, 78], [190, 76], [232, 80]]} width={8} />
+          <Head at={[158, 58]} angle={10} />
+          <Spot at={[104, 144]} rx={11} ry={17} angle={-28} />
+          <Arrow from={[74, 150]} to={[86, 162]} />
+          <Note at={[14, 140]} text="ここが のびる" to={[96, 144]} />
+          <Note at={[30, 182]} text="かかとは つけたまま" />
+        </g>
       );
 
     case 'stretch-quad':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 支え脚 */}
-          <path d="M112 94 L120 118 L122 142" {...LIMB} />
-          {/* 曲げた脚：前ももが伸びる。膝は体の真下のまま */}
-          <path d="M112 94 L100 124" {...HILITE} />
-          {/* すねは後ろ上へ。かかとがお尻に近づく */}
-          <path d="M100 124 L74 100" {...LIMB} />
-          <path d="M112 94 L114 50" {...TORSO} />
-          <Head cx={115} cy={37} />
-          {/* 足首をつかむ腕 */}
-          <path d="M114 52 L94 74 L76 97" {...LIMB} />
-        </>
+          {/* 左を向かせる。右向きだと、持った足が胴に重なって形が読めない。 */}
+          <Limb points={[[122, 100], [120, 132], [118, 160]]} far />
+          <Foot from={[118, 165]} to={[98, 166]} far />
+          <Torso neck={[128, 62]} hip={[130, 100]} />
+          {/* 伸ばす脚（手前）：かかとをお尻へ */}
+          <Limb points={[[136, 100], [142, 134], [162, 114]]} />
+          <Foot from={[162, 114]} to={[172, 104]} />
+          {/* 腕：後ろで足首を持つ */}
+          <Limb points={[[132, 66], [150, 92], [162, 112]]} width={8} />
+          <Head at={[126, 44]} angle={180} />
+          <Spot at={[136, 117]} rx={9} ry={16} angle={-8} />
+          <Arrow from={[142, 148]} to={[142, 162]} />
+          <Note at={[104, 36]} text="ここが のびる" to={[132, 106]} anchor="end" />
+          <Note at={[180, 182]} text="ひざは 下へ" anchor="middle" />
+        </g>
       );
 
     case 'stretch-glute':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 床についた頭と肩 */}
-          <Head cx={38} cy={132} r={10} />
-          <path d="M46 134 L66 138" {...LIMB} />
-          {/* 背中は床につけたまま */}
-          <path d="M66 138 L120 138" {...TORSO} />
-          {/* 伸ばしたままの脚 */}
-          <path d="M120 138 L160 140 L196 138" {...LIMB} />
-          {/* 抱えた脚：お尻の奥が伸びる */}
-          <path d="M120 138 L106 92" {...HILITE} />
-          <path d="M106 92 L142 104" {...LIMB} />
-          {/* 膝を抱える腕 */}
-          <path d="M66 138 L84 114 L104 94" {...LIMB} />
-        </>
+          {/* 伸ばしたままの脚（奥） */}
+          <Limb points={[[150, 154], [186, 158], [216, 160]]} far />
+          <Foot from={[216, 160]} to={[222, 148]} far />
+          <Torso neck={[84, 150]} hip={[150, 154]} />
+          {/* 抱える脚（手前）：ひざを反対の肩へ */}
+          <Limb points={[[150, 154], [122, 114], [156, 128]]} />
+          <Foot from={[156, 128]} to={[168, 136]} />
+          {/* 両腕ですねを抱える。太ももと重ねると、黒い塊になって読めない。 */}
+          <Limb points={[[94, 146], [106, 124], [138, 118]]} width={8} />
+          <Limb points={[[94, 152], [114, 134], [142, 126]]} width={8} far />
+          <Head at={[60, 146]} angle={-70} />
+          <Spot at={[152, 144]} rx={15} ry={11} angle={-10} />
+          <Arrow from={[122, 96]} to={[98, 110]} bend={8} />
+          <Note at={[178, 182]} text="おしりが のびる" to={[158, 152]} anchor="middle" />
+          <Note at={[118, 78]} text="ひざは 反対の かたへ" tone="good" anchor="middle" />
+        </g>
       );
 
     case 'stretch-iliopsoas':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 前脚：膝90度 */}
-          <path d="M102 96 L140 116 L142 142" {...LIMB} />
-          {/* 後ろ脚：股関節の前が伸びる */}
-          <path d="M102 96 L76 138" {...HILITE} />
-          <path d="M76 138 L44 132" {...LIMB} />
-          <path d="M102 96 L100 52" {...TORSO} />
-          <Head cx={100} cy={39} />
-          {/* 前膝に置いた手 */}
-          <path d="M100 54 L124 88 L138 112" {...LIMB} />
-        </>
+          {/* 前脚（奥）：ひざ90度 */}
+          <Limb points={[[146, 104], [188, 128], [190, 158]]} far />
+          <Foot from={[184, 165]} to={[206, 165]} far />
+          {/* 後ろ脚（手前）：ひざを床に */}
+          <Limb points={[[140, 104], [114, 156], [86, 162]]} />
+          <Foot from={[86, 162]} to={[74, 156]} />
+          <Torso neck={[142, 66]} hip={[140, 104]} />
+          <Limb points={[[146, 70], [168, 96], [188, 122]]} width={8} />
+          <Head at={[142, 48]} />
+          <Spot at={[146, 112]} rx={15} ry={11} angle={-20} />
+          <Arrow from={[108, 92]} to={[136, 92]} />
+          <Note at={[250, 92]} text="ここが のびる" to={[160, 110]} anchor="end" />
+          <Note at={[30, 86]} text="こしを 前へ" />
+          <Note at={[52, 182]} text="ひざは 床に" to={[110, 158]} />
+        </g>
       );
 
     // --- 走り方 ---
     case 'form-overstride':
       return (
-        <>
+        <g>
           <Ground />
-          <Cross x={22} y={18} />
-          <Check x={146} y={18} />
+          <Cross at={[18, 22]} />
+          {/* 悪い例：足が体の前に着く */}
+          <Limb points={[[54, 98], [40, 128], [34, 156]]} far />
+          <Foot from={[30, 164]} to={[48, 166]} far />
+          <Torso neck={[58, 62]} hip={[54, 98]} />
+          <Limb points={[[54, 98], [82, 122], [100, 160]]} />
+          <Foot from={[98, 163]} to={[114, 158]} />
+          <Limb points={[[58, 66], [40, 88], [46, 108]]} width={8} />
+          <Head at={[60, 44]} />
+          <Guide from={[54, 98]} to={[54, 166]} tone="warn" />
+          <Note at={[64, 182]} text="足が 前すぎる" tone="warn" anchor="middle" />
 
-          {/* 左：重心より前で接地している */}
-          <line x1="58" y1="44" x2="58" y2="142" {...GUIDE} stroke="currentColor" opacity={0.4} />
-          <path d="M58 86 L44 110 L32 128" {...LIMB} />
-          <path d="M58 86 L82 104 L102 140" {...HILITE} />
-          <path d="M58 86 L58 46" {...TORSO} />
-          <Head cx={58} cy={34} r={10} />
-          <path d="M58 50 L42 72" {...LIMB} />
-
-          {/* 右：重心のほぼ真下で接地している */}
-          <line x1="178" y1="44" x2="178" y2="142" {...GUIDE} stroke="currentColor" opacity={0.4} />
-          <path d="M178 86 L162 104 L150 118" {...LIMB} />
-          <path d="M178 86 L188 112 L182 140" {...HILITE} />
-          <path d="M178 86 L178 46" {...TORSO} />
-          <Head cx={178} cy={34} r={10} />
-          <path d="M178 50 L162 72" {...LIMB} />
-        </>
+          <Check at={[160, 22]} />
+          {/* 良い例：足は体の真下 */}
+          <Limb points={[[196, 98], [180, 126], [176, 154]]} far />
+          <Foot from={[172, 164]} to={[190, 166]} far />
+          <Torso neck={[200, 62]} hip={[196, 98]} />
+          <Limb points={[[196, 98], [206, 128], [200, 158]]} />
+          <Foot from={[198, 163]} to={[214, 160]} />
+          <Limb points={[[200, 66], [182, 88], [188, 108]]} width={8} />
+          <Head at={[202, 44]} />
+          <Guide from={[196, 98]} to={[196, 166]} tone="good" />
+          <Note at={[206, 182]} text="からだの 下" tone="good" anchor="middle" />
+        </g>
       );
 
     case 'form-cadence':
       return (
-        <>
-          {/* 両端の基準。上下とも同じ距離を走っていることを示す */}
-          <line x1="24" y1="22" x2="24" y2="146" {...PROP} />
-          <line x1="216" y1="22" x2="216" y2="146" {...PROP} />
-          {/* 進む向きの線 */}
-          <line x1="24" y1="56" x2="216" y2="56" {...PROP} strokeWidth={2} />
-          <line x1="24" y1="116" x2="216" y2="116" {...PROP} strokeWidth={2} />
+        <g>
+          {/* 上：1歩が大きい */}
+          <MiniRunner at={[34, 62]} scale={0.85} />
+          {[86, 132, 178, 224].map((x, index) => (
+            <Footprint key={x} at={[x, index % 2 === 0 ? 46 : 58]} />
+          ))}
+          <Note at={[86, 28]} text="歩はばが 大きい" tone="muted" />
 
-          {/* 上：歩数が少なく、1歩が大きい */}
-          <g fill="currentColor" opacity={0.5}>
-            {[38, 94, 150, 206].map((x, i) => (
-              <ellipse key={x} cx={x} cy={i % 2 === 0 ? 44 : 68} rx={6} ry={10} />
-            ))}
-          </g>
-
-          {/* 下：同じ距離を、小さく多く刻む */}
-          <g fill="var(--accent)">
-            {[38, 62, 86, 110, 134, 158, 182, 206].map((x, i) => (
-              <ellipse key={x} cx={x} cy={i % 2 === 0 ? 104 : 128} rx={6} ry={10} />
-            ))}
-          </g>
-        </>
+          {/* 下：小さく たくさん */}
+          <MiniRunner at={[34, 158]} scale={0.85} />
+          {[80, 104, 128, 152, 176, 200, 224].map((x, index) => (
+            <Footprint key={x} at={[x, index % 2 === 0 ? 142 : 154]} tone="accent" />
+          ))}
+          <Check at={[82, 172]} />
+          <Note at={[102, 184]} text="小さく たくさん 180ぽ／分" />
+        </g>
       );
 
     case 'form-posture':
       return (
-        <>
+        <g>
           <Ground />
-          <Cross x={22} y={18} />
-          <Check x={146} y={18} />
+          <Cross at={[18, 22]} />
+          {/* 悪い例：腰から折れている */}
+          <Limb points={[[56, 104], [42, 132], [40, 160]]} far />
+          <Foot from={[36, 165]} to={[54, 166]} far />
+          <Torso neck={[86, 82]} hip={[56, 104]} />
+          <Limb points={[[56, 104], [76, 132], [86, 160]]} />
+          <Foot from={[84, 165]} to={[102, 166]} />
+          <Limb points={[[86, 86], [72, 108], [82, 122]]} width={8} />
+          <Head at={[98, 70]} angle={28} />
+          <Guide from={[56, 166]} to={[56, 104]} tone="warn" />
+          <Guide from={[56, 104]} to={[94, 76]} tone="warn" />
+          <Note at={[60, 182]} text="こしで 折れている" tone="warn" anchor="middle" />
 
-          {/* 左：腰から折れている */}
-          <path d="M48 30 L68 92 L66 140" {...GUIDE} stroke="var(--warn)" />
-          <path d="M66 92 L52 116 L46 140" {...LIMB} />
-          <path d="M66 92 L80 116 L88 140" {...LIMB} />
-          <path d="M66 92 L46 54" {...TORSO} />
-          <Head cx={40} cy={42} r={10} />
-          <path d="M46 56 L64 74" {...LIMB} />
-
-          {/* 右：耳・肩・腰・くるぶしが一直線 */}
-          <path d="M170 28 L188 140" {...GUIDE} stroke="var(--good)" />
-          <path d="M180 92 L168 116 L164 140" {...LIMB} />
-          <path d="M180 92 L194 116 L198 140" {...LIMB} />
-          <path d="M180 92 L174 50" {...TORSO} />
-          <Head cx={172} cy={38} r={10} />
-          <path d="M174 52 L190 72" {...LIMB} />
-        </>
+          <Check at={[160, 22]} />
+          {/* 良い例：くるぶしから頭まで一直線 */}
+          <Limb points={[[192, 100], [178, 128], [174, 158]]} far />
+          <Foot from={[170, 165]} to={[188, 166]} far />
+          <Torso neck={[200, 64]} hip={[192, 100]} />
+          <Limb points={[[192, 100], [202, 130], [198, 160]]} />
+          <Foot from={[196, 165]} to={[212, 164]} />
+          <Limb points={[[200, 68], [184, 90], [194, 106]]} width={8} />
+          <Head at={[204, 46]} />
+          <Guide from={[186, 166]} to={[206, 44]} tone="good" />
+          <Note at={[206, 182]} text="ひとつの 線" tone="good" anchor="middle" />
+        </g>
       );
 
     case 'form-armswing':
       return (
-        <>
+        <g>
           <Ground />
-          <path d="M110 104 L96 124 L88 142" {...LIMB} />
-          <path d="M110 104 L128 122 L140 142" {...LIMB} />
-          <path d="M110 104 L114 56" {...TORSO} />
-          <Head cx={115} cy={43} />
-          {/* 前に出ている側（引いた反動で出る） */}
-          <g opacity={0.35}>
-            <path d="M114 58 L134 80 L122 62" {...LIMB} />
-          </g>
-          {/* 後ろへ引く側。肘は約90度 */}
-          <path d="M114 58 L94 82 L108 98" {...HILITE} />
-          {/* 肘が描く弧 */}
-          <path d="M126 66 A 30 30 0 0 0 98 92" {...GUIDE} />
-        </>
+          <Limb points={[[128, 104], [112, 132], [106, 160]]} far />
+          <Foot from={[102, 165]} to={[120, 166]} far />
+          <Torso neck={[132, 64]} hip={[128, 104]} />
+          <Limb points={[[128, 104], [150, 130], [156, 160]]} />
+          <Foot from={[154, 165]} to={[172, 166]} />
+          {/* 後ろへ引いた腕（奥） */}
+          <Limb points={[[126, 68], [104, 88], [86, 74]]} width={8} far />
+          {/* 前に出た腕（手前）：ひじ90度 */}
+          <Limb points={[[134, 68], [150, 94], [178, 84]]} width={8} />
+          <Head at={[134, 46]} />
+          <Spot at={[150, 94]} rx={11} ry={11} />
+          <Arrow from={[108, 62]} to={[82, 60]} />
+          <Note at={[250, 74]} text="ひじ 90ど" to={[160, 92]} anchor="end" />
+          <Note at={[14, 44]} text="うしろへ ひく" />
+        </g>
       );
 
     // --- 補強 ---
     case 'strength-plank':
       return (
-        <>
+        <g>
           <Ground />
-          {/* まっすぐであることの基準 */}
-          <path d="M64 104 L204 140" {...GUIDE} />
-          {/* 前腕で支える */}
-          <path d="M78 112 L80 142" {...LIMB} />
-          <path d="M80 142 L52 142" {...LIMB} />
-          {/* 体幹：ここを保つ */}
-          <path d="M78 112 L140 124" {...HILITE_TORSO} />
-          <path d="M140 124 L172 131 L204 140" {...LIMB} />
-          <Head cx={62} cy={106} r={10} />
-        </>
+          {/* 奥の腕と脚 */}
+          <Limb points={[[110, 124], [112, 156], [88, 163]]} width={8} far />
+          <Limb points={[[164, 140], [198, 152], [222, 162]]} far />
+          {/* 体：頭からかかとまで一直線 */}
+          <Torso neck={[110, 120]} hip={[164, 138]} />
+          <Limb points={[[164, 138], [200, 150], [226, 160]]} />
+          <Foot from={[226, 160]} to={[232, 166]} />
+          {/* 手前の腕：ひじは肩の真下 */}
+          <Limb points={[[106, 120], [104, 156], [78, 162]]} width={8} />
+          <Head at={[92, 112]} angle={155} />
+          <Spot at={[144, 134]} rx={18} ry={11} angle={16} />
+          <Guide from={[86, 108]} to={[232, 162]} tone="good" />
+          <Guide from={[104, 122]} to={[104, 154]} tone="warn" />
+          <Note at={[120, 182]} text="ひじは かたの 真下" tone="warn" to={[106, 158]} />
+          <Note at={[150, 100]} text="あたまから かかとまで 一直線" tone="good" anchor="middle" />
+          <Note at={[248, 116]} text="おなかに 力" to={[160, 132]} anchor="end" />
+        </g>
       );
 
     case 'strength-calf-raise':
       return (
-        <>
-          {/* 段差。足の前半分だけを乗せ、かかとは手前にはみ出す */}
-          <rect x="108" y="108" width="112" height="34" fill="currentColor" opacity={0.1} />
-          <path d="M108 108 L220 108" {...PROP} strokeWidth={4} />
-          <path d="M108 108 L108 142" {...PROP} strokeWidth={4} />
-          <Ground to={108} />
-          {/* もも */}
-          <path d="M132 24 L130 72" {...LIMB} />
-          {/* すね：ふくらはぎが働く */}
-          <path d="M130 72 L128 106" {...HILITE} />
-          {/* 足の前半分は段差の上 */}
-          <path d="M128 106 L154 108" {...LIMB} />
-          {/* 上げたかかと */}
-          <path d="M128 106 L104 96" {...LIMB} />
-          {/* かかとが動く向き */}
-          <path d="M92 126 L92 104" {...GUIDE} />
-          <path d="M87 110 L92 102 L97 110" {...GUIDE} strokeDasharray="0" />
-        </>
+        <g>
+          <Ground />
+          {/* 段差 */}
+          <Block x={150} y={140} w={98} h={26} />
+          {/* 奥の脚 */}
+          <Limb points={[[152, 78], [150, 110], [152, 136]]} far />
+          <Torso neck={[148, 46]} hip={[150, 78]} />
+          <Limb points={[[150, 78], [154, 108], [158, 136]]} />
+          {/* 足：前半分だけ段差に乗せる */}
+          <Foot from={[158, 138]} to={[180, 139]} />
+          <Limb points={[[148, 50], [122, 66], [104, 74]]} width={8} />
+          <Limb points={[[150, 50], [176, 66], [192, 72]]} width={8} far />
+          <Head at={[146, 28]} />
+          <Spot at={[156, 118]} rx={11} ry={16} />
+          {/* 下げた位置（点線）と、上げる向き */}
+          <path
+            d="M140 156 L158 150"
+            fill="none"
+            stroke="var(--warn)"
+            strokeWidth={4}
+            strokeLinecap="round"
+            strokeDasharray="5 4"
+            opacity={0.8}
+          />
+          <Arrow from={[128, 156]} to={[128, 124]} />
+          <Note at={[92, 124]} text="3びょうで 上げる" anchor="middle" />
+          <Note at={[64, 176]} text="かかとは 段から 出す" tone="warn" to={[138, 156]} />
+          <Note at={[250, 92]} text="足の 前半分を のせる" to={[176, 138]} anchor="end" />
+        </g>
       );
 
     case 'strength-hip-lift':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 肩から膝までが一直線になる高さまで上げる */}
-          <path d="M62 136 L118 106 L154 100" {...GUIDE} />
-          {/* 首から肩。頭は床につけたまま */}
-          <path d="M46 134 L62 136" {...LIMB} />
-          <Head cx={38} cy={132} r={10} />
-          {/* 背中 */}
-          <path d="M62 136 L98 118" {...LIMB} />
-          {/* お尻：ここを締めて持ち上げる */}
-          <path d="M98 118 L118 106" {...HILITE_TORSO} />
-          {/* もも・すね */}
-          <path d="M118 106 L154 100 L160 142" {...LIMB} />
-          {/* 床についた腕 */}
-          <path d="M64 138 L90 142" {...LIMB} />
-        </>
+          {/* 奥の脚 */}
+          <Limb points={[[150, 132], [196, 122], [202, 160]]} far />
+          <Foot from={[196, 165]} to={[218, 165]} far />
+          {/* 体：肩は床に置いたまま、腰だけを持ち上げる */}
+          <Torso neck={[80, 156]} hip={[152, 126]} />
+          <Limb points={[[152, 126], [202, 116], [208, 158]]} />
+          <Foot from={[202, 165]} to={[226, 165]} />
+          {/* 腕は床。胴と重ならないよう、下へ離して置く。 */}
+          <Limb points={[[84, 160], [112, 166], [138, 167]]} width={8} />
+          <Head at={[56, 150]} angle={-70} />
+          <Spot at={[150, 138]} rx={15} ry={11} angle={-14} />
+          <Guide from={[76, 158]} to={[202, 116]} tone="good" />
+          {/* 下ろした位置。ここからどれだけ上げるのかを示す。 */}
+          <path
+            d="M110 160 L148 157"
+            fill="none"
+            stroke="var(--warn)"
+            strokeWidth={4}
+            strokeLinecap="round"
+            strokeDasharray="5 4"
+            opacity={0.55}
+          />
+          <Arrow from={[150, 154]} to={[150, 132]} />
+          <Note at={[132, 34]} text="おしりを しめて 上げる" anchor="middle" />
+          <Note at={[248, 76]} text="かた・こし・ひざが 一直線" tone="good" anchor="end" />
+        </g>
       );
 
     case 'strength-single-leg-squat':
       return (
-        <>
+        <g>
           <Ground />
-          {/* 膝が足の上に来ているかの基準 */}
-          <line x1="122" y1="88" x2="124" y2="142" {...GUIDE} />
-          {/* 浮かせた脚 */}
-          <path d="M120 88 L102 110 L96 126" {...LIMB} />
-          {/* 立っている脚：向きを保つ */}
-          <path d="M120 88 L127 114 L124 142" {...HILITE} />
-          <path d="M120 88 L120 46" {...TORSO} />
-          <Head cx={120} cy={33} />
-          {/* バランスを取る腕 */}
-          <path d="M120 50 L94 66" {...LIMB} />
-          <path d="M120 50 L146 66" {...LIMB} />
-        </>
+          {/* 正面から見た図。ひざの向きは、横からでは分からない。 */}
+          <Limb points={[[118, 70], [96, 96], [90, 120]]} width={8} />
+          <Limb points={[[142, 70], [164, 96], [170, 120]]} width={8} />
+          <Torso neck={[130, 70]} hip={[130, 108]} width={24} />
+          {/* 浮かせた脚（奥） */}
+          <Limb points={[[120, 108], [106, 128], [96, 142]]} far />
+          <Foot from={[90, 146]} to={[106, 148]} far />
+          {/* 内に入った悪い例。すねまで描くと良い脚と交差して混み合うので、ももだけ。 */}
+          <g opacity={0.28}>
+            <Limb points={[[140, 108], [116, 140]]} />
+          </g>
+          <Cross at={[94, 132]} />
+          {/* 立っている脚（手前）：ひざはつま先の上 */}
+          <Limb points={[[140, 108], [152, 138], [150, 162]]} />
+          <Foot from={[138, 166]} to={[164, 166]} />
+          <FrontHead at={[130, 44]} />
+          <Guide from={[152, 134]} to={[150, 164]} tone="good" />
+          <Check at={[172, 132]} />
+          <Note at={[250, 32]} text="ひざは つまさきの 上" tone="good" to={[156, 138]} anchor="end" />
+          <Note at={[10, 116]} text="内に 入れない" tone="warn" to={[116, 138]} />
+        </g>
       );
 
     default:
