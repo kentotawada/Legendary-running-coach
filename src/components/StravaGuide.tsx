@@ -66,6 +66,10 @@ export default function StravaGuide({ empty = false, onClose }: Props) {
         <strong className="font-semibold text-fg">設定は一度だけ。</strong>
         あとは走るたびに、時計 → Garmin Connect → Strava → このアプリ、と自動で流れます。
       </p>
+      <p className="mt-2 text-[13px] leading-relaxed text-muted">
+        <strong className="font-semibold text-fg">スマホの Strava アプリから進むのがいちばん確実です。</strong>
+        すでにログインした状態で始められるので、途中で止まりません。
+      </p>
 
       <ol className="mt-4 space-y-3">
         {STEPS.map((step, index) => (
@@ -86,14 +90,28 @@ export default function StravaGuide({ empty = false, onClose }: Props) {
         ))}
       </ol>
 
-      <a
-        href={STRAVA_SETTINGS_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-4 block rounded-full bg-accent px-4 py-3 text-center text-[14px] font-semibold text-[var(--accent-fg)]"
-      >
-        Strava の設定を開く
-      </a>
+      {/*
+        リンクを主ボタンにしない。
+        設定ページはログインが要るので、押すとログイン画面が出る。
+        スマホではすでに Strava アプリにログインしているのが普通なので、
+        アプリから進む方が速く、確実。リンクは「アプリが無い人」の逃げ道として置く。
+      */}
+      <div className="mt-4 rounded-[14px] border border-line px-3.5 py-3">
+        <p className="text-[12px] leading-relaxed text-muted">
+          スマホに Strava アプリが入っていない場合は、ブラウザからでも同じ設定ができます。
+        </p>
+        <a
+          href={STRAVA_SETTINGS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1.5 inline-block text-[13px] font-semibold text-accent underline underline-offset-4"
+        >
+          ブラウザで Strava の設定を開く
+        </a>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+          Strava にログインしていなければ、先にログイン画面が出ます（そのままログインすれば設定に進めます）。
+        </p>
+      </div>
 
       <div className="mt-5 rounded-[14px] bg-sunken px-3.5 py-3">
         <p className="text-[13px] font-semibold">このあと、どうなるか</p>
