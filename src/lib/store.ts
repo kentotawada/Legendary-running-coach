@@ -23,6 +23,13 @@ export interface CoachStore {
    * 引き継いだら true。引き継ぎ先にすでに記録がある場合は、上書きせず false。
    */
   adopt(fromUserId: string, toUserId: string, authUserId?: string): Promise<boolean>;
+  /**
+   * 通知のような、全員を一度に見る処理のための一覧。
+   * 会話履歴は重いので、カルテだけを返す。
+   */
+  listProfiles?(limit?: number): Promise<{ userId: string; profile: RunnerProfile }[]>;
+  /** カルテだけを書き戻す。履歴を読み込まずに済ませるため。 */
+  saveProfile?(userId: string, profile: RunnerProfile): Promise<void>;
 }
 
 /** モデルに渡す会話の上限。これを超えたら古い順に落とす。 */
@@ -167,6 +174,40 @@ class FileCoachStore implements CoachStore {
         this.fsUsable = false;
       }
     });
+  }
+
+  async listProfiles(limit = 500): Promise<{ userId: string; profile: RunnerProfile }[]> {
+    const found = new Map<string, RunnerProfile>();
+    for (const [userId, state] of this.memory) found.set(userId, state.profile);
+
+    if (this.fsUsable) {
+      try {
+        const files = await fs.readdir(this.dir);
+        for (const file of files) {
+          if (!file.endsWith('.json')) continue;
+          const userId = file.replace(/\.json$/, '');
+          if (found.has(userId)) continue;
+          try {
+            const parsed = JSON.parse(await fs.readFile(path.join(this.dir, file), 'utf8')) as CoachState;
+            // 保存が古くて足りない項目を、既定値で埋める。load と同じ扱いにする。
+            if (parsed.profile) {
+              found.set(userId, { ...createDefaultProfile(userId), ...parsed.profile, id: userId });
+            }
+          } catch {
+            // 壊れているファイルは飛ばす。ほかの人の通知まで止めない。
+          }
+        }
+      } catch {
+        // 読めない環境ではメモリ上の分だけを返す。
+      }
+    }
+
+    return [...found].slice(0, limit).map(([userId, profile]) => ({ userId, profile }));
+  }
+
+  async saveProfile(userId: string, profile: RunnerProfile): Promise<void> {
+    const state = await this.load(userId);
+    await this.save(userId, { ...state, profile });
   }
 
   async reset(userId: string): Promise<void> {

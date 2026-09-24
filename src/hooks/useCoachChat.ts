@@ -65,6 +65,14 @@ export interface CoachChat {
   savingWeight: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
   reportError: (message: string) => void;
+  /** ランニングアプリから取り込む。画面を開いた時にも静かに走る。 */
+  syncStrava: (quiet?: boolean) => Promise<void>;
+  /** 連携を解除する。取り込んだ記録は消さない。 */
+  disconnectStrava: () => Promise<void>;
+  syncing: boolean;
+  /** 取り込みの結果。読んだら消える一言。 */
+  syncMessage: string | null;
+  clearSyncMessage: () => void;
 }
 
 export function useCoachChat(): CoachChat {
@@ -82,6 +90,8 @@ export function useCoachChat(): CoachChat {
   const [auth, setAuth] = useState<AuthState>({ available: false, isAuthenticated: false });
   const [savingWeight, setSavingWeight] = useState(false);
   const [canResend, setCanResend] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const counter = useRef(0);
   const started = useRef(false);
   /** 失敗した時に備えて、送った中身（画像を含む）をそのまま持っておく。 */
@@ -278,6 +288,47 @@ export function useCoachChat(): CoachChat {
     await turn('', [], 'regenerate');
   }, [busy, turn]);
 
+  /**
+   * ランニングアプリから取り込む。
+   *
+   * quiet は画面を開いた時の自動実行。**新しい練習が無ければ何も言わない。**
+   * 「新着0件」を毎回知らせるのは、ただの雑音になる。
+   */
+  const syncStrava = useCallback(async (quiet = false) => {
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/strava/sync', { method: 'POST' });
+      const data = (await response.json().catch(() => null)) as
+        | { profile?: RunnerProfile; message?: string; imported?: number; error?: string }
+        | null;
+
+      if (!response.ok) {
+        if (!quiet) setSyncMessage(data?.error ?? '取り込めませんでした。');
+        return;
+      }
+      if (data?.profile) setProfile(data.profile);
+      if (!quiet || (data?.imported ?? 0) > 0) setSyncMessage(data?.message ?? null);
+    } catch {
+      if (!quiet) setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
+  const disconnectStrava = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/strava/disconnect', { method: 'POST' });
+      const data = (await response.json().catch(() => null)) as { profile?: RunnerProfile } | null;
+      if (data?.profile) setProfile(data.profile);
+      setSyncMessage('連携を解除しました。取り込んだ記録はそのまま残っています。');
+    } catch {
+      setSyncMessage('解除できませんでした。');
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   // 初回ロード: これまでの会話を復元し、まだ何も無ければコーチから声をかける。
   useEffect(() => {
     if (started.current) return;
@@ -314,6 +365,9 @@ export function useCoachChat(): CoachChat {
           .then((d: { daily?: DailyStatus }) => d.daily && setDaily(d.daily))
           .catch(() => undefined);
         setProfile(data.profile);
+        // つないであるなら、開いた時点でもう取り込んでおく。
+        // 走り終えて開いた時に、記録がすでに入っている状態をつくるため。
+        if (data.profile?.connections?.strava) void syncStrava(true);
         setBuild(data.build ?? null);
         setGear(data.gear ?? []);
         if (data.auth) setAuth(data.auth);
@@ -336,7 +390,7 @@ export function useCoachChat(): CoachChat {
         );
       }
     })();
-  }, [turn]);
+  }, [turn, syncStrava]);
 
   const reset = useCallback(async () => {
     await fetch('/api/profile', { method: 'DELETE' });
@@ -419,6 +473,11 @@ export function useCoachChat(): CoachChat {
     daily,
     gear,
     auth,
+    syncStrava,
+    disconnectStrava,
+    syncing,
+    syncMessage,
+    clearSyncMessage: () => setSyncMessage(null),
     saveWeight,
     savingWeight,
   };

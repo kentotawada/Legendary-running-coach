@@ -26,6 +26,10 @@ export interface BuildInfo {
    * 「環境変数を入れたのに商品が出ない」を、ここだけ見て切り分けられるようにする。
    */
   productSearch: boolean;
+  /** ランニングアプリ（Strava）との連携が使えるか。 */
+  stravaAvailable: boolean;
+  /** プッシュ通知の鍵が設定されているか。 */
+  pushAvailable: boolean;
 }
 
 /** 環境変数に紛れ込んだ引用符や空白を落とす。貼り付け事故がここで死なないように。 */
@@ -56,5 +60,12 @@ export function getBuildInfo(): BuildInfo {
     storage: supabaseUrl && supabaseServiceKey ? 'supabase' : 'file',
     authAvailable: Boolean(supabaseUrl && supabaseAnonKey),
     productSearch: cleanEnv(process.env.RAKUTEN_APP_ID).length > 0,
+    stravaAvailable:
+      cleanEnv(process.env.STRAVA_CLIENT_ID).length > 0 &&
+      cleanEnv(process.env.STRAVA_CLIENT_SECRET).length > 0,
+    pushAvailable:
+      (cleanEnv(process.env.VAPID_PUBLIC_KEY).length > 0 ||
+        cleanEnv(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY).length > 0) &&
+      cleanEnv(process.env.VAPID_PRIVATE_KEY).length > 0,
   };
 }

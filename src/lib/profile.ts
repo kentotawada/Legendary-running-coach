@@ -8,6 +8,7 @@ import type {
   PainPoint,
   RaceEntry,
   RacePriority,
+  Connections,
   GearNote,
   RunnerGoal,
   RunnerProfile,
@@ -247,6 +248,43 @@ export function addShoes(profile: RunnerProfile, input: ShoeInput, now: Date = n
   };
 }
 
+/**
+ * 外部サービス（Strava）側の靴を、こちらへ写す。
+ *
+ * **走行距離は向こうが正**なので、足し込まずに上書きする。
+ * こちらでも足していると、同じ練習を二重に数えることになる。
+ */
+export function upsertExternalShoe(
+  profile: RunnerProfile,
+  input: { externalId: string; name: string; km: number; role?: ShoeRole; retired?: boolean },
+  now: Date = new Date(),
+): RunnerProfile {
+  const name = input.name.trim() || 'シューズ';
+  const shoes = profile.shoes ?? [];
+  const existing =
+    shoes.find((shoe) => shoe.externalId === input.externalId) ??
+    shoes.find((shoe) => !shoe.externalId && shoe.name.trim().toLowerCase() === name.toLowerCase());
+
+  const entry: ShoeEntry = {
+    id: existing?.id ?? newId(),
+    name: existing?.name ?? name,
+    // 用途は本人が直せる。すでに決まっているならそちらを尊重する。
+    role: existing?.role ?? input.role ?? 'daily',
+    km: Math.max(0, Math.round(input.km)),
+    since: existing?.since,
+    note: existing?.note,
+    externalId: input.externalId,
+    retiredAt: input.retired ? (existing?.retiredAt ?? today(now)) : existing?.retiredAt,
+    updatedAt: now.toISOString(),
+  };
+
+  return {
+    ...profile,
+    shoes: tail([...shoes.filter((shoe) => shoe.id !== entry.id), entry], MAX_SHOES),
+    updatedAt: now.toISOString(),
+  };
+}
+
 /** 履くのをやめた1足。記録は消さない。何kmで替えたかは、次を選ぶ時の材料になる。 */
 export function retireShoes(profile: RunnerProfile, nameOrId: string, now: Date = new Date()): RunnerProfile {
   const target = findShoe(profile, nameOrId);
@@ -269,7 +307,10 @@ export function addShoeDistance(
 ): RunnerProfile {
   if (!(km > 0)) return profile;
   const shoes = profile.shoes ?? [];
-  if (!shoes.some((shoe) => shoe.id === shoeId)) return profile;
+  const target = shoes.find((shoe) => shoe.id === shoeId);
+  if (!target) return profile;
+  // 外部サービスが管理している靴には足さない。向こうの数字が正で、足すと二重になる。
+  if (target.externalId) return profile;
   return {
     ...profile,
     shoes: shoes.map((shoe) =>
@@ -559,6 +600,7 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
         a.effort !== undefined ? `主観強度${a.effort}/10` : null,
         a.felt ? `「${a.felt}」` : null,
         a.source === 'screenshot' ? '(画像から読取)' : null,
+        a.source === 'strava' ? '(Stravaから自動取込)' : null,
       ]
         .filter(Boolean)
         .join(' ');
@@ -600,6 +642,33 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
   }
 
   return lines.join('\n');
+}
+
+/**
+ * ブラウザへ返してよい形のカルテ。
+ *
+ * 接続のトークンだけを落とす。**これを通さずに profile を返してはならない。**
+ * 自分のトークンとはいえ、画面まで運ぶ理由がどこにも無い。
+ */
+export function publicProfile(profile: RunnerProfile): RunnerProfile {
+  // 通知の宛先は、持っているだけでその端末へ送れてしまう。画面まで運ばない。
+  const withoutPush = profile.pushSubscriptions
+    ? { ...profile, pushSubscriptions: undefined }
+    : profile;
+
+  const strava = withoutPush.connections?.strava;
+  if (!strava) return withoutPush;
+
+  const connections: Connections = {
+    strava: {
+      athleteId: strava.athleteId,
+      athleteName: strava.athleteName,
+      connectedAt: strava.connectedAt,
+      lastSyncedAt: strava.lastSyncedAt,
+      imported: strava.imported,
+    },
+  };
+  return { ...withoutPush, connections };
 }
 
 /** 保存している Gemini の Content[] から、画面に出す発言だけを取り出す。 */

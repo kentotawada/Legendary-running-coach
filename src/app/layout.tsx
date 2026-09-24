@@ -7,6 +7,14 @@ export const metadata: Metadata = {
   description:
     'あなたの目的・体調・生活の変化を学び続け、その瞬間に最適な一手を出し続ける、あなただけのパーソナルコーチ。',
   manifest: '/manifest.webmanifest',
+  // iOS はホーム画面の追加に PNG を求める。置けないと通知も使えない。
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

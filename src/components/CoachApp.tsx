@@ -10,6 +10,7 @@ import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
+import ReviewSheet from './ReviewSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
@@ -42,12 +43,18 @@ export default function CoachApp() {
     savingWeight,
     gear,
     auth,
+    syncStrava,
+    disconnectStrava,
+    syncing,
+    syncMessage,
+    clearSyncMessage,
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [coachSheetOpen, setCoachSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -87,6 +94,28 @@ export default function CoachApp() {
     }
   }, [profile]);
 
+  /**
+   * Strava から戻ってきた直後。
+   * 結果をひとこと出して、URL のクエリは消す。
+   * 残しておくと、再読み込みのたびに同じ知らせが出る。
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('strava');
+    if (!result) return;
+
+    const message: Record<string, string> = {
+      connected: 'Stravaとつながりました。これまでの練習を取り込んでいます…',
+      denied: 'Stravaとの連携は許可されませんでした。',
+      state: '連携の手続きが途中で切れました。もう一度お試しください。',
+      failed: 'Stravaとの連携に失敗しました。時間をおいて、もう一度お試しください。',
+      unconfigured: 'このアプリでは Strava 連携が設定されていません。',
+    };
+    setCelebration(message[result] ?? null);
+    window.history.replaceState({}, '', window.location.pathname);
+    if (result === 'connected') void syncStrava();
+  }, [syncStrava]);
+
   useEffect(() => {
     if (!celebration) return;
     const timer = setTimeout(() => setCelebration(null), 6000);
@@ -119,8 +148,15 @@ export default function CoachApp() {
         </button>
         <button
           type="button"
+          onClick={() => setReviewOpen(true)}
+          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
+        >
+          ふりかえり
+        </button>
+        <button
+          type="button"
           onClick={() => setSheetOpen(true)}
-          className="shrink-0 rounded-full border border-line px-3.5 py-2 text-[12px] font-medium"
+          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
         >
           カルテ
         </button>
@@ -208,6 +244,16 @@ export default function CoachApp() {
         </div>
       )}
 
+      {!sheetOpen && syncMessage && (
+        <button
+          type="button"
+          onClick={clearSyncMessage}
+          className="mx-4 mb-2 animate-rise rounded-[var(--radius)] border border-line bg-sunken px-4 py-2.5 text-left text-[13px] leading-relaxed text-muted"
+        >
+          {syncMessage}
+        </button>
+      )}
+
       <footer className="safe-bottom border-t border-line bg-bg">
         <Composer
           onSend={(text, images) => void send(text, images)}
@@ -237,6 +283,8 @@ export default function CoachApp() {
           onClose={() => setCoachSheetOpen(false)}
         />
       )}
+
+      {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
 
       {dailyOpen && daily && (
         <DailySheet
@@ -278,6 +326,12 @@ export default function CoachApp() {
           }}
           fontSize={fontSize}
           onChangeFontSize={changeFontSize}
+          stravaAvailable={build?.stravaAvailable}
+          pushAvailable={build?.pushAvailable}
+          syncing={syncing}
+          syncMessage={syncMessage}
+          onSyncStrava={() => void syncStrava()}
+          onDisconnectStrava={() => void disconnectStrava()}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}

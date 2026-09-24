@@ -93,7 +93,7 @@ export interface ConditionLog {
 }
 
 export type ActivityType = 'run' | 'walk' | 'cross' | 'strength' | 'stretch' | 'rest';
-export type ActivitySource = 'self-report' | 'screenshot';
+export type ActivitySource = 'self-report' | 'screenshot' | 'strava';
 
 /** 時計やアプリの計測データ。スクリーンショットから読み取った値もここに入る。 */
 export interface WorkoutMetrics {
@@ -127,6 +127,8 @@ export interface ActivityLog {
   source?: ActivitySource;
   /** どのシューズで走ったか。走行距離を積む先。 */
   shoeId?: string;
+  /** 外部サービスから取り込んだ記録の元ID。例: "strava:12345"。二重取り込みを防ぐ。 */
+  externalId?: string;
   createdAt: string;
 }
 
@@ -151,6 +153,11 @@ export interface ShoeEntry {
   since?: string;
   /** 引退した日。入っていれば、もう距離を積まない。 */
   retiredAt?: string;
+  /**
+   * 外部サービス側のID。例: "strava:g123"。
+   * これが入っている靴の走行距離は**向こうが正**なので、こちらでは足し込まない。
+   */
+  externalId?: string;
   note?: string;
   updatedAt: string;
 }
@@ -169,6 +176,57 @@ export interface GearNote {
   /** 「胃に来た」「幅が狭い」など、その人の言葉。 */
   reason?: string;
   at: string;
+}
+
+/**
+ * 外部サービスとの接続。
+ *
+ * ランニングアプリ側に記録があるのに、こちらで打ち直させるのは無駄です。
+ * つないでおけば、走り終えた時点でもう記録が入っている状態にできます。
+ */
+export interface StravaConnection {
+  athleteId?: number;
+  athleteName?: string;
+  connectedAt: string;
+  lastSyncedAt?: string;
+  /** これまでに取り込んだ件数。画面に出す。 */
+  imported?: number;
+  /**
+   * トークン。**ここだけは絶対にブラウザへ返さない。**
+   * publicProfile() がこの項目を落とす。
+   */
+  secret?: {
+    accessToken: string;
+    refreshToken: string;
+    /** 有効期限（UNIX秒）。 */
+    expiresAt: number;
+  };
+}
+
+export interface Connections {
+  strava?: StravaConnection;
+}
+
+/**
+ * プッシュ通知の宛先。
+ *
+ * 端末ごとに1つ。これを持っている相手は、その端末へ通知を送れてしまうので、
+ * **ブラウザへ返さない**（publicProfile() が落とす）。
+ */
+export interface PushSubscriptionRecord {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  createdAt: string;
+  /** 送れなかった回数。続くようなら、その宛先はもう生きていない。 */
+  failures?: number;
+}
+
+/** 通知を出しすぎないための記録。 */
+export interface NotificationState {
+  lastSentAt?: string;
+  lastTag?: string;
+  /** 種類ごとの最終送信日（YYYY-MM-DD）。同じ知らせを続けて出さないため。 */
+  sentOn?: Record<string, string>;
 }
 
 export type PlanIntensity = 'rest' | 'easy' | 'moderate' | 'hard';
@@ -239,6 +297,16 @@ export interface RunnerProfile {
   shoes?: ShoeEntry[];
   /** 合った・合わなかった道具。次に勧める時の判断材料。 */
   gearNotes?: GearNote[];
+  /**
+   * 外部サービスとの接続。
+   * **secret を含むので、このままブラウザへ返してはならない。**
+   * 画面へ渡す時は必ず publicProfile() を通すこと（profile.ts）。
+   */
+  connections?: Connections;
+  /** 通知の宛先。**ブラウザへ返してはならない。** */
+  pushSubscriptions?: PushSubscriptionRecord[];
+  /** 通知を出しすぎないための記録。 */
+  notifications?: NotificationState;
   /**
    * 送った画像の見返し用の控え。
    * カルテの内容ではないが、保存先の列を増やさずに済ませるためここに置いている。

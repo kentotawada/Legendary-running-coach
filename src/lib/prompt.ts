@@ -13,6 +13,8 @@ import { productDoctrine } from './products';
 import { shoeDoctrine } from './shoes';
 import { gearNoteDoctrine } from './gear-notes';
 import { checklistDoctrine } from './checklist';
+import { connectionDoctrine } from './sync';
+import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
 
@@ -194,6 +196,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     safety.directives.length > 0
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
       : null,
+    connectionDoctrine(profile, isStravaConfigured(), now),
     IMAGE_POLICY,
     figureDoctrine(),
     fuelDoctrine(profile, now),

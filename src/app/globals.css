@@ -21,6 +21,13 @@
   --warn-soft: #fdf1e6;
   --good: #2f7d52;
   --good-soft: #e9f3ed;
+  /*
+    グラフの線と棒の色。本文のアクセントとは別に持つ。
+    暗い画面では、面に対して明るすぎると輪郭が溶けるため、
+    同じ系統のまま一段落とした値を使う（検証ツールの明度帯に収めている）。
+  */
+  --chart-ink: #cf4d18;
+  --chart-grid: var(--border);
   --radius: 16px;
   /* 本文の大きさ。カルテの「文字の大きさ」から書き換える。 */
   --chat-font-scale: 1;
@@ -45,6 +52,7 @@
     --warn-soft: #33210f;
     --good: #7cc79b;
     --good-soft: #162c1e;
+    --chart-ink: #e4652f;
   }
 }
 
@@ -62,6 +70,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
+  --color-chart-ink: var(--chart-ink);
 }
 
 html,
