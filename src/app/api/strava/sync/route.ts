@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         skipped: result.skipped,
         shoes: result.shoes,
         firstTime: result.firstTime,
+        garminDetected: result.garminDetected,
         message: describeSync(result),
         // 鍵を含むので、必ず publicProfile を通す。
         profile: publicProfile(result.profile),

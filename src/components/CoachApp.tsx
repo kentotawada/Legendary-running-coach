@@ -11,6 +11,7 @@ import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
 import ReviewSheet from './ReviewSheet';
+import StravaGuide from './StravaGuide';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
@@ -48,6 +49,7 @@ export default function CoachApp() {
     syncing,
     syncMessage,
     clearSyncMessage,
+    needsDeviceGuide,
   } = useCoachChat();
   const composerRef = useRef<ComposerApi | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -55,6 +57,7 @@ export default function CoachApp() {
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -247,10 +250,15 @@ export default function CoachApp() {
       {!sheetOpen && syncMessage && (
         <button
           type="button"
-          onClick={clearSyncMessage}
-          className="mx-4 mb-2 animate-rise rounded-[var(--radius)] border border-line bg-sunken px-4 py-2.5 text-left text-[13px] leading-relaxed text-muted"
+          onClick={() => (needsDeviceGuide ? setGuideOpen(true) : clearSyncMessage())}
+          className={`mx-4 mb-2 animate-rise rounded-[var(--radius)] border px-4 py-2.5 text-left text-[13px] leading-relaxed ${
+            needsDeviceGuide
+              ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+              : 'border-line bg-sunken text-muted'
+          }`}
         >
           {syncMessage}
+          {needsDeviceGuide && <span className="mt-0.5 block font-semibold">つなぎ方の手順を見る →</span>}
         </button>
       )}
 
@@ -285,6 +293,16 @@ export default function CoachApp() {
       )}
 
       {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
+
+      {guideOpen && (
+        <StravaGuide
+          empty={needsDeviceGuide}
+          onClose={() => {
+            setGuideOpen(false);
+            clearSyncMessage();
+          }}
+        />
+      )}
 
       {dailyOpen && daily && (
         <DailySheet
@@ -332,6 +350,10 @@ export default function CoachApp() {
           syncMessage={syncMessage}
           onSyncStrava={() => void syncStrava()}
           onDisconnectStrava={() => void disconnectStrava()}
+          onOpenDeviceGuide={() => {
+            setSheetOpen(false);
+            setGuideOpen(true);
+          }}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
           onReset={() => void reset()}

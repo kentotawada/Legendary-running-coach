@@ -73,6 +73,11 @@ export interface CoachChat {
   /** 取り込みの結果。読んだら消える一言。 */
   syncMessage: string | null;
   clearSyncMessage: () => void;
+  /**
+   * つないだのに1件も入らなかった時の合図。
+   * 時計との連携がまだ、という場合がほとんどなので、手順へ誘導する。
+   */
+  needsDeviceGuide: boolean;
 }
 
 export function useCoachChat(): CoachChat {
@@ -92,6 +97,7 @@ export function useCoachChat(): CoachChat {
   const [canResend, setCanResend] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [needsDeviceGuide, setNeedsDeviceGuide] = useState(false);
   const counter = useRef(0);
   const started = useRef(false);
   /** 失敗した時に備えて、送った中身（画像を含む）をそのまま持っておく。 */
@@ -299,7 +305,13 @@ export function useCoachChat(): CoachChat {
     try {
       const response = await fetch('/api/strava/sync', { method: 'POST' });
       const data = (await response.json().catch(() => null)) as
-        | { profile?: RunnerProfile; message?: string; imported?: number; error?: string }
+        | {
+            profile?: RunnerProfile;
+            message?: string;
+            imported?: number;
+            firstTime?: boolean;
+            error?: string;
+          }
         | null;
 
       if (!response.ok) {
@@ -307,6 +319,8 @@ export function useCoachChat(): CoachChat {
         return;
       }
       if (data?.profile) setProfile(data.profile);
+      // 初回で1件も入らなかった時だけ、手順を出す合図を立てる。
+      setNeedsDeviceGuide(Boolean(data?.firstTime) && (data?.imported ?? 0) === 0);
       if (!quiet || (data?.imported ?? 0) > 0) setSyncMessage(data?.message ?? null);
     } catch {
       if (!quiet) setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
@@ -477,7 +491,11 @@ export function useCoachChat(): CoachChat {
     disconnectStrava,
     syncing,
     syncMessage,
-    clearSyncMessage: () => setSyncMessage(null),
+    clearSyncMessage: () => {
+      setSyncMessage(null);
+      setNeedsDeviceGuide(false);
+    },
+    needsDeviceGuide,
     saveWeight,
     savingWeight,
   };

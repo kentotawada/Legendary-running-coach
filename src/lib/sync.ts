@@ -18,6 +18,7 @@ import {
   StravaError,
   fetchActivities,
   fetchGear,
+  isFromGarmin,
   needsRefresh,
   refreshTokens,
   shoeRoleOf,
@@ -43,6 +44,11 @@ export interface SyncResult {
   /** 取り込んだ / 更新した靴の数。 */
   shoes: number;
   firstTime: boolean;
+  /**
+   * Garmin からの自動連携が確認できたか。
+   * false は「確認できなかった」であって、「つながっていない」ではない。
+   */
+  garminDetected: boolean;
 }
 
 function epoch(iso: string | undefined): number | undefined {
@@ -158,6 +164,7 @@ export async function syncStrava(
 
   const strava = next.connections?.strava;
   return {
+    garminDetected: activities.some(isFromGarmin),
     profile: {
       ...next,
       connections: {
@@ -180,10 +187,16 @@ export async function syncStrava(
 /** 取り込んだ結果を、そのまま画面に出せる一文にする。 */
 export function describeSync(result: SyncResult): string {
   if (result.imported === 0) {
+    if (result.firstTime) {
+      // 初回で1件も無いのは、たいてい時計とStravaがつながっていない。
+      return 'Strava に練習が見つかりませんでした。時計との連携がまだかもしれません。';
+    }
     return result.skipped > 0 ? '新しい練習はありませんでした。' : '取り込む練習がありませんでした。';
   }
+
   const parts = [`${result.imported}件の練習を取り込みました`];
   if (result.shoes > 0) parts.push(`シューズ${result.shoes}足の走行距離も更新しました`);
+  if (result.garminDetected) parts.push('Garmin からの自動連携も確認できました');
   return `${parts.join('。')}。`;
 }
 
@@ -229,7 +242,9 @@ export function connectionDoctrine(
     '# ランニングアプリとの連携（未接続）',
     `- 直近30日で${fromImages}回、スクリーンショットから記録している。`,
     '- カルテから Strava をつなぐと、**走り終えた時点で記録が入る**ようになる。',
-    '  ガーミンの時計も、Strava へ自動連携していればそのまま入る。',
+    '- Garmin の時計でも入る。ただし Garmin と Strava のリンクが先に要る。',
+    '  手順はアプリの中にある（カルテ →「ランニングアプリ」→「Garmin の時計とつなぐ手順」）。',
+    '  **手順を会話で長々と説明しない。** そこを開くよう一言で案内すること。',
     '- **案内は一度だけ。** 毎回勧めるのは、ただのしつこい宣伝になる。',
   ].join('\n');
 }
