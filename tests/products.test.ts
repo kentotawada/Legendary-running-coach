@@ -93,6 +93,16 @@ describe('名札の差し替え', () => {
     expect(resolveProductBlocks(once, emptyBasket(), NOW)).toBe(once);
   });
 
+  it('モデルが商品名と価格を自分で書いたブロックは、画面に出さない', () => {
+    const invented =
+      '```product\n' +
+      JSON.stringify({
+        items: [{ name: '存在しないシューズ Z', price: 9800, url: 'https://example.com/z' }],
+      }) +
+      '\n```';
+    expect(resolveProductBlocks(invented, basketWith(candidate()), NOW)).toBe('');
+  });
+
   it('生成が途中で切れたブロックは、そのまま残す（消すと本文まで欠ける）', () => {
     const text = 'これから候補を出します。\n```product\n{"picks":[';
     expect(resolveProductBlocks(text, basketWith(candidate()), NOW)).toBe(text);

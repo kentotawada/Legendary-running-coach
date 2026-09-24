@@ -9,11 +9,14 @@ describe('coachTools', () => {
   it('コーチが学習に使う道具が一式そろっている', () => {
     expect(coachTools.map((t) => t.name).sort()).toEqual([
       'add_race',
+      'add_shoes',
       'find_gear',
       'log_activity',
       'log_condition',
+      'log_gear_feedback',
       'log_weight',
       'remove_race',
+      'retire_shoes',
       'set_coaching_phase',
       'set_today_plan',
       'update_pain',

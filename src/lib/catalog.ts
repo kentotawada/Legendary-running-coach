@@ -175,9 +175,44 @@ export function rankCandidates(candidates: ProductCandidate[], limit: number): P
   return [...trusted, ...rest].slice(0, limit).map((item, index) => ({ ...item, ref: `p${index + 1}` }));
 }
 
+/** 比べるための形にそろえる。全角・半角・空白・中黒の違いで取りこぼさないように。 */
+function comparable(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/[\s・,，.。/|()（）\[\]【】-]/g, '');
+}
+
+/**
+ * 「これは合わなかった」と言われた物を候補から外す。
+ *
+ * 短すぎる語（1文字）は、関係ない商品まで巻き込むので使わない。
+ * 外した物は呼び出し側へ返す。黙って消すと、コーチが理由を言えなくなる。
+ */
+export function excludeNamed(
+  candidates: ProductCandidate[],
+  names: string[],
+): { kept: ProductCandidate[]; dropped: string[] } {
+  const keys = names.map(comparable).filter((key) => key.length >= 2);
+  if (keys.length === 0) return { kept: candidates, dropped: [] };
+
+  const dropped = new Set<string>();
+  const kept = candidates.filter((candidate) => {
+    const name = comparable(candidate.name);
+    const hit = keys.find((key) => name.includes(key));
+    if (hit === undefined) return true;
+    dropped.add(names[keys.indexOf(hit)]);
+    return false;
+  });
+
+  return { kept, dropped: [...dropped] };
+}
+
 export interface SearchOptions {
   limit?: number;
   minPrice?: number;
+  /** 合わなかったと言われている商品名。候補から外す。 */
+  exclude?: string[];
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -196,6 +231,7 @@ export async function searchCatalog(
   const {
     limit = DEFAULT_CANDIDATE_LIMIT,
     minPrice,
+    exclude = [],
     env = process.env,
     // そのまま渡さず包むのは、実行環境によっては fetch を単体で呼べないため。
     fetchImpl = (...args: Parameters<typeof fetch>) => fetch(...args),
@@ -233,7 +269,8 @@ export async function searchCatalog(
       return [];
     }
     const json = (await response.json()) as unknown;
-    return rankCandidates(parseCatalogResponse(json), limit);
+    const { kept } = excludeNamed(parseCatalogResponse(json), exclude);
+    return rankCandidates(kept, limit);
   } catch (error) {
     console.warn('[coach] 商品検索に失敗しました', error);
     return [];

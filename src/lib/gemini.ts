@@ -4,6 +4,7 @@ import type { CoachState, ImageAttachment, RunnerProfile } from './types';
 import { coachTools, executeTool } from './tools';
 import { FIND_GEAR, runFindGear } from './gear-tool';
 import { emptyBasket, resolveProductBlocks } from './products';
+import { resolveChecklistBlocks } from './checklist';
 import { buildSystemInstruction } from './prompt';
 import {
   RUNNING_PRESCRIPTION_RETRY_DIRECTIVE,
@@ -307,12 +308,12 @@ export async function runCoachTurn({
   // 検索して見つけた商品を、このターンのあいだ持っておく。
   // モデルが書くのは名札（p1）だけなので、本当の名前と価格はここから埋める。
   const basket = emptyBasket();
-  const resolve = (text: string) => resolveProductBlocks(text, basket, now);
+  // 商品も持ち物リストも、中身を埋めるのはここ。モデルには「何を出すか」だけを書かせる。
+  const resolve = (text: string) =>
+    resolveChecklistBlocks(resolveProductBlocks(text, basket, now), profile, now);
   const resolveParts = (parts: Part[]): Part[] =>
     parts.map((part) =>
-      typeof part.text === 'string' && !part.thought && part.text.includes('```product')
-        ? { ...part, text: resolve(part.text) }
-        : part,
+      typeof part.text === 'string' && !part.thought ? { ...part, text: resolve(part.text) } : part,
     );
 
   const cautious = assessSafety(profile, now).runningForbidden || mentionsDiscomfort(userText);

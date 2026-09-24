@@ -13,6 +13,7 @@
 
 import type { ProductCandidate } from './catalog';
 import type { GearSpec } from './gear-spec';
+import { mapFencedBlocks } from './fences';
 
 /** 1回に出す商品の上限。並べるほど選べなくなる。 */
 export const MAX_PICKS = 3;
@@ -49,16 +50,13 @@ function plain(text: string): string {
   return text.replace(/\*\*/g, '').trim();
 }
 
-const FENCE_OPEN = /^```product\s*$/;
-const FENCE_CLOSE = /^```\s*$/;
-
 interface Pick {
   ref?: unknown;
   why?: unknown;
 }
 
 function resolveOne(raw: string, basket: ProductBasket, asOf: string): string | null {
-  let data: { picks?: unknown; items?: unknown; note?: unknown; category?: unknown };
+  let data: { picks?: unknown; items?: unknown; note?: unknown; category?: unknown; computed?: unknown };
   try {
     data = JSON.parse(raw) as typeof data;
   } catch {
@@ -66,7 +64,9 @@ function resolveOne(raw: string, basket: ProductBasket, asOf: string): string | 
   }
 
   // すでに差し替え済み（保存された履歴を読み直した時）はそのまま。
-  if (Array.isArray(data.items)) return raw;
+  // **こちらが書いた印（computed）が無い items は信用しない。**
+  // モデルが商品名と価格を自分で書いたものかもしれず、それを画面に出すわけにいかない。
+  if (Array.isArray(data.items)) return data.computed === true ? raw : null;
   if (!Array.isArray(data.picks)) return null;
 
   const items = (data.picks as Pick[])
@@ -96,6 +96,7 @@ function resolveOne(raw: string, basket: ProductBasket, asOf: string): string | 
   const spec = basket.specs.find((entry) => entry.categoryId === category) ?? basket.specs[0];
 
   return JSON.stringify({
+    computed: true,
     items,
     note: typeof data.note === 'string' && data.note.trim() ? plain(data.note) : undefined,
     spec: spec?.requirements.slice(0, MAX_SPEC_LINES).map(plain),
@@ -109,41 +110,8 @@ function resolveOne(raw: string, basket: ProductBasket, asOf: string): string | 
  * 引けない名札しか入っていないブロックは、丸ごと取り除く。
  */
 export function resolveProductBlocks(text: string, basket: ProductBasket, now: Date = new Date()): string {
-  if (!text.includes('```product')) return text;
-
   const asOf = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
-  const lines = text.split('\n');
-  const out: string[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!FENCE_OPEN.test(lines[index])) {
-      out.push(lines[index]);
-      continue;
-    }
-
-    // 閉じるまでを集める。閉じていなければ（生成が途中で終わった）、そのまま残す。
-    let end = index + 1;
-    const body: string[] = [];
-    while (end < lines.length && !FENCE_CLOSE.test(lines[end])) {
-      body.push(lines[end]);
-      end += 1;
-    }
-    if (end >= lines.length) {
-      out.push(...lines.slice(index));
-      break;
-    }
-
-    const resolved = resolveOne(body.join('\n'), basket, asOf);
-    if (resolved) {
-      out.push('```product', resolved, '```');
-    } else {
-      // 差し替えられないブロックは消す。直前の空行も一緒に畳んでおく。
-      while (out.length > 0 && out[out.length - 1].trim() === '') out.pop();
-    }
-    index = end;
-  }
-
-  return out.join('\n');
+  return mapFencedBlocks(text, 'product', (raw) => resolveOne(raw, basket, asOf));
 }
 
 /** プロンプトに差し込む、商品を勧める時の作法。 */

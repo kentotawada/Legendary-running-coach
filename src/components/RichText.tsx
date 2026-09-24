@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import type {
+  ChecklistBlock,
   FigureBlock,
   GearBlock,
   InlineText,
@@ -259,6 +261,129 @@ function ProductCard({ block }: { block: ProductBlock }) {
   );
 }
 
+/** チェックの状態は、その端末にだけ残す。サーバーへは送らない。 */
+const CHECKLIST_PREFIX = 'coach.checklist:';
+
+function loadChecked(key: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(CHECKLIST_PREFIX + key);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    // プライベートブラウズなどで読めないことがある。空で始めればよい。
+    return [];
+  }
+}
+
+function saveChecked(key: string, checked: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CHECKLIST_PREFIX + key, JSON.stringify(checked));
+  } catch {
+    // 保存できなくても、その場の表示は変わっている。黙って諦める。
+  }
+}
+
+/**
+ * 本番の持ち物と段取り。
+ *
+ * 数字（ジェルの本数、シューズの走行距離、入りのペース）はカルテからの計算結果で、
+ * モデルが書いたものではない。
+ * チェックした状態はこの端末に残す。前日の夜に開いて、当日の朝にまた開くものなので。
+ */
+function ChecklistCard({ block }: { block: ChecklistBlock }) {
+  const key = block.key ?? block.race;
+  const [checked, setChecked] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
+
+  // 端末に残した状態は、描かれた後に当てる（サーバー側の描画と食い違わせないため）。
+  useEffect(() => {
+    setChecked(loadChecked(key));
+    setReady(true);
+  }, [key]);
+
+  const toggle = (id: string) => {
+    setChecked((prev) => {
+      const next = prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id];
+      saveChecked(key, next);
+      return next;
+    });
+  };
+
+  const total = block.sections.reduce((sum, section) => sum + section.items.length, 0);
+  const done = ready ? checked.length : 0;
+
+  return (
+    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-[0.87em] font-bold">{block.race}の持ち物と段取り</p>
+          {block.date && <p className="text-[0.72em] text-muted">{block.date}</p>}
+        </div>
+        <span className="shrink-0 rounded bg-sunken px-2 py-0.5 text-[0.72em] font-semibold text-muted tabular-nums">
+          {block.daysLeft !== undefined
+            ? block.daysLeft === 0
+              ? '当日'
+              : `あと${block.daysLeft}日`
+            : `${done}/${total}`}
+        </span>
+      </div>
+
+      {block.sections.map((section) => (
+        <div key={section.title} className="border-b border-line last:border-b-0">
+          <p className="px-3.5 pt-2.5 text-[0.76em] font-semibold text-muted">{section.title}</p>
+          <ul className="px-1.5 pb-2 pt-1">
+            {section.items.map((item) => {
+              const id = `${section.title}/${item.label}`;
+              const isChecked = checked.includes(id);
+              return (
+                <li key={id}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(id)}
+                    aria-pressed={isChecked}
+                    className="flex w-full items-start gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition active:bg-sunken"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-[0.15em] flex h-[1.15em] w-[1.15em] shrink-0 items-center justify-center rounded-[5px] border text-[0.7em] font-bold ${
+                        isChecked
+                          ? 'border-[color:var(--accent)] bg-accent text-[var(--accent-fg)]'
+                          : 'border-line text-transparent'
+                      }`}
+                    >
+                      ✓
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block text-[0.84em] font-medium leading-snug ${
+                          isChecked ? 'text-muted line-through' : ''
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                      {item.detail && (
+                        <span className="mt-0.5 block text-[0.76em] leading-relaxed text-muted">
+                          {item.detail}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+
+      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
+        チェックはこの端末にだけ残ります（{done}/{total}）。当日の朝、もう一度開いてください。
+      </p>
+    </div>
+  );
+}
+
 /**
  * 説明図。
  * 知らない id が来ても画面を壊さず、黙って何も出さない。
@@ -368,6 +493,8 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
       return <GearCard block={block} catalog={catalog} />;
     case 'product':
       return <ProductCard block={block} />;
+    case 'checklist':
+      return <ChecklistCard block={block} />;
     case 'figure':
       return <FigureCard block={block} />;
     case 'pending':
