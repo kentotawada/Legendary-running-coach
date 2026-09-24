@@ -9,7 +9,7 @@ import { DEFAULT_IMAGE_MESSAGE, validateImages } from '@/lib/images';
 import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { StorageError, storageErrorResponse } from '@/lib/storage-error';
-import { rewindToLastUserTurn } from '@/lib/history';
+import { dropLastUserTurn, rewindToLastUserTurn } from '@/lib/history';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,6 +59,8 @@ interface ChatRequestBody {
   images?: unknown;
   /** 直前の返答を作り直す。同じ問いかけをもう一度投げ直す。 */
   regenerate?: unknown;
+  /** 直前のやり取りを取り消してから送る。本文を書き直して送り直す時に使う。 */
+  replaceLast?: unknown;
 }
 
 /**
@@ -144,6 +146,9 @@ export async function POST(request: NextRequest) {
         }
         state = { ...state, history: rewound.history };
         userText = rewound.userText;
+      } else if (body.replaceLast === true) {
+        // 書き直して送り直す。古い方を残すと、コーチが両方を読んで混乱する。
+        state = { ...state, history: dropLastUserTurn(state.history) };
       }
 
       if (!userText) {

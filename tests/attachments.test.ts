@@ -4,6 +4,7 @@ import { pruneAttachments, rememberAttachments, stripInlineData } from '../src/l
 import { attachmentCountOf, attachmentGroupOf, imagePlaceholder } from '../src/lib/markers';
 import { toDisplayMessages } from '../src/lib/profile';
 import { looksLikeImage, validateImages } from '../src/lib/images';
+import { dataUrlToFile, reattachName } from '../src/lib/downscale';
 import { createDefaultProfile } from '../src/lib/types';
 import type { AttachmentGroup } from '../src/lib/types';
 
@@ -180,5 +181,28 @@ describe('rememberAttachments', () => {
     const withGoal = { ...base, displayName: '健太' };
     const next = rememberAttachments(withGoal, 'g001', ['a']);
     expect(next.displayName).toBe('健太');
+  });
+});
+
+describe('dataUrlToFile', () => {
+  it('表示用の画像を、もう一度送れるファイルに戻す', async () => {
+    const dataUrl = `data:image/png;base64,${PIXEL}`;
+    const file = dataUrlToFile(dataUrl, '再添付-1.png');
+    expect(file).not.toBeNull();
+    expect(file!.type).toBe('image/png');
+    expect(file!.name).toBe('再添付-1.png');
+    // 中身が保たれていること。名前だけ合っていても意味がない。
+    expect(file!.size).toBe(Buffer.from(PIXEL, 'base64').length);
+  });
+
+  it('壊れた値では null を返し、例外を投げない', () => {
+    expect(dataUrlToFile('https://example.com/a.png', 'a.png')).toBeNull();
+    expect(dataUrlToFile('data:image/png;base64,@@@', 'a.png')).toBeNull();
+    expect(dataUrlToFile('', 'a.png')).toBeNull();
+  });
+
+  it('名前は形式に合わせて付ける', () => {
+    expect(reattachName(0, 'data:image/png;base64,x')).toBe('再添付-1.png');
+    expect(reattachName(2, 'data:image/jpeg;base64,x')).toBe('再添付-3.jpg');
   });
 });

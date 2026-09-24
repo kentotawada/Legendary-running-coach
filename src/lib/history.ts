@@ -7,12 +7,25 @@ import { attachmentCountOf } from './markers';
  * 外したユーザー発言の本文をそのまま返すので、呼び出し側はそれを投げ直せばよい。
  * 作り直せるものが無ければ null。
  */
+function splitLastUserTurn(history: Content[]): { before: Content[]; lastUser?: Content } {
+  const before = [...history];
+  while (before.length > 0 && before[before.length - 1].role !== 'user') before.pop();
+  const lastUser = before.pop();
+  return { before, lastUser };
+}
+
+/**
+ * 直前のやり取りを取り消す。
+ * 送った本文を書き直して送り直す時に、古い方を履歴から外すために使う。
+ */
+export function dropLastUserTurn(history: Content[]): Content[] {
+  return splitLastUserTurn(history).before;
+}
+
 export function rewindToLastUserTurn(
   history: Content[],
 ): { history: Content[]; userText: string } | null {
-  const rewound = [...history];
-  while (rewound.length > 0 && rewound[rewound.length - 1].role !== 'user') rewound.pop();
-  const lastUser = rewound.pop();
+  const { before: rewound, lastUser } = splitLastUserTurn(history);
   if (!lastUser) return null;
 
   const userText = (lastUser.parts ?? [])

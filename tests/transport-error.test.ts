@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { describeHttpFailure, describeStreamFailure } from '../src/lib/transport-error';
-import { rewindToLastUserTurn } from '../src/lib/history';
+import { dropLastUserTurn, rewindToLastUserTurn } from '../src/lib/history';
 import { imagePlaceholder } from '../src/lib/markers';
 
 describe('describeHttpFailure', () => {
@@ -117,5 +117,37 @@ describe('rewindToLastUserTurn', () => {
   it('作り直せるものが無ければ null', () => {
     expect(rewindToLastUserTurn([])).toBeNull();
     expect(rewindToLastUserTurn([{ role: 'model', parts: [{ text: 'こんにちは' }] }])).toBeNull();
+  });
+});
+
+describe('dropLastUserTurn', () => {
+  it('直前のやり取りを、返答ごと外す', () => {
+    const left = dropLastUserTurn([
+      { role: 'user', parts: [{ text: '最初の質問' }] },
+      { role: 'model', parts: [{ text: '最初の返答' }] },
+      { role: 'user', parts: [{ text: '書き直したい質問' }] },
+      { role: 'model', parts: [{ text: 'その返答' }] },
+    ]);
+    expect(left).toHaveLength(2);
+    expect(left.at(-1)?.parts?.[0]).toEqual({ text: '最初の返答' });
+  });
+
+  it('本文の無いユーザー発言でも外せる（作り直しと違い、新しい本文が来るため）', () => {
+    const left = dropLastUserTurn([
+      { role: 'user', parts: [{ text: '報告です' }] },
+      { role: 'model', parts: [{ functionCall: { name: 'log_activity', args: {} } }] },
+      { role: 'user', parts: [{ functionResponse: { name: 'log_activity', response: {} } }] },
+      { role: 'model', parts: [{ text: '記録しました' }] },
+    ]);
+    // 道具の応答（role: user）まで戻る。そこから先は新しい本文で続ける。
+    expect(left.map((c) => c.role)).toEqual(['user', 'model']);
+  });
+
+  it('何も無ければ空のまま', () => {
+    expect(dropLastUserTurn([])).toEqual([]);
+  });
+
+  it('コーチの発言しか無ければ、全部落ちる', () => {
+    expect(dropLastUserTurn([{ role: 'model', parts: [{ text: 'こんにちは' }] }])).toEqual([]);
   });
 });
