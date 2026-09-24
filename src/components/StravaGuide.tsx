@@ -1,7 +1,7 @@
 'use client';
 
 import Sheet from './Sheet';
-import { STRAVA_SETTINGS_URL } from '@/lib/strava';
+import { STRAVA_URL } from '@/lib/strava';
 
 interface Props {
   /** つないだのに練習が1件も見つからなかった直後か。 */
@@ -91,25 +91,25 @@ export default function StravaGuide({ empty = false, onClose }: Props) {
       </ol>
 
       {/*
-        リンクを主ボタンにしない。
-        設定ページはログインが要るので、押すとログイン画面が出る。
-        スマホではすでに Strava アプリにログインしているのが普通なので、
-        アプリから進む方が速く、確実。リンクは「アプリが無い人」の逃げ道として置く。
+        設定ページの深いURLは置かない。認証が要るので、ログインしていない人には
+        ログイン画面しか出ず、「押したのに進めない」になる。
+        ここは入口だけを指す。道順は上の手順が持っている。
       */}
       <div className="mt-4 rounded-[14px] border border-line px-3.5 py-3">
         <p className="text-[12px] leading-relaxed text-muted">
-          スマホに Strava アプリが入っていない場合は、ブラウザからでも同じ設定ができます。
+          Strava アプリをまだ入れていない場合は、App Store / Google Play で「Strava」を検索してください。
+          ブラウザからでも同じ設定ができます。
         </p>
         <a
-          href={STRAVA_SETTINGS_URL}
+          href={STRAVA_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-1.5 inline-block text-[13px] font-semibold text-accent underline underline-offset-4"
         >
-          ブラウザで Strava の設定を開く
+          Strava を開く
         </a>
         <p className="mt-1 text-[11px] leading-relaxed text-muted">
-          Strava にログインしていなければ、先にログイン画面が出ます（そのままログインすれば設定に進めます）。
+          アプリが入っていれば Strava アプリが開きます。そこから上の手順2へ進んでください。
         </p>
       </div>
 
