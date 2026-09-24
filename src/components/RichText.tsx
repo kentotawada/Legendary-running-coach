@@ -1,4 +1,12 @@
-import type { FigureBlock, GearBlock, InlineText, MenuBlock, RichBlock, ZonesBlock } from '@/lib/richtext';
+import type {
+  FigureBlock,
+  GearBlock,
+  InlineText,
+  MenuBlock,
+  ProductBlock,
+  RichBlock,
+  ZonesBlock,
+} from '@/lib/richtext';
 import { FIGURE_CATEGORY_LABEL, findFigure } from '@/lib/figures';
 import { figureArt } from './FigureArt';
 import { parseInline, parseRichText } from '@/lib/richtext';
@@ -150,6 +158,107 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
   );
 }
 
+function yen(price: number): string {
+  return `¥${Math.round(price).toLocaleString('ja-JP')}`;
+}
+
+function reviewOf(item: ProductBlock['items'][number]): string | null {
+  if (!item.reviewCount || item.reviewCount <= 0) return null;
+  const average = item.reviewAverage !== undefined ? item.reviewAverage.toFixed(1) : '-';
+  return `★${average}（${item.reviewCount}件）`;
+}
+
+/**
+ * 実際の商品の候補。
+ *
+ * 名前・価格・リンクはモールから来た値をそのまま出す。
+ * 「なぜこの人にこれなのか」だけがコーチの言葉で、そこを他と見分けられるように色を変えている。
+ * 値段は動くので、いつ見た値なのかを必ず添える。
+ */
+function ProductCard({ block }: { block: ProductBlock }) {
+  const sponsored = block.items.some((item) => item.affiliate);
+
+  return (
+    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+      <p className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
+        <span className="text-[0.87em] font-bold">あなたに合わせた候補</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
+          {sponsored ? 'PR・広告リンクを含みます' : '商品リンク'}
+        </span>
+      </p>
+
+      {block.note && <p className="px-3.5 pt-2.5 text-[0.87em] leading-relaxed">{block.note}</p>}
+
+      {block.spec && block.spec.length > 0 && (
+        <div className="mx-3.5 mt-2.5 rounded-[10px] bg-sunken px-3 py-2">
+          <p className="text-[0.72em] font-semibold text-muted">この条件で選んでいます</p>
+          <ul className="mt-1 space-y-0.5">
+            {block.spec.map((line, index) => (
+              <li key={index} className="flex gap-1.5 text-[0.78em] leading-relaxed text-muted">
+                <span aria-hidden="true" className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-accent" />
+                <span className="min-w-0 flex-1">{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <ul className="mt-1 divide-y divide-[color:var(--border)]">
+        {block.items.map((item) => {
+          const review = reviewOf(item);
+          return (
+            <li key={item.url} className="px-3.5 py-3">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="flex gap-3 transition active:opacity-70"
+              >
+                {item.image && (
+                  // モール側の画像をそのまま出すだけなので next/image は使わない
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.image}
+                    alt=""
+                    loading="lazy"
+                    className="h-16 w-16 shrink-0 rounded-[10px] border border-line bg-sunken object-contain"
+                  />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 block text-[0.84em] font-semibold leading-snug">{item.name}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.76em] text-muted">
+                    {item.price !== undefined && (
+                      <span className="font-semibold tabular-nums text-fg">{yen(item.price)}</span>
+                    )}
+                    {review && <span>{review}</span>}
+                    {item.shop && <span className="max-w-[9em] truncate">{item.shop}</span>}
+                  </span>
+                </span>
+              </a>
+              {item.why && (
+                <p className="mt-2 rounded-[10px] bg-accent-soft px-3 py-2 text-[0.8em] leading-relaxed text-accent">
+                  {item.why}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {block.skipIf && (
+        <p className="border-t border-line px-3.5 py-2 text-[0.78em] leading-relaxed text-muted">
+          <span className="font-semibold">買わなくていい場合:</span> {block.skipIf}
+        </p>
+      )}
+
+      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
+        価格とレビューは{block.asOf ? `${block.asOf} 時点` : '取得した時点'}のものです。
+        在庫・サイズ・仕様は、購入前に必ずご確認ください。
+      </p>
+    </div>
+  );
+}
+
 /**
  * 説明図。
  * 知らない id が来ても画面を壊さず、黙って何も出さない。
@@ -257,6 +366,8 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
       return <ZonesCard block={block} />;
     case 'gear':
       return <GearCard block={block} catalog={catalog} />;
+    case 'product':
+      return <ProductCard block={block} />;
     case 'figure':
       return <FigureCard block={block} />;
     case 'pending':

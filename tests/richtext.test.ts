@@ -114,3 +114,42 @@ describe('道具の提案ブロック', () => {
     expect(blocks[0].type).toBe('paragraph');
   });
 });
+
+describe('商品ブロック', () => {
+  const item = {
+    name: 'シューズ X',
+    url: 'https://hb.afl.rakuten.co.jp/a/',
+    price: 15400,
+    shop: '店',
+    image: 'https://thumbnail.image.rakuten.co.jp/a.jpg?_ex=300x300',
+    why: '週70kmを2足で回すため',
+    affiliate: true,
+    reviewAverage: 4.7,
+    reviewCount: 55,
+  };
+
+  it('差し替え済みの商品を読み取る', () => {
+    const blocks = parseRichText(
+      `\`\`\`product\n${JSON.stringify({ items: [item], note: 'まず1足', spec: ['週70km'], skipIf: '500km以下なら不要', asOf: '2026-09-24' })}\n\`\`\``,
+    );
+    const block = blocks[0] as { type: string; items: { name: string }[]; spec?: string[]; asOf?: string };
+
+    expect(block.type).toBe('product');
+    expect(block.items[0].name).toBe('シューズ X');
+    expect(block.spec).toEqual(['週70km']);
+    expect(block.asOf).toBe('2026-09-24');
+  });
+
+  it('http(s) 以外のリンクは出さない', () => {
+    const blocks = parseRichText(
+      `\`\`\`product\n${JSON.stringify({ items: [{ ...item, url: 'javascript:alert(1)' }] })}\n\`\`\``,
+    );
+    expect(blocks.every((block) => block.type !== 'product')).toBe(true);
+  });
+
+  it('名札のままの状態では、中身の JSON を本文に出さない', () => {
+    const blocks = parseRichText('```product\n{"picks":[{"ref":"p1","why":"これ"}]}\n```');
+    expect(blocks.every((block) => block.type !== 'product')).toBe(true);
+    expect(JSON.stringify(blocks)).not.toContain('ref');
+  });
+});

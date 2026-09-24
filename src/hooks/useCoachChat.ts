@@ -18,6 +18,8 @@ import type { ProfileEdit } from '@/components/GoalEditor';
 interface DoneEvent {
   type: 'done';
   profile: RunnerProfile;
+  /** サーバー側で整え終えた最終の本文。流れてきた断片より、こちらが正しい。 */
+  text?: string;
   meta?: { usedTools: string[]; rewrites: number };
 }
 type StreamEvent =
@@ -101,6 +103,8 @@ export function useCoachChat(): CoachChat {
         setStreamingText(text);
       } else if (event.type === 'done') {
         setProfile(event.profile);
+        // 差し替えが入る本文（商品カードなど）は、最後に届く完成版を採る。
+        if (typeof event.text === 'string' && event.text.trim()) text = event.text;
       } else if (event.type === 'error') {
         setError(event.message);
         setErrorDetail(event.detail ?? null);
