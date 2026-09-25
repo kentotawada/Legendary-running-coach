@@ -17,6 +17,8 @@ interface Props {
   connection?: StravaConnection;
   /** このアプリで自動連携が使える設定になっているか。 */
   available: boolean;
+  /** 書き出したファイルから取り込む。 */
+  onImportFiles?: (files: File[]) => void;
   /** つないだのに練習が1件も見つからなかった直後か。 */
   empty?: boolean;
   syncing?: boolean;
@@ -48,6 +50,73 @@ function savePick(id: SourceId) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="rounded-[var(--radius)] border border-line px-4 py-3.5">{children}</div>;
+}
+
+/**
+ * 書き出したファイルから取り込む口。
+ *
+ * **ここだけは、誰の許可も要りません。** 外部サービスの窓口は相手の都合で有料になったり
+ * 閉じたりしますが、自分の記録を書き出す権利は取り上げられない。
+ * 過去の練習をまとめて入れる時にも、ここが一番早い。
+ */
+function FileImport({
+  onImportFiles,
+  onPick,
+  busy,
+  message,
+}: {
+  onImportFiles?: (files: File[]) => void;
+  onPick: () => void;
+  busy: boolean;
+  /** 取り込みの結果。押した場所のすぐ下に出す。 */
+  message?: string | null;
+}) {
+  if (!onImportFiles) return null;
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <p className="text-[13px] font-semibold">ファイルから取り込む</p>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+        連携を使わずに入れる道です。<strong className="font-semibold text-fg">過去の練習をまとめて</strong>
+        入れる時にも使えます。Garmin Connect などから <strong className="font-semibold text-fg">GPX</strong> か{' '}
+        <strong className="font-semibold text-fg">TCX</strong> で書き出したファイルを選んでください。
+      </p>
+
+      <label
+        className={`mt-2 inline-block cursor-pointer rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent ${
+          busy ? 'opacity-40' : ''
+        }`}
+      >
+        {busy ? '取り込み中…' : 'ファイルを選ぶ'}
+        <input
+          type="file"
+          accept=".gpx,.tcx,application/gpx+xml,text/xml,application/xml"
+          multiple
+          disabled={busy}
+          className="hidden"
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            // 同じファイルをもう一度選べるように、値を戻しておく。
+            event.target.value = '';
+            if (files.length === 0) return;
+            onPick();
+            onImportFiles(files);
+          }}
+        />
+      </label>
+
+      {/*
+        押したのに何も言われない、がいちばん不安になる。
+        結果は、押したボタンのすぐ下に出す。
+      */}
+      {message && <p className="mt-2 text-[13px] leading-relaxed text-accent">{message}</p>}
+
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+        FIT ファイルは読めません。書き出しの画面で GPX か TCX を選んでください。
+        同じ練習を二度入れても、重なりません。
+      </p>
+    </div>
+  );
 }
 
 function StepList({ steps }: { steps: ConnectSource['steps'] }) {
@@ -87,10 +156,13 @@ export default function ConnectSheet({
   syncing = false,
   syncMessage,
   onSync,
+  onImportFiles,
   onDisconnect,
   onClose,
 }: Props) {
   const [picked, setPicked] = useState<SourceId | null>(null);
+  /** 取り込みの結果を、Strava の欄とファイルの欄のどちらに出すか。 */
+  const [usedFile, setUsedFile] = useState(false);
   const connected = Boolean(connection);
   const detected = (connection?.sources ?? []) as SourceId[];
 
@@ -116,6 +188,12 @@ export default function ConnectSheet({
           記録は、これまでどおり<strong className="font-semibold text-fg">画面のスクリーンショット</strong>
           を送ってください。距離・ペース・心拍・ピッチまで読み取ります。
         </p>
+        <FileImport
+          onImportFiles={onImportFiles}
+          onPick={() => setUsedFile(true)}
+          busy={syncing}
+          message={syncMessage}
+        />
       </Sheet>
     );
   }
@@ -193,7 +271,9 @@ export default function ConnectSheet({
                   連携を解除
                 </button>
               </div>
-              {syncMessage && <p className="mt-1.5 text-[12px] text-accent">{syncMessage}</p>}
+              {!usedFile && syncMessage && (
+                <p className="mt-1.5 text-[12px] text-accent">{syncMessage}</p>
+              )}
             </>
           ) : (
             <>
@@ -306,6 +386,13 @@ export default function ConnectSheet({
           </div>
         )}
       </div>
+
+      <FileImport
+        onImportFiles={onImportFiles}
+        onPick={() => setUsedFile(true)}
+        busy={syncing}
+        message={usedFile ? syncMessage : null}
+      />
 
       {/*
         どの道でも詰まる人は必ずいる。逃げ道を最後に置いておく。

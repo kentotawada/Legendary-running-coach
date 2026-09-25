@@ -46,6 +46,7 @@ export default function CoachApp() {
     gear,
     auth,
     syncStrava,
+    importFiles,
     disconnectStrava,
     syncing,
     syncMessage,
@@ -308,6 +309,7 @@ export default function CoachApp() {
           syncing={syncing}
           syncMessage={syncMessage}
           onSync={() => void syncStrava()}
+          onImportFiles={(files) => void importFiles(files)}
           onDisconnect={() => void disconnectStrava()}
           onClose={() => {
             setConnectOpen(false);

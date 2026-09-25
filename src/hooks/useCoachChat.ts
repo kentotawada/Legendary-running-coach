@@ -14,6 +14,8 @@ import {
   describeStreamFailure,
 } from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
+import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
+import type { ImportedWorkout } from '@/lib/workout';
 
 interface DoneEvent {
   type: 'done';
@@ -67,6 +69,8 @@ export interface CoachChat {
   reportError: (message: string) => void;
   /** ランニングアプリから取り込む。画面を開いた時にも静かに走る。 */
   syncStrava: (quiet?: boolean) => Promise<void>;
+  /** 時計から書き出したファイル（GPX / TCX）を取り込む。 */
+  importFiles: (files: File[]) => Promise<void>;
   /** 連携を解除する。取り込んだ記録は消さない。 */
   disconnectStrava: () => Promise<void>;
   syncing: boolean;
@@ -329,6 +333,63 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  /**
+   * 書き出したファイルから取り込む。
+   *
+   * **読むのはここ（ブラウザ）で済ませる。** ロング走の GPX は数MBあり、
+   * そのまま送ると受信の上限に当たる。サーバーへは数値だけを送る。
+   */
+  const importFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    setSyncing(true);
+    setSyncMessage(null);
+
+    try {
+      const workouts: ImportedWorkout[] = [];
+      const failed: string[] = [];
+
+      for (const file of files) {
+        if (file.size > MAX_FILE_BYTES) {
+          failed.push(`${file.name}（大きすぎます）`);
+          continue;
+        }
+        try {
+          workouts.push(...parseWorkoutFile(file.name, await file.text()));
+        } catch (error) {
+          failed.push(`${file.name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
+        }
+      }
+
+      // 1枚も読めなかった時に「取り込みました」と言わない。
+      if (workouts.length === 0) {
+        setSyncMessage(failed[0] ? `読み取れませんでした: ${failed[0]}` : '練習が見つかりませんでした。');
+        return;
+      }
+
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workouts }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { profile?: RunnerProfile; message?: string; error?: string }
+        | null;
+
+      if (!response.ok) {
+        setSyncMessage(data?.error ?? '取り込めませんでした。');
+        return;
+      }
+      if (data?.profile) setProfile(data.profile);
+      // 読めなかったファイルがあったことは、隠さずに添える。
+      const note = failed.length > 0 ? `（${failed.length}件は読めませんでした）` : '';
+      setSyncMessage(`${data?.message ?? '取り込みました。'}${note}`);
+    } catch {
+      setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   const disconnectStrava = useCallback(async () => {
     setSyncing(true);
     try {
@@ -488,6 +549,7 @@ export function useCoachChat(): CoachChat {
     gear,
     auth,
     syncStrava,
+    importFiles,
     disconnectStrava,
     syncing,
     syncMessage,

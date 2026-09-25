@@ -247,8 +247,11 @@ export default function ProfileSheet({
                   )}
                 </Row>
               )}
-              {(stravaAvailable || strava) && (
-                <Row label="ランニングアプリ">
+              {/*
+                自動連携が使えない時も、この行は出す。
+                書き出したファイルから取り込む道は、設定に関係なく使えるため。
+              */}
+              <Row label="ランニングアプリ">
                   {strava ? (
                     <>
                       <span className="font-medium text-accent">✓ Strava と連携中</span>
@@ -267,10 +270,14 @@ export default function ProfileSheet({
                         {strava.imported ? ` / これまで${strava.imported}件` : ''}
                       </span>
                     </>
-                  ) : (
+                  ) : stravaAvailable ? (
                     <span className="text-muted">
                       つないでおくと、走り終えた時点で記録が入っています。
                       スクリーンショットを送る必要がなくなります
+                    </span>
+                  ) : (
+                    <span className="text-muted">
+                      時計から書き出したファイル（GPX / TCX）から、過去の練習をまとめて取り込めます
                     </span>
                   )}
                   {/*
@@ -282,10 +289,9 @@ export default function ProfileSheet({
                     onClick={onOpenConnect}
                     className="mt-2 rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
                   >
-                    {strava ? '連携の設定を開く' : '時計・アプリとつなぐ'}
+                    {strava ? '連携の設定を開く' : stravaAvailable ? '時計・アプリとつなぐ' : '記録を取り込む'}
                   </button>
-                </Row>
-              )}
+              </Row>
               <Row label="コーチ">
                 <span className="flex items-center gap-2">
                   <CoachAvatar character={findCharacter(profile.characterId)} size={26} />

@@ -93,7 +93,11 @@ export interface ConditionLog {
 }
 
 export type ActivityType = 'run' | 'walk' | 'cross' | 'strength' | 'stretch' | 'rest';
-export type ActivitySource = 'self-report' | 'screenshot' | 'strava';
+/**
+ * 記録がどこから来たか。
+ * 読み取り誤りを疑えるようにしておくためと、コーチに「もう手元にある」と伝えるため。
+ */
+export type ActivitySource = 'self-report' | 'screenshot' | 'strava' | 'health' | 'file';
 
 /** 時計やアプリの計測データ。スクリーンショットから読み取った値もここに入る。 */
 export interface WorkoutMetrics {
