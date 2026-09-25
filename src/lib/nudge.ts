@@ -13,6 +13,7 @@ import type { RunnerProfile } from './types';
 import { daysUntil, targetRace } from './races';
 import { shoeStatuses } from './shoes';
 import { fuelPlanFor } from './gear-spec';
+import { coachDate, coachWeekday } from './day';
 
 export interface Nudge {
   /** 種類。同じ種類を続けて出さないための鍵。 */
@@ -26,7 +27,7 @@ export interface Nudge {
 const DAY_MS = 86_400_000;
 
 function ymd(date: Date): string {
-  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+  return coachDate(date);
 }
 
 function daysSince(iso: string | undefined, now: Date): number | undefined {
@@ -136,7 +137,7 @@ export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge 
   }
 
   // 5. 日曜の夜に、今週をふりかえる。
-  if (now.getDay() === 0 && (profile.activities ?? []).length > 0) {
+  if (coachWeekday(now) === 0 && (profile.activities ?? []).length > 0) {
     const weekKm = (profile.activities ?? [])
       .filter((activity) => (daysSince(activity.date, now) ?? 99) < 7)
       .reduce((sum, activity) => sum + (activity.distanceKm ?? 0), 0);

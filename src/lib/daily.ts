@@ -1,5 +1,6 @@
 import type { DailyRecord, RunnerProfile } from './types';
 import { today } from './profile';
+import { shiftDay } from './day';
 
 /**
  * 毎日の記録とスタンプ。
@@ -35,10 +36,12 @@ export interface DailyStatus {
 /** 祝う節目。細かすぎても、遠すぎても効かない。 */
 export const MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
 
+/**
+ * 日付を1日ずらす。
+ * **実時刻に戻して計算しない。** 地域や夏時間を通すと、そこで1日ずれる。
+ */
 function shiftDate(date: string, days: number): string {
-  const time = Date.parse(`${date}T00:00:00`);
-  const shifted = new Date(time + days * 86_400_000);
-  return today(shifted);
+  return shiftDay(date, days);
 }
 
 export function findRecord(profile: RunnerProfile, date: string): DailyRecord | undefined {

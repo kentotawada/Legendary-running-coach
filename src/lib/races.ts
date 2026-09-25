@@ -1,4 +1,5 @@
 import type { RaceEntry, RacePriority, RunnerProfile } from './types';
+import { coachDate, daysBetween } from './day';
 
 /**
  * 出場予定の大会。
@@ -22,11 +23,6 @@ export const RACE_PRIORITY_HINT: Record<RacePriority, string> = {
 
 const DAY_MS = 86_400_000;
 
-/** その日の0時。日付だけを比べるため、時刻を落とす。 */
-function startOfDay(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
 /** YYYY-MM-DD を、ローカルの0時として読む。時差で1日ずれるのを避ける。 */
 export function parseRaceDate(date: string | undefined): number | undefined {
   if (!date) return undefined;
@@ -40,11 +36,22 @@ export function parseRaceDate(date: string | undefined): number | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.getTime();
 }
 
-/** 本番まであと何日か。今日なら0、過ぎていれば負。読めなければ undefined。 */
+/**
+ * 本番まであと何日か。今日なら0、過ぎていれば負。読めなければ undefined。
+ * 「今日」の区切りはスタンプと同じ（深夜2時・走る人の地域の時刻）。
+ */
 export function daysUntil(date: string | undefined, now: Date = new Date()): number | undefined {
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test((date ?? '').trim())
+    ? (date as string).trim()
+    : undefined;
+  if (normalized) return daysBetween(coachDate(now), normalized);
+
+  // 形式が違う日付も、読めるものは読む。
   const target = parseRaceDate(date);
   if (target === undefined) return undefined;
-  return Math.round((target - startOfDay(now)) / DAY_MS);
+  const asDate = new Date(target);
+  const ymd = `${asDate.getFullYear()}-${`${asDate.getMonth() + 1}`.padStart(2, '0')}-${`${asDate.getDate()}`.padStart(2, '0')}`;
+  return daysBetween(coachDate(now), ymd);
 }
 
 /** 日付の早い順。日付が読めないものは末尾へ回す。 */
