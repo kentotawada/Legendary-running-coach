@@ -14,6 +14,7 @@
  */
 
 import { cleanEnv } from './build-info';
+import { detectSource, type SourceId } from './connections';
 import { formatPace } from './goals';
 import type { ActivityLog, ShoeRole } from './types';
 
@@ -239,15 +240,19 @@ export interface StravaActivity {
 }
 
 /**
- * Garmin から自動で流れてきた記録か。
+ * その練習が、どの時計・アプリから流れてきたか。
  *
  * **確実な判定ではない。** 一覧に識別子が入らない場合もあるので、
- * 「Garmin が見つからない＝連携できていない」とは言い切らないこと。
- * 見つかった時にだけ「確認できました」と言うために使う。
+ * 「見つからない＝連携できていない」とは言い切らないこと。
+ * 見つかった時にだけ「もう届いています」と言うために使う。
  */
+export function sourceOf(activity: StravaActivity): SourceId | undefined {
+  return detectSource(`${activity.external_id ?? ''} ${activity.device_name ?? ''}`);
+}
+
+/** Garmin から自動で流れてきた記録か。判定の限界は sourceOf と同じ。 */
 export function isFromGarmin(activity: StravaActivity): boolean {
-  const source = `${activity.external_id ?? ''} ${activity.device_name ?? ''}`.toLowerCase();
-  return source.includes('garmin');
+  return sourceOf(activity) === 'garmin';
 }
 
 /** after（UNIX秒）以降の練習を、新しい順ではなく古い順に集める。 */

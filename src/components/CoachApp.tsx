@@ -11,7 +11,8 @@ import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
 import ReviewSheet from './ReviewSheet';
-import StravaGuide from './StravaGuide';
+import ConnectSheet from './ConnectSheet';
+import ConnectBanner from './ConnectBanner';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
@@ -57,7 +58,7 @@ export default function CoachApp() {
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -174,6 +175,11 @@ export default function CoachApp() {
         </div>
       )}
 
+      {/* つながっていない人にだけ、入口が在ることを知らせる。閉じれば二度と出ない。 */}
+      {ready && build?.stravaAvailable && !profile?.connections?.strava && (
+        <ConnectBanner onOpen={() => setConnectOpen(true)} />
+      )}
+
       <main className="scroll-area flex-1 space-y-6 overflow-y-auto px-4 py-5">
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
@@ -250,7 +256,7 @@ export default function CoachApp() {
       {!sheetOpen && syncMessage && (
         <button
           type="button"
-          onClick={() => (needsDeviceGuide ? setGuideOpen(true) : clearSyncMessage())}
+          onClick={() => (needsDeviceGuide ? setConnectOpen(true) : clearSyncMessage())}
           className={`mx-4 mb-2 animate-rise rounded-[var(--radius)] border px-4 py-2.5 text-left text-[13px] leading-relaxed ${
             needsDeviceGuide
               ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
@@ -258,7 +264,7 @@ export default function CoachApp() {
           }`}
         >
           {syncMessage}
-          {needsDeviceGuide && <span className="mt-0.5 block font-semibold">つなぎ方の手順を見る →</span>}
+          {needsDeviceGuide && <span className="mt-0.5 block font-semibold">つなぎ方を見る →</span>}
         </button>
       )}
 
@@ -294,11 +300,17 @@ export default function CoachApp() {
 
       {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
 
-      {guideOpen && (
-        <StravaGuide
+      {connectOpen && (
+        <ConnectSheet
+          connection={profile?.connections?.strava}
+          available={Boolean(build?.stravaAvailable)}
           empty={needsDeviceGuide}
+          syncing={syncing}
+          syncMessage={syncMessage}
+          onSync={() => void syncStrava()}
+          onDisconnect={() => void disconnectStrava()}
           onClose={() => {
-            setGuideOpen(false);
+            setConnectOpen(false);
             clearSyncMessage();
           }}
         />
@@ -346,13 +358,9 @@ export default function CoachApp() {
           onChangeFontSize={changeFontSize}
           stravaAvailable={build?.stravaAvailable}
           pushAvailable={build?.pushAvailable}
-          syncing={syncing}
-          syncMessage={syncMessage}
-          onSyncStrava={() => void syncStrava()}
-          onDisconnectStrava={() => void disconnectStrava()}
-          onOpenDeviceGuide={() => {
+          onOpenConnect={() => {
             setSheetOpen(false);
-            setGuideOpen(true);
+            setConnectOpen(true);
           }}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}
