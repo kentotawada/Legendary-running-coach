@@ -177,15 +177,70 @@ export function addConditionLog(
   };
 }
 
+/**
+ * 記録は**走った日の順**に並べる。
+ *
+ * 追加した順に並べると、古いファイルを後から取り込んだ瞬間に順番が崩れる。
+ * 崩れた並びはカルテの見た目だけの問題ではない。
+ * **コーチにも同じ順で渡っている**ので、直近の練習を取り違えたまま指導することになる。
+ *
+ * 同じ日に2本走った場合は、記録された順を保つ。
+ */
+function byDate(activities: ActivityLog[]): ActivityLog[] {
+  return [...activities].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt),
+  );
+}
+
 export function addActivity(
   profile: RunnerProfile,
   activity: Omit<ActivityLog, 'id' | 'createdAt'>,
   now: Date = new Date(),
 ): RunnerProfile {
   const entry: ActivityLog = { ...activity, id: newId(), createdAt: now.toISOString() };
+  // 並べてから古い端を落とす。落とすのは、いちばん古い記録でなければならない。
   return {
     ...profile,
-    activities: tail([...profile.activities, entry], MAX_ACTIVITIES),
+    activities: tail(byDate([...profile.activities, entry]), MAX_ACTIVITIES),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/**
+ * すでにある記録を、より詳しい内容に差し替える。
+ *
+ * チャットで「6km走った」と話した練習を、後からファイルで取り込むと、
+ * 同じ練習なので二重取り込みとして弾かれる。**だが中身は後から来たほうが詳しい。**
+ * 区間も心拍の推移もある。弾いてしまうと、その情報を永久に失う。
+ *
+ * **本人の言葉（felt・主観強度・練習名）は、必ず残す。**
+ * どう感じたかは、時計には測れない情報で、こちらのほうが価値が高い。
+ */
+export function upgradeActivity(
+  profile: RunnerProfile,
+  id: string,
+  richer: Omit<ActivityLog, 'id' | 'createdAt'>,
+  now: Date = new Date(),
+): RunnerProfile {
+  const existing = profile.activities.find((activity) => activity.id === id);
+  if (!existing) return profile;
+
+  const merged: ActivityLog = {
+    ...richer,
+    id: existing.id,
+    createdAt: existing.createdAt,
+    // 本人が書いたものが勝つ。
+    session: existing.session ?? richer.session,
+    felt: existing.felt ?? richer.felt,
+    effort: existing.effort ?? richer.effort,
+    shoeId: existing.shoeId ?? richer.shoeId,
+  };
+
+  return {
+    ...profile,
+    activities: byDate(
+      profile.activities.map((activity) => (activity.id === id ? merged : activity)),
+    ),
     updatedAt: now.toISOString(),
   };
 }
