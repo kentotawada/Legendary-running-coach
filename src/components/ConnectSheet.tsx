@@ -88,9 +88,14 @@ function FileImport({
         }`}
       >
         {busy ? '取り込み中…' : 'ファイルを選ぶ'}
+        {/*
+          accept は付けない。
+          iOS の「ファイル」は拡張子から種類を引けないと、**選べない状態（灰色）にしてしまう。**
+          .tcx も .fit も、その種類に登録が無い。絞り込みのために選べなくするのは本末転倒なので、
+          何でも選べるようにして、読めなかった時に理由を言う側で受け止める。
+        */}
         <input
           type="file"
-          accept=".fit,.gpx,.tcx,application/gpx+xml,text/xml,application/xml"
           multiple
           disabled={busy}
           className="hidden"
