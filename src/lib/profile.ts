@@ -603,6 +603,8 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
         a.felt ? `「${a.felt}」` : null,
         a.source === 'screenshot' ? '(画像から読取)' : null,
         a.source === 'strava' ? '(Stravaから自動取込)' : null,
+        a.source === 'health' ? '(ヘルスケアから自動取込)' : null,
+        a.source === 'file' ? '(時計の記録ファイルから取込)' : null,
       ]
         .filter(Boolean)
         .join(' ');
