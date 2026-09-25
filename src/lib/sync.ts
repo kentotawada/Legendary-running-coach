@@ -18,13 +18,14 @@ import {
   StravaError,
   fetchActivities,
   fetchGear,
-  isFromGarmin,
   needsRefresh,
   refreshTokens,
   shoeRoleOf,
+  sourceOf,
   toActivityLog,
   type StravaActivity,
 } from './strava';
+import { findSource, mergeSources, type SourceId } from './connections';
 
 /** 前回の同期の直前まで少し遡る。境目の1本を取りこぼさないため。 */
 const OVERLAP_SEC = 3600;
@@ -49,6 +50,11 @@ export interface SyncResult {
    * false は「確認できなかった」であって、「つながっていない」ではない。
    */
   garminDetected: boolean;
+  /**
+   * 今回の取り込みで見つかった出どころ。
+   * 連携画面が「その設定はもう済んでいる」を知るために使う。
+   */
+  sources: SourceId[];
 }
 
 function epoch(iso: string | undefined): number | undefined {
@@ -163,8 +169,16 @@ export async function syncStrava(
   }
 
   const strava = next.connections?.strava;
+  const found = [
+    ...new Set(activities.map(sourceOf).filter((id): id is SourceId => Boolean(id))),
+  ];
+  // 出どころは積み上げる。今回たまたま Garmin の記録が無くても、
+  // 「Garmin の設定がほどけた」ことにはならない。
+  const sources = mergeSources(strava?.sources as SourceId[] | undefined, found);
+
   return {
-    garminDetected: activities.some(isFromGarmin),
+    garminDetected: found.includes('garmin'),
+    sources,
     profile: {
       ...next,
       connections: {
@@ -173,6 +187,7 @@ export async function syncStrava(
           ...(strava ?? connection),
           lastSyncedAt: now.toISOString(),
           imported: (connection.imported ?? 0) + imported,
+          sources,
         },
       },
       updatedAt: now.toISOString(),
@@ -196,7 +211,12 @@ export function describeSync(result: SyncResult): string {
 
   const parts = [`${result.imported}件の練習を取り込みました`];
   if (result.shoes > 0) parts.push(`シューズ${result.shoes}足の走行距離も更新しました`);
-  if (result.garminDetected) parts.push('Garmin からの自動連携も確認できました');
+
+  // どこから流れてきたかが分かると、「自分の設定は正しかった」がその場で確定する。
+  // つないだ直後にいちばん欲しい情報なので、名前で返す。
+  const device = result.sources.map((id) => findSource(id)).find((source) => source?.route !== 'direct');
+  if (device) parts.push(`${device.name}からの自動連携も確認できました`);
+
   return `${parts.join('。')}。`;
 }
 
@@ -222,6 +242,15 @@ export function connectionDoctrine(
       '  数値は時計が測ったものなので、読み取り誤りを疑う必要はない。',
       '- ただし**主観**は入ってこない。どう感じたか、脚がどうだったかは、こちらから尋ねる価値がある。',
     ];
+    const devices = (strava.sources ?? [])
+      .map((id) => findSource(id))
+      .filter((source) => source && source.route !== 'direct');
+    if (devices.length > 0) {
+      lines.push(
+        `- 使っている道具は **${devices.map((source) => source!.name).join('・')}**（届いた記録の出どころから分かっている）。`,
+        '  時計の機能を前提にした話（ラップ・心拍アラート等）は、この道具に合わせてよい。',
+      );
+    }
     if (!strava.lastSyncedAt) {
       lines.push('- まだ一度も取り込めていない。次に開いた時に入る見込み。急かさないこと。');
     }
@@ -242,8 +271,9 @@ export function connectionDoctrine(
     '# ランニングアプリとの連携（未接続）',
     `- 直近30日で${fromImages}回、スクリーンショットから記録している。`,
     '- カルテから Strava をつなぐと、**走り終えた時点で記録が入る**ようになる。',
-    '- Garmin の時計でも入る。ただし Garmin と Strava のリンクが先に要る。',
-    '  手順はアプリの中にある（カルテ →「ランニングアプリ」→「Garmin の時計とつなぐ手順」）。',
+    '- Garmin・Apple Watch・Nike Run Club など、どの道具から始めても入る。',
+    '  使っている物を選べば、その1本ぶんの手順だけが出る画面がアプリの中にある',
+    '  （カルテ →「連携」、または画面上部の案内）。',
     '  **手順を会話で長々と説明しない。** そこを開くよう一言で案内すること。',
     '- **案内は一度だけ。** 毎回勧めるのは、ただのしつこい宣伝になる。',
   ].join('\n');

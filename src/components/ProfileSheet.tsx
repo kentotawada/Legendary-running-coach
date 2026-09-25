@@ -39,12 +39,8 @@ interface Props {
   stravaAvailable?: boolean;
   /** このアプリで通知が使える設定になっているか。 */
   pushAvailable?: boolean;
-  syncing?: boolean;
-  syncMessage?: string | null;
-  onSyncStrava?: () => void;
-  onDisconnectStrava?: () => void;
-  /** Garmin など、時計とのつなぎ方の手順を開く。 */
-  onOpenDeviceGuide?: () => void;
+  /** 時計・アプリとの連携画面を開く。 */
+  onOpenConnect?: () => void;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -83,11 +79,7 @@ export default function ProfileSheet({
   onReset,
   stravaAvailable = false,
   pushAvailable = false,
-  syncing = false,
-  syncMessage,
-  onSyncStrava,
-  onDisconnectStrava,
-  onOpenDeviceGuide,
+  onOpenConnect,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -259,7 +251,7 @@ export default function ProfileSheet({
                 <Row label="ランニングアプリ">
                   {strava ? (
                     <>
-                      <span className="font-medium">Strava と連携中</span>
+                      <span className="font-medium text-accent">✓ Strava と連携中</span>
                       {strava.athleteName && (
                         <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
                       )}
@@ -274,56 +266,24 @@ export default function ProfileSheet({
                           : 'まだ取り込んでいません'}
                         {strava.imported ? ` / これまで${strava.imported}件` : ''}
                       </span>
-                      <span className="mt-2 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={onSyncStrava}
-                          disabled={syncing}
-                          className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
-                        >
-                          {syncing ? '取り込み中…' : '今すぐ取り込む'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onDisconnectStrava}
-                          disabled={syncing}
-                          className="text-[12px] text-muted underline underline-offset-4 disabled:opacity-40"
-                        >
-                          連携を解除
-                        </button>
-                      </span>
-                      {syncMessage && (
-                        <span className="mt-1.5 block text-[12px] text-accent">{syncMessage}</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={onOpenDeviceGuide}
-                        className="mt-1.5 block text-[12px] text-muted underline underline-offset-4"
-                      >
-                        Garmin の時計とつなぐ手順
-                      </button>
                     </>
                   ) : (
-                    <>
-                      <span className="text-muted">
-                        つないでおくと、走り終えた時点で記録が入っています。
-                        スクリーンショットを送る必要がなくなります
-                      </span>
-                      <a
-                        href="/api/strava/connect"
-                        className="mt-1.5 inline-block rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
-                      >
-                        Strava とつなぐ
-                      </a>
-                      <button
-                        type="button"
-                        onClick={onOpenDeviceGuide}
-                        className="mt-1.5 block text-[12px] text-muted underline underline-offset-4"
-                      >
-                        Garmin の時計をお使いの方へ（つなぎ方の手順）
-                      </button>
-                    </>
+                    <span className="text-muted">
+                      つないでおくと、走り終えた時点で記録が入っています。
+                      スクリーンショットを送る必要がなくなります
+                    </span>
                   )}
+                  {/*
+                    取り込みも解除も手順も、連携の画面に集めてある。
+                    ここに同じ操作を並べると、どちらが正しい入口か分からなくなる。
+                  */}
+                  <button
+                    type="button"
+                    onClick={onOpenConnect}
+                    className="mt-2 rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
+                  >
+                    {strava ? '連携の設定を開く' : '時計・アプリとつなぐ'}
+                  </button>
                 </Row>
               )}
               <Row label="コーチ">

@@ -114,6 +114,41 @@ describe('取り込み', () => {
     expect(secondAfter).toBe(Math.floor(Date.parse('2026-09-23T09:00:00.000Z') / 1000) - 3600);
   });
 
+  /**
+   * 出どころが分かれば、連携画面はその道具の手順を畳める。
+   * 済んだ手順を見せ続けるのは、「まだ終わっていない」と言っているのと同じ。
+   */
+  it('どの時計から届いたかを覚える', async () => {
+    const fetchImpl = mall({
+      activities: [[run(1, '2026-09-22', { external_id: 'garmin_push_998877' })]],
+    });
+    const result = await syncStrava(connected(), { now: NOW, env, fetchImpl: fetchImpl as never });
+
+    expect(result.sources).toEqual(['garmin']);
+    expect(result.garminDetected).toBe(true);
+    expect(result.profile.connections?.strava?.sources).toEqual(['garmin']);
+    // 出どころは鍵ではないので、画面まで運ぶ。
+    expect(publicProfile(result.profile).connections?.strava?.sources).toEqual(['garmin']);
+  });
+
+  it('今回の取り込みに出てこなくても、一度分かった出どころは消さない', async () => {
+    const first = await syncStrava(connected(), {
+      now: NOW,
+      env,
+      fetchImpl: mall({
+        activities: [[run(1, '2026-09-22', { external_id: 'garmin_push_1' })]],
+      }) as never,
+    });
+
+    const second = await syncStrava(first.profile, {
+      now: NOW,
+      env,
+      fetchImpl: mall({ activities: [[run(2, '2026-09-23')]] }) as never,
+    });
+
+    expect(second.profile.connections?.strava?.sources).toEqual(['garmin']);
+  });
+
   it('同じ練習は二度入らない', async () => {
     const fetchImpl = mall({ activities: [[run(1, '2026-09-22')]] });
     const once = await syncStrava(connected(), { now: NOW, env, fetchImpl: fetchImpl as never });
@@ -271,15 +306,33 @@ describe('鍵の扱い', () => {
 
 describe('取り込みの知らせ方', () => {
   it('新しい練習が無ければ、そう言う', () => {
-    expect(describeSync({ profile: connected(), imported: 0, skipped: 3, shoes: 0, firstTime: false, garminDetected: false })).toContain(
-      '新しい練習はありません',
-    );
+    expect(
+      describeSync({
+        profile: connected(),
+        imported: 0,
+        skipped: 3,
+        shoes: 0,
+        firstTime: false,
+        garminDetected: false,
+        sources: [],
+      }),
+    ).toContain('新しい練習はありません');
   });
 
   it('取り込んだ数と、更新した靴の数を言う', () => {
-    const text = describeSync({ profile: connected(), imported: 4, skipped: 1, shoes: 2, firstTime: true, garminDetected: true });
+    const text = describeSync({
+      profile: connected(),
+      imported: 4,
+      skipped: 1,
+      shoes: 2,
+      firstTime: true,
+      garminDetected: true,
+      sources: ['garmin'],
+    });
     expect(text).toContain('4件');
     expect(text).toContain('シューズ2足');
+    // どこから流れてきたかを名前で返す。設定が正しかったと、その場で分かる。
+    expect(text).toContain('Garmin の時計からの自動連携');
   });
 });
 

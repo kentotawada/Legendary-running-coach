@@ -668,6 +668,8 @@ export function publicProfile(profile: RunnerProfile): RunnerProfile {
       connectedAt: strava.connectedAt,
       lastSyncedAt: strava.lastSyncedAt,
       imported: strava.imported,
+      // 出どころは鍵ではない。どの設定が済んでいるかを画面が知るために渡す。
+      sources: strava.sources,
     },
   };
   return { ...withoutPush, connections };

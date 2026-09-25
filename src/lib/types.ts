@@ -192,6 +192,12 @@ export interface StravaConnection {
   /** これまでに取り込んだ件数。画面に出す。 */
   imported?: number;
   /**
+   * 取り込んだ記録の出どころ（connections.ts の SourceId）。
+   * 「Garmin の設定はもう済んでいる」を画面が知るために持つ。
+   * 推定なので、**無いことを「つながっていない」の根拠にしてはならない。**
+   */
+  sources?: string[];
+  /**
    * トークン。**ここだけは絶対にブラウザへ返さない。**
    * publicProfile() がこの項目を落とす。
    */
