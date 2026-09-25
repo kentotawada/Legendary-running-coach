@@ -110,6 +110,22 @@ export interface WorkoutMetrics {
   /** ストライド（m）。 */
   strideM?: number;
   elevationGainM?: number;
+  /**
+   * フォームの指標。**FIT ファイルからしか入ってきません。**
+   * スクリーンショットにも GPX / TCX にも無い、走りの質そのものに触れる数値です。
+   */
+  /** ランニングパワー(W)。 */
+  powerW?: number;
+  /** 上下動(cm)。小さいほど、前に進む力に変わっている。 */
+  verticalOscillationCm?: number;
+  /** 接地時間(ms)。短いほど、地面を押す時間が短い。 */
+  groundContactMs?: number;
+  /** 接地時間の左右バランス（左の割合 %）。50 が均等。 */
+  balanceLeft?: number;
+  /** 上下動比(%)。上下動 ÷ 歩幅。 */
+  verticalRatio?: number;
+  /** 歩幅(cm)。 */
+  stepLengthCm?: number;
   /** 消費カロリーや気温など、上の枠に入らない補足。 */
   note?: string;
 }
@@ -132,6 +148,10 @@ export interface ActivityLap {
   maxHr?: number;
   /** ピッチ(spm)。 */
   cadence?: number;
+  /** ここから下は FIT ファイルからのみ。 */
+  powerW?: number;
+  verticalOscillationCm?: number;
+  groundContactMs?: number;
 }
 
 /**

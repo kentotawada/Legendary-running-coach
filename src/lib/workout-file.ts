@@ -8,12 +8,13 @@
  * そのまま送るとサーバーの受信上限に当たるため、
  * **手元で数値に直してから、小さな JSON だけを送ります。**
  *
- * FIT（Garmin の生ファイル）は独自の二進形式なので、ここでは扱いません。
- * Garmin Connect から GPX か TCX で書き出せば、こちらの方が中身は同じです。
+ * FIT（Garmin の生ファイル）だけは別扱いです（`fit.ts`）。
+ * 二進形式で、文字として読めないためです。**上下動や接地時間は、FIT にしか入っていません。**
  */
 
 import type { ActivityType } from './types';
 import type { ImportedWorkout, WorkoutLap, WorkoutSample } from './workout';
+import { FitError, parseFit } from './fit';
 
 export class WorkoutFileError extends Error {
   constructor(message: string) {
@@ -327,15 +328,27 @@ export const MAX_FILE_BYTES = 12 * 1024 * 1024;
  * 書き出したファイルを、正規化された練習に直す。
  * 読めない時は、何が違うのかを日本語で返す。画面にそのまま出すため。
  */
-export function parseWorkoutFile(fileName: string, xml: string): ImportedWorkout[] {
+export function parseWorkoutFile(
+  fileName: string,
+  content: string | ArrayBuffer,
+): ImportedWorkout[] {
   const name = fileName.toLowerCase();
 
-  if (name.endsWith('.fit')) {
-    throw new WorkoutFileError(
-      'FIT ファイルは読めません。書き出しの画面で GPX か TCX を選んでください。',
-    );
+  // FIT は二進形式。文字として読めないので、別の層で解く。
+  if (name.endsWith('.fit') || content instanceof ArrayBuffer) {
+    if (!(content instanceof ArrayBuffer)) {
+      throw new WorkoutFileError('FIT ファイルを読み込めませんでした。');
+    }
+    try {
+      return parseFit(content);
+    } catch (error) {
+      throw new WorkoutFileError(
+        error instanceof FitError ? error.message : 'FIT ファイルを読み取れませんでした。',
+      );
+    }
   }
 
+  const xml = content;
   const isTcx = xml.includes('TrainingCenterDatabase') || name.endsWith('.tcx');
   const isGpx = /<(?:\w+:)?gpx\b/.test(xml) || name.endsWith('.gpx');
 
@@ -343,7 +356,7 @@ export function parseWorkoutFile(fileName: string, xml: string): ImportedWorkout
 
   if (!isTcx && !isGpx) {
     throw new WorkoutFileError(
-      'このファイルは読めませんでした。GPX か TCX を選んでください（Garmin Connect なら、練習の画面の「…」から書き出せます）。',
+      'このファイルは読めませんでした。FIT・GPX・TCX のいずれかを選んでください（Garmin Connect なら、練習の画面の「…」から書き出せます）。',
     );
   }
   if (workouts.length === 0) {

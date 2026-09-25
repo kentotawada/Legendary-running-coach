@@ -9,6 +9,7 @@ import {
   describeImport,
   importWorkouts,
   type ImportedWorkout,
+  type RunningDynamics,
   type WorkoutLap,
   type WorkoutSample,
 } from '@/lib/workout';
@@ -40,6 +41,32 @@ const SOURCES: WorkoutSource[] = ['health', 'file'];
 const MAX_DISTANCE_M = 500_000;
 const MAX_DURATION_SEC = 24 * 3600;
 
+/**
+ * フォームの指標の上限。
+ * **読み違えた値をカルテへ入れないための最後の関門。**
+ * 取り出す側（fit.ts）でも範囲を見ているが、入口でも重ねて見る。
+ */
+const MAX_DYNAMICS: Record<keyof RunningDynamics, number> = {
+  powerW: 900,
+  verticalOscillationCm: 20,
+  groundContactMs: 450,
+  balanceLeft: 65,
+  verticalRatio: 20,
+  stepLengthCm: 250,
+};
+
+function cleanDynamics(raw: unknown): RunningDynamics | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const item = raw as Record<string, unknown>;
+
+  const clean: RunningDynamics = {};
+  for (const key of Object.keys(MAX_DYNAMICS) as (keyof RunningDynamics)[]) {
+    const value = positive(item[key], MAX_DYNAMICS[key]);
+    if (value !== undefined) clean[key] = value;
+  }
+  return Object.values(clean).some((value) => value !== undefined) ? clean : undefined;
+}
+
 function positive(value: unknown, limit: number): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
   return Math.min(value, limit);
@@ -65,6 +92,7 @@ function cleanLaps(raw: unknown): WorkoutLap[] | undefined {
         avgHr: positive(lap.avgHr, 300),
         maxHr: positive(lap.maxHr, 300),
         cadence: positive(lap.cadence, 400),
+        ...(cleanDynamics(lap) ?? {}),
       };
       return clean;
     })
@@ -129,6 +157,7 @@ function clean(raw: unknown): ImportedWorkout | null {
     name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 40) : undefined,
     laps: cleanLaps(item.laps),
     samples: cleanSamples(item.samples),
+    dynamics: cleanDynamics(item.dynamics),
   };
 }
 

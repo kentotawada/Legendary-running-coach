@@ -354,7 +354,10 @@ export function useCoachChat(): CoachChat {
           continue;
         }
         try {
-          workouts.push(...parseWorkoutFile(file.name, await file.text()));
+          // FIT は二進形式なので、文字ではなくそのまま読む。
+          const binary = file.name.toLowerCase().endsWith('.fit');
+          const content = binary ? await file.arrayBuffer() : await file.text();
+          workouts.push(...parseWorkoutFile(file.name, content));
         } catch (error) {
           failed.push(`${file.name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
         }
