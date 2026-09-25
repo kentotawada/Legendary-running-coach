@@ -10,7 +10,7 @@ import {
   type ImportedWorkout,
 } from '@/lib/workout';
 import { analyze } from '@/lib/analysis';
-import { addShoes, applyProfileUpdate } from '@/lib/profile';
+import { addActivity, addShoes, applyProfileUpdate } from '@/lib/profile';
 import { activeShoes } from '@/lib/shoes';
 import { createDefaultProfile } from '@/lib/types';
 
@@ -307,15 +307,22 @@ describe('取り込みの知らせ方', () => {
   const profile = applyProfileUpdate(createDefaultProfile('u1'), { displayName: 'ケント' }, NOW);
 
   it('入った数を言う', () => {
-    expect(describeImport({ profile, imported: 3, skipped: 0 })).toContain('3件');
+    expect(describeImport({ profile, imported: 3, skipped: 0, upgraded: 0 })).toContain('3件');
   });
 
   it('全部すでに入っていたなら、そう言う', () => {
-    expect(describeImport({ profile, imported: 0, skipped: 4 })).toContain('すべて取り込み済み');
+    expect(describeImport({ profile, imported: 0, skipped: 4, upgraded: 0 })).toContain('すべて取り込み済み');
+  });
+
+  /** 差し替えを黙っていると、押したのに何も起きていないように見える。 */
+  it('より詳しい記録に差し替えた時は、そう言う', () => {
+    const text = describeImport({ profile, imported: 0, skipped: 0, upgraded: 2 });
+    expect(text).toContain('2件');
+    expect(text).toContain('差し替え');
   });
 
   it('1件も読めなかった時に、入ったふりをしない', () => {
-    expect(describeImport({ profile, imported: 0, skipped: 0 })).toContain('見つかりませんでした');
+    expect(describeImport({ profile, imported: 0, skipped: 0, upgraded: 0 })).toContain('見つかりませんでした');
   });
 });
 
@@ -414,5 +421,99 @@ describe('推移をいつまで持つか', () => {
     expect(profile.activities).toHaveLength(KEEP_SERIES + 4);
     expect(withSeries).toHaveLength(KEEP_SERIES);
     expect(withLaps).toHaveLength(KEEP_SERIES + 4);
+  });
+});
+
+describe('並び順', () => {
+  /**
+   * 追加した順に並べていると、**古いファイルを後から取り込んだ瞬間に順番が崩れる。**
+   * カルテの見た目だけの問題ではない。コーチにも同じ順で渡るので、
+   * 直近の練習を取り違えたまま指導することになる。
+   */
+  it('後から古い練習を入れても、走った日の順に並ぶ', () => {
+    let profile = createDefaultProfile('u1', NOW.toISOString());
+    profile = importWorkouts(profile, [run('file:24', '2026-09-24T00:00:00Z', 6200, 1574)], NOW).profile;
+    profile = importWorkouts(profile, [run('file:18', '2026-09-18T00:00:00Z', 5000, 1320)], NOW).profile;
+    profile = importWorkouts(profile, [run('file:22', '2026-09-22T00:00:00Z', 18070, 4560)], NOW).profile;
+
+    expect(profile.activities.map((activity) => activity.date)).toEqual([
+      '2026-09-18',
+      '2026-09-22',
+      '2026-09-24',
+    ]);
+  });
+
+  it('同じ日に2本走った時は、記録した順を保つ', () => {
+    let profile = createDefaultProfile('u1', NOW.toISOString());
+    profile = importWorkouts(
+      profile,
+      [
+        run('file:am', '2026-09-22T00:00:00Z', 10000, 2400),
+        run('file:pm', '2026-09-22T10:00:00Z', 6000, 1800),
+      ],
+      NOW,
+    ).profile;
+    expect(profile.activities.map((activity) => activity.distanceKm)).toEqual([10, 6]);
+  });
+});
+
+describe('より詳しい記録が来た時', () => {
+  /** チャットで話した練習を、後からファイルで取り込む流れ。 */
+  const chatLogged = () => {
+    const profile = createDefaultProfile('u1', NOW.toISOString());
+    return addActivity(
+      profile,
+      {
+        date: '2026-09-24',
+        type: 'run',
+        distanceKm: 6.2,
+        durationMin: 26,
+        felt: '膝の痛みなし。肘の引きを意識した',
+        effort: 7,
+      },
+      NOW,
+    );
+  };
+
+  const fromFile = (): ImportedWorkout => ({
+    externalId: 'file:2026-09-24T00:06:00Z',
+    startedAt: '2026-09-24T00:06:00Z',
+    type: 'run',
+    distanceM: 6120,
+    durationSec: 1574,
+    avgHr: 167,
+    source: 'file',
+    laps: Array.from({ length: 6 }, () => ({ distanceM: 1000, durationSec: 257, avgHr: 167 })),
+    samples: Array.from({ length: 40 }, (_, i) => ({ t: i * 40, d: i * 153, hr: 160 + (i % 10) })),
+  });
+
+  it('弾かずに、詳しいほうへ差し替える', () => {
+    const result = importWorkouts(chatLogged(), [fromFile()], NOW);
+
+    expect(result.imported).toBe(0);
+    expect(result.upgraded).toBe(1);
+    expect(result.skipped).toBe(0);
+    // 二重に増えない
+    expect(result.profile.activities).toHaveLength(1);
+
+    const activity = result.profile.activities[0];
+    expect(activity.laps).toHaveLength(6);
+    expect(activity.series).toBeTruthy();
+    expect(activity.metrics?.avgHr).toBe(167);
+  });
+
+  /** どう感じたかは時計には測れない。こちらのほうが価値が高い。 */
+  it('本人の言葉は、差し替えても残す', () => {
+    const activity = importWorkouts(chatLogged(), [fromFile()], NOW).profile.activities[0];
+    expect(activity.felt).toContain('膝の痛みなし');
+    expect(activity.effort).toBe(7);
+  });
+
+  it('同じ詳しさのものが来たら、差し替えない', () => {
+    const once = importWorkouts(chatLogged(), [fromFile()], NOW);
+    const twice = importWorkouts(once.profile, [fromFile()], NOW);
+    expect(twice.upgraded).toBe(0);
+    expect(twice.skipped).toBe(1);
+    expect(twice.profile.activities).toHaveLength(1);
   });
 });

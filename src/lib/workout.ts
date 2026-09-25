@@ -13,7 +13,7 @@
 import type { ActivityLap, ActivityLog, ActivitySeries, ActivityType, RunnerProfile } from './types';
 import { formatPace } from './goals';
 import { coachDate } from './day';
-import { addActivity, addShoeDistance } from './profile';
+import { addActivity, addShoeDistance, upgradeActivity } from './profile';
 import { attributeRun } from './shoes';
 
 /** どこから来た練習か。 */
@@ -380,6 +380,8 @@ export interface ImportResult {
   imported: number;
   /** すでに持っていて飛ばした数。 */
   skipped: number;
+  /** すでにある記録を、より詳しい内容に差し替えた数。 */
+  upgraded: number;
 }
 
 /**
@@ -400,20 +402,37 @@ export function importWorkouts(
   let next = profile;
   let imported = 0;
   let skipped = 0;
+  let upgraded = 0;
 
-  // 古い順に入れる。並びが日付順になっていないと、直近の行動が読みにくくなる。
+  // 古い順に入れる。
   const ordered = [...workouts].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
   for (const workout of ordered) {
     const mapped = toActivity(workout);
     if (!mapped) continue;
-    if (mapped.externalId && known.has(mapped.externalId)) {
-      skipped += 1;
-      continue;
-    }
-    // 別の入口から入った同じ練習も、ここで止める。
-    if (next.activities.some((activity) => isSameWorkout(activity, mapped))) {
-      skipped += 1;
+
+    // すでに持っている練習か。元IDが同じもの、または別の入口から来た同じ練習。
+    const existing =
+      (mapped.externalId && known.has(mapped.externalId)
+        ? next.activities.find((activity) => activity.externalId === mapped.externalId)
+        : undefined) ?? next.activities.find((activity) => isSameWorkout(activity, mapped));
+
+    if (existing) {
+      // **弾く前に、どちらが詳しいかを見る。**
+      // チャットで話した練習を後からファイルで取り込むと、後から来たほうが詳しい。
+      // 弾いてしまうと、区間も心拍の推移も永久に失われる。
+      const better =
+        (mapped.laps?.length ?? 0) > (existing.laps?.length ?? 0) ||
+        (Boolean(mapped.series) && !existing.series) ||
+        (Boolean(mapped.metrics?.groundContactMs) && !existing.metrics?.groundContactMs);
+
+      if (better) {
+        next = upgradeActivity(next, existing.id, mapped, now);
+        if (mapped.externalId) known.add(mapped.externalId);
+        upgraded += 1;
+      } else {
+        skipped += 1;
+      }
       continue;
     }
 
@@ -429,17 +448,21 @@ export function importWorkouts(
     }
   }
 
-  return { profile: trimSeries(next), imported, skipped };
+  return { profile: trimSeries(next), imported, skipped, upgraded };
 }
 
 /** 取り込んだ結果を、そのまま画面に出せる一文にする。 */
 export function describeImport(result: ImportResult): string {
-  if (result.imported === 0) {
+  const parts: string[] = [];
+  if (result.imported > 0) parts.push(`${result.imported}件の練習を取り込みました`);
+  // 「差し替えた」は、黙っていると何も起きていないように見える。必ず言う。
+  if (result.upgraded > 0) parts.push(`${result.upgraded}件は、より詳しい記録に差し替えました`);
+
+  if (parts.length === 0) {
     return result.skipped > 0
       ? 'すべて取り込み済みでした。新しい練習はありません。'
       : '取り込める練習が見つかりませんでした。';
   }
-  const parts = [`${result.imported}件の練習を取り込みました`];
   if (result.skipped > 0) parts.push(`${result.skipped}件はすでに入っていました`);
   return `${parts.join('。')}。`;
 }
