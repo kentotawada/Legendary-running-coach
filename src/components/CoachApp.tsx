@@ -13,6 +13,7 @@ import DailySheet from './DailySheet';
 import ReviewSheet from './ReviewSheet';
 import ConnectSheet from './ConnectSheet';
 import ConnectBanner from './ConnectBanner';
+import RunSheet from './RunSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import ImageLightbox from './ImageLightbox';
@@ -20,6 +21,7 @@ import { findCharacter } from '@/lib/characters';
 import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
+import type { ActivityLog } from '@/lib/types';
 
 export default function CoachApp() {
   const {
@@ -60,6 +62,8 @@ export default function CoachApp() {
   const [dailyOpen, setDailyOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  /** 中身を開いている練習。区間と心拍の推移を見せる。 */
+  const [openRun, setOpenRun] = useState<ActivityLog | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -301,6 +305,8 @@ export default function CoachApp() {
 
       {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
 
+      {openRun && <RunSheet activity={openRun} onClose={() => setOpenRun(null)} />}
+
       {connectOpen && (
         <ConnectSheet
           connection={profile?.connections?.strava}
@@ -363,6 +369,10 @@ export default function CoachApp() {
           onOpenConnect={() => {
             setSheetOpen(false);
             setConnectOpen(true);
+          }}
+          onOpenRun={(activity) => {
+            setSheetOpen(false);
+            setOpenRun(activity);
           }}
           onSave={(edit) => void updateProfile(edit)}
           onClose={() => setSheetOpen(false)}

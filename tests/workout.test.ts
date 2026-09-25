@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_FILE_BYTES, WorkoutFileError, parseWorkoutFile } from '@/lib/workout-file';
 import {
+  KEEP_SERIES,
+  MAX_SERIES_POINTS,
   describeImport,
   importWorkouts,
   normalizeCadence,
   toActivity,
   type ImportedWorkout,
 } from '@/lib/workout';
+import { analyze } from '@/lib/analysis';
 import { addShoes, applyProfileUpdate } from '@/lib/profile';
 import { activeShoes } from '@/lib/shoes';
 import { createDefaultProfile } from '@/lib/types';
@@ -313,5 +316,103 @@ describe('取り込みの知らせ方', () => {
 
   it('1件も読めなかった時に、入ったふりをしない', () => {
     expect(describeImport({ profile, imported: 0, skipped: 0 })).toContain('見つかりませんでした');
+  });
+});
+
+/** 緯度1度ぶんのおおよその距離(m)。試験用の座標を作るのに使う。 */
+const METERS_PER_DEGREE = 111_194.9;
+
+/** 一定ペースで一直線に進む GPX を作る。 */
+function gpxRun(options: { points: number; stepM: number; stepSec: number; hrFrom: number; hrTo: number }) {
+  const { points, stepM, stepSec, hrFrom, hrTo } = options;
+  const start = Date.parse('2026-09-22T00:00:00.000Z');
+  const body = Array.from({ length: points }, (_, i) => {
+    const lat = 35 + (i * stepM) / METERS_PER_DEGREE;
+    const hr = Math.round(hrFrom + ((hrTo - hrFrom) * i) / (points - 1));
+    const iso = new Date(start + i * stepSec * 1000).toISOString();
+    return `<trkpt lat="${lat.toFixed(7)}" lon="139.0000000"><ele>10.0</ele><time>${iso}</time>` +
+      `<extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>${hr}</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions></trkpt>`;
+  }).join('');
+  return `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><type>running</type><trkseg>${body}</trkseg></trk></gpx>`;
+}
+
+describe('走っている途中の中身を残す', () => {
+  // 3km を キロ5分で。50m ごとに1点（15秒ごと）。
+  const xml = gpxRun({ points: 61, stepM: 50, stepSec: 15, hrFrom: 140, hrTo: 170 });
+  const [workout] = parseWorkoutFile('run.gpx', xml);
+
+  it('1点ずつの推移を持って帰る', () => {
+    expect(workout.samples).toHaveLength(61);
+    expect(workout.samples![0].hr).toBe(140);
+    expect(workout.samples![60].hr).toBe(170);
+  });
+
+  /**
+   * GPX にラップは無い。**区間に切らないと、コーチが読める形にならない。**
+   * 「5km目で心拍が上がり始めた」は、切って初めて言葉にできる。
+   */
+  it('ラップが無いファイルでも、1kmごとに切り出す', () => {
+    const activity = toActivity(workout)!;
+    expect(activity.laps).toHaveLength(3);
+    expect(activity.laps![0].distanceKm).toBeCloseTo(1, 1);
+    expect(activity.laps![0].pace).toBe('5:00/km');
+    // 心拍は区間ごとに上がっていく
+    expect(activity.laps![2].avgHr!).toBeGreaterThan(activity.laps![0].avgHr!);
+  });
+
+  it('推移は間引いて持つ。最後の点は必ず残す', () => {
+    const series = toActivity(workout)!.series!;
+    expect(series.t.length).toBeLessThanOrEqual(MAX_SERIES_POINTS);
+    expect(series.t[series.t.length - 1]).toBe(900);
+    expect(series.hr[series.hr.length - 1]).toBe(170);
+  });
+
+  it('区間の並びから、心拍ドリフトが出る', () => {
+    const mapped = toActivity(workout)!;
+    const analysis = analyze({ ...mapped, id: 'a1', createdAt: NOW.toISOString() })!;
+    expect(analysis.shape).toBe('steady');
+    // 同じペースで心拍だけ上がっている
+    expect(analysis.decouplingPercent!).toBeGreaterThan(5);
+  });
+});
+
+describe('時計が切ったラップ', () => {
+  const [workout] = parseWorkoutFile('activity.tcx', TCX);
+
+  it('ラップをそのまま残す', () => {
+    expect(workout.laps).toHaveLength(2);
+    expect(workout.laps![0]).toMatchObject({ distanceM: 9000, durationSec: 1800, avgHr: 150 });
+  });
+
+  it('カルテにも区間として入る', () => {
+    const activity = toActivity(workout)!;
+    expect(activity.laps).toHaveLength(2);
+    expect(activity.laps![0].pace).toBe('3:20/km');
+    expect(activity.laps![1].avgHr).toBe(160);
+  });
+});
+
+describe('推移をいつまで持つか', () => {
+  /**
+   * 記録は毎回ブラウザまで運ばれる。全部に推移を持たせると、半年で目に見えて重くなる。
+   * **ラップは全部残す。** 軽い上に、後から効く。
+   */
+  it('古い練習の推移は落とし、ラップは残す', () => {
+    let profile = createDefaultProfile('u1', NOW.toISOString());
+    for (let i = 0; i < KEEP_SERIES + 4; i += 1) {
+      const day = `${10 + i}`.padStart(2, '0');
+      const xml = gpxRun({ points: 41, stepM: 50, stepSec: 15, hrFrom: 140, hrTo: 160 }).replace(
+        /2026-09-22/g,
+        `2026-08-${day}`,
+      );
+      const [parsed] = parseWorkoutFile('run.gpx', xml);
+      profile = importWorkouts(profile, [parsed], NOW).profile;
+    }
+
+    const withSeries = profile.activities.filter((activity) => activity.series);
+    const withLaps = profile.activities.filter((activity) => activity.laps);
+    expect(profile.activities).toHaveLength(KEEP_SERIES + 4);
+    expect(withSeries).toHaveLength(KEEP_SERIES);
+    expect(withLaps).toHaveLength(KEEP_SERIES + 4);
   });
 });

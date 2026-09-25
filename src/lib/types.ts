@@ -114,6 +114,41 @@ export interface WorkoutMetrics {
   note?: string;
 }
 
+/**
+ * ラップ（区間）1本ぶん。
+ *
+ * **平均だけでは、練習の中身が分からない。**
+ * 「1km×5本」を平均ペースで見ると、1本目から突っ込んで最後が垂れた走りも、
+ * 全部同じペースで刻んだ走りも、同じ数字になる。指導が変わるのはそこなのに。
+ */
+export interface ActivityLap {
+  /** 何本目か。1始まり。 */
+  index: number;
+  distanceKm: number;
+  durationSec: number;
+  /** "4:15/km" */
+  pace?: string;
+  avgHr?: number;
+  maxHr?: number;
+  /** ピッチ(spm)。 */
+  cadence?: number;
+}
+
+/**
+ * 走っている間の推移。ラップより細かい動きを見るため。
+ *
+ * 列ごとの配列で持つ。1点ごとにオブジェクトを作ると、同じ情報が何倍にも膨らむ。
+ * 点は間引いてある（生の1秒ごとは持たない）。
+ */
+export interface ActivitySeries {
+  /** 開始からの経過秒。 */
+  t: number[];
+  /** 開始からの距離(km)。 */
+  km: number[];
+  /** 心拍。測れていない点は null。 */
+  hr: (number | null)[];
+}
+
 export interface ActivityLog {
   id: string;
   date: string;
@@ -133,6 +168,13 @@ export interface ActivityLog {
   shoeId?: string;
   /** 外部サービスから取り込んだ記録の元ID。例: "strava:12345"。二重取り込みを防ぐ。 */
   externalId?: string;
+  /**
+   * 区間ごとの記録。時計のラップ、または1kmごとの自動区切り。
+   * **ここが、スクリーンショットでは絶対に手に入らない部分。**
+   */
+  laps?: ActivityLap[];
+  /** 走行中の推移。直近の練習にだけ残す（古い分は落とす）。 */
+  series?: ActivitySeries;
   createdAt: string;
 }
 

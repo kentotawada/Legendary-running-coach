@@ -15,7 +15,7 @@ import {
 } from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
-import type { ImportedWorkout } from '@/lib/workout';
+import { prepareForTransport, type ImportedWorkout } from '@/lib/workout';
 
 interface DoneEvent {
   type: 'done';
@@ -369,7 +369,8 @@ export function useCoachChat(): CoachChat {
       const response = await fetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workouts }),
+        // 区間は全部残し、細かい推移は間引いてから送る。生のままだと受信の上限に当たる。
+        body: JSON.stringify({ workouts: prepareForTransport(workouts) }),
       });
       const data = (await response.json().catch(() => null)) as
         | { profile?: RunnerProfile; message?: string; error?: string }
