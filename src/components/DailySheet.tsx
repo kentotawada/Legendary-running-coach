@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { DailyStatus } from '@/lib/daily';
 import { MILESTONES } from '@/lib/daily';
+import { DAY_BOUNDARY_NOTE } from '@/lib/day';
 import Sheet from './Sheet';
 
 interface Props {
@@ -44,6 +45,8 @@ export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Pro
               </span>
             )}
           </div>
+
+          <p className="mb-2.5 text-[11px] leading-relaxed text-muted">{DAY_BOUNDARY_NOTE}</p>
 
           <ul className="space-y-2">
             {daily.stamps.map((stamp) => (

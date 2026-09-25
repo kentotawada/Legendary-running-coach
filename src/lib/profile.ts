@@ -19,6 +19,7 @@ import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
+import { coachDate } from './day';
 import { SHOE_ROLE_LABEL, activeShoes, findShoe } from './shoes';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
@@ -31,12 +32,13 @@ export function newId(): string {
   return globalThis.crypto.randomUUID();
 }
 
+/**
+ * コーチにとっての「今日」。
+ * 区切りは深夜2時で、走る人の地域の時刻で決まる（day.ts）。
+ * 実行環境の時刻をそのまま使うと、日本時間では朝9時に日付が変わってしまう。
+ */
 export function today(now: Date = new Date()): string {
-  // ランナーの生活時間に合わせ、日付は実行環境のローカルタイムで扱う。
-  const y = now.getFullYear();
-  const m = `${now.getMonth() + 1}`.padStart(2, '0');
-  const d = `${now.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return coachDate(now);
 }
 
 function mergeUnique(existing: string[] | undefined, incoming: string[] | undefined): string[] | undefined {

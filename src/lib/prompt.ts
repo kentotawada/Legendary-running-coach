@@ -17,6 +17,7 @@ import { connectionDoctrine } from './sync';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
+import { DAY_BOUNDARY_NOTE } from './day';
 
 export { INTERNAL_PREFIX } from './markers';
 
@@ -183,7 +184,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
   const sections = [
     IDENTITY.replace('{{characterName}}', character.name),
     characterVoice(profile.characterId),
-    `今日の日付: ${today(now)}`,
+    `今日の日付: ${today(now)}（${DAY_BOUNDARY_NOTE}）`,
     ABSOLUTE_RULES,
     DOCTRINE,
     goalDoctrine(profile),
