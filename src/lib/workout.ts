@@ -10,7 +10,7 @@
  * **足りない項目は、埋めずに空のままにします。** 無い数字を作ると、評価がまるごと嘘になるからです。
  */
 
-import type { ActivityLog, ActivityType, RunnerProfile } from './types';
+import type { ActivityLap, ActivityLog, ActivitySeries, ActivityType, RunnerProfile } from './types';
 import { formatPace } from './goals';
 import { coachDate } from './day';
 import { addActivity, addShoeDistance } from './profile';
@@ -18,6 +18,31 @@ import { attributeRun } from './shoes';
 
 /** どこから来た練習か。 */
 export type WorkoutSource = 'health' | 'file';
+
+/**
+ * 走っている途中の1点。
+ * **平均では消える情報がここにある。** 同じ平均心拍でも、
+ * 前半で上がりきった走りと、最後まで上がらなかった走りは別物。
+ */
+export interface WorkoutSample {
+  /** 開始からの経過秒。 */
+  t: number;
+  /** 開始からの累計距離(m)。 */
+  d?: number;
+  hr?: number;
+  /** ピッチの生値。 */
+  cadence?: number;
+}
+
+/** ラップ1本ぶん（時計が区切ったもの）。 */
+export interface WorkoutLap {
+  distanceM: number;
+  durationSec: number;
+  avgHr?: number;
+  maxHr?: number;
+  /** ピッチの生値。 */
+  cadence?: number;
+}
 
 /**
  * 正規化された1件。
@@ -49,6 +74,10 @@ export interface ImportedWorkout {
   /** 活動名。「Morning Run」のような自動命名は、呼び出し側が落としてから渡す。 */
   name?: string;
   source: WorkoutSource;
+  /** 時計が区切ったラップ。無ければ、推移から1kmごとに切り出す。 */
+  laps?: WorkoutLap[];
+  /** 走行中の推移。間引く前の生の点で渡してよい。 */
+  samples?: WorkoutSample[];
 }
 
 /**
@@ -62,6 +91,163 @@ export interface ImportedWorkout {
 export function normalizeCadence(value: number | undefined): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
   return Math.round(value < 120 ? value * 2 : value);
+}
+
+
+/**
+ * 推移を残す本数。
+ *
+ * 記録は毎回ブラウザまで運ばれる。全部の練習に推移を持たせると、
+ * 半年で目に見えて重くなる。**ラップは全部残す**（軽い上に、後から効く）。
+ * 細かい推移が要るのは、直近の数本を見返す時だけ。
+ */
+export const KEEP_SERIES = 12;
+
+/** 区間の心拍とピッチをまとめる。測れていない点は数に入れない。 */
+function segmentStats(points: WorkoutSample[]): Pick<WorkoutLap, 'avgHr' | 'maxHr' | 'cadence'> {
+  let hrSum = 0;
+  let hrCount = 0;
+  let maxHr: number | undefined;
+  let cadenceSum = 0;
+  let cadenceCount = 0;
+
+  for (const point of points) {
+    if (point.hr !== undefined) {
+      hrSum += point.hr;
+      hrCount += 1;
+      maxHr = Math.max(maxHr ?? 0, point.hr);
+    }
+    if (point.cadence !== undefined) {
+      cadenceSum += point.cadence;
+      cadenceCount += 1;
+    }
+  }
+
+  return {
+    avgHr: hrCount > 0 ? hrSum / hrCount : undefined,
+    maxHr,
+    cadence: cadenceCount > 0 ? cadenceSum / cadenceCount : undefined,
+  };
+}
+
+/**
+ * ラップが無いファイル（GPX など）のために、1kmごとに区切る。
+ *
+ * **ここを作らないと、推移があってもコーチが読める形にならない。**
+ * 「5km目で心拍が上がり始めた」は、区間に切って初めて言葉にできる。
+ */
+export function autoSplits(samples: WorkoutSample[], everyM = 1000): WorkoutLap[] {
+  const points = samples.filter((point) => typeof point.d === 'number');
+  if (points.length < 2) return [];
+
+  const laps: WorkoutLap[] = [];
+  const cut = (from: number, to: number) => {
+    const segment = points.slice(from, to + 1);
+    const distanceM = (segment[segment.length - 1].d ?? 0) - (segment[0].d ?? 0);
+    const durationSec = segment[segment.length - 1].t - segment[0].t;
+    if (distanceM > 0 && durationSec > 0) {
+      laps.push({ distanceM, durationSec, ...segmentStats(segment) });
+    }
+  };
+
+  let start = 0;
+  let mark = everyM;
+  for (let i = 1; i < points.length; i += 1) {
+    const d = points[i].d ?? 0;
+    if (d < mark) continue;
+    cut(start, i);
+    start = i;
+    // GPS が飛んで一気に進んだ時も、次の区切りがずれないようにする。
+    mark = (Math.floor(d / everyM) + 1) * everyM;
+  }
+  // 端数（最後の半端な区間）も落とさない。そこで垂れたかどうかが見たい。
+  if (start < points.length - 1) cut(start, points.length - 1);
+
+  return laps;
+}
+
+/** 走っている間の推移。点が多すぎると保存も表示も重くなるので、等間隔で間引く。 */
+export const MAX_SERIES_POINTS = 240;
+
+export function downsample(samples: WorkoutSample[], max = MAX_SERIES_POINTS): ActivitySeries | undefined {
+  const points = samples.filter((point) => point.hr !== undefined || point.d !== undefined);
+  if (points.length < 2) return undefined;
+
+  const step = Math.max(1, Math.ceil(points.length / max));
+  const t: number[] = [];
+  const km: number[] = [];
+  const hr: (number | null)[] = [];
+
+  for (let i = 0; i < points.length; i += step) {
+    const point = points[i];
+    t.push(point.t);
+    km.push(Math.round(((point.d ?? 0) / 1000) * 1000) / 1000);
+    hr.push(point.hr !== undefined ? Math.round(point.hr) : null);
+  }
+  // 最後の点は必ず残す。終盤がどうだったかが、いちばん知りたいところ。
+  const last = points[points.length - 1];
+  if (t[t.length - 1] !== last.t) {
+    t.push(last.t);
+    km.push(Math.round(((last.d ?? 0) / 1000) * 1000) / 1000);
+    hr.push(last.hr !== undefined ? Math.round(last.hr) : null);
+  }
+
+  return { t, km, hr };
+}
+
+/** 点を等間隔に間引く。最後の点は必ず残す（終盤がいちばん知りたいところ）。 */
+export function thin(samples: WorkoutSample[], max = MAX_SERIES_POINTS): WorkoutSample[] {
+  if (samples.length <= max) return samples;
+  const step = Math.ceil(samples.length / max);
+  const kept = samples.filter((_, index) => index % step === 0);
+  const last = samples[samples.length - 1];
+  if (kept[kept.length - 1]?.t !== last.t) kept.push(last);
+  return kept;
+}
+
+/** 1本の練習で送るラップの上限。ウルトラでも足りる幅。 */
+export const MAX_LAPS = 200;
+
+/**
+ * 送る前に軽くする。
+ *
+ * 1時間のロング走は1秒ごとに数千点あり、そのまま送ると受信の上限に当たる。
+ * **区間は全部残し、細かい推移は間引く。** 区間は軽い上に、後から効くため。
+ * まとめて取り込む時は、古い練習の推移を落とす（どのみち保存側でも落とす）。
+ */
+export function prepareForTransport(workouts: ImportedWorkout[]): ImportedWorkout[] {
+  const ordered = [...workouts].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const keepFrom = Math.max(0, ordered.length - KEEP_SERIES);
+
+  return ordered.map((workout, index) => {
+    const laps =
+      workout.laps && workout.laps.length > 1
+        ? workout.laps.slice(0, MAX_LAPS)
+        : workout.samples
+          ? autoSplits(workout.samples).slice(0, MAX_LAPS)
+          : undefined;
+
+    return {
+      ...workout,
+      laps,
+      samples: index >= keepFrom && workout.samples ? thin(workout.samples) : undefined,
+    };
+  });
+}
+
+/** 生のラップを、画面とコーチが読める形に直す。 */
+export function toLaps(raw: WorkoutLap[]): ActivityLap[] {
+  return raw
+    .filter((lap) => lap.distanceM > 0 && lap.durationSec > 0)
+    .map((lap, index) => ({
+      index: index + 1,
+      distanceKm: Math.round((lap.distanceM / 1000) * 100) / 100,
+      durationSec: Math.round(lap.durationSec),
+      pace: formatPace(lap.durationSec / (lap.distanceM / 1000)),
+      avgHr: hr(lap.avgHr),
+      maxHr: hr(lap.maxHr),
+      cadence: normalizeCadence(lap.cadence),
+    }));
 }
 
 /** 正規化された1件を、カルテの記録に直す。距離も時間も無いものは入れない。 */
@@ -99,6 +285,15 @@ export function toActivity(workout: ImportedWorkout): Omit<ActivityLog, 'id' | '
   };
   const hasMetrics = Object.values(metrics).some((value) => value !== undefined);
 
+  // 時計がラップを切っていればそれを使う。無ければ推移から1kmごとに切り出す。
+  const rawLaps =
+    workout.laps && workout.laps.length > 1
+      ? workout.laps
+      : workout.samples
+        ? autoSplits(workout.samples)
+        : [];
+  const laps = toLaps(rawLaps);
+
   return {
     date,
     type: workout.type,
@@ -108,6 +303,8 @@ export function toActivity(workout: ImportedWorkout): Omit<ActivityLog, 'id' | '
     metrics: hasMetrics ? metrics : undefined,
     source: workout.source,
     externalId: workout.externalId,
+    laps: laps.length > 1 ? laps : undefined,
+    series: workout.samples ? downsample(workout.samples) : undefined,
   };
 }
 
@@ -142,6 +339,19 @@ function isSameWorkout(
 
   if (existing.durationMin === undefined || candidate.durationMin === undefined) return true;
   return Math.abs(existing.durationMin - candidate.durationMin) <= SAME_DURATION_MIN;
+}
+
+function trimSeries(profile: RunnerProfile): RunnerProfile {
+  const withSeries = profile.activities.filter((activity) => activity.series);
+  if (withSeries.length <= KEEP_SERIES) return profile;
+
+  const keep = new Set(withSeries.slice(-KEEP_SERIES).map((activity) => activity.id));
+  return {
+    ...profile,
+    activities: profile.activities.map((activity) =>
+      activity.series && !keep.has(activity.id) ? { ...activity, series: undefined } : activity,
+    ),
+  };
 }
 
 export interface ImportResult {
@@ -198,7 +408,7 @@ export function importWorkouts(
     }
   }
 
-  return { profile: next, imported, skipped };
+  return { profile: trimSeries(next), imported, skipped };
 }
 
 /** 取り込んだ結果を、そのまま画面に出せる一文にする。 */

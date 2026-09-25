@@ -3,7 +3,16 @@ import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { publicProfile } from '@/lib/profile';
 import { storageErrorResponse } from '@/lib/storage-error';
-import { describeImport, importWorkouts, type ImportedWorkout, type WorkoutSource } from '@/lib/workout';
+import {
+  MAX_LAPS,
+  MAX_SERIES_POINTS,
+  describeImport,
+  importWorkouts,
+  type ImportedWorkout,
+  type WorkoutLap,
+  type WorkoutSample,
+} from '@/lib/workout';
+import type { WorkoutSource } from '@/lib/workout';
 import type { ActivityType } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -37,6 +46,57 @@ function positive(value: unknown, limit: number): number | undefined {
 }
 
 /**
+ * 区間。**ここが、平均では絶対に復元できない部分。**
+ * ペースは受け取らず、距離と時間からサーバーで計算する（送り手の計算を信じない）。
+ */
+function cleanLaps(raw: unknown): WorkoutLap[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const laps = raw
+    .slice(0, MAX_LAPS)
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const lap = item as Record<string, unknown>;
+      const distanceM = positive(lap.distanceM, MAX_DISTANCE_M);
+      const durationSec = positive(lap.durationSec, MAX_DURATION_SEC);
+      if (distanceM === undefined || durationSec === undefined) return null;
+      const clean: WorkoutLap = {
+        distanceM,
+        durationSec,
+        avgHr: positive(lap.avgHr, 300),
+        maxHr: positive(lap.maxHr, 300),
+        cadence: positive(lap.cadence, 400),
+      };
+      return clean;
+    })
+    .filter((lap): lap is WorkoutLap => lap !== null);
+
+  return laps.length > 1 ? laps : undefined;
+}
+
+/** 走行中の推移。送る側で間引いてある前提で、念のためここでも上限を効かせる。 */
+function cleanSamples(raw: unknown): WorkoutSample[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const samples = raw
+    .slice(0, MAX_SERIES_POINTS + 1)
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const point = item as Record<string, unknown>;
+      const t = typeof point.t === 'number' && Number.isFinite(point.t) && point.t >= 0 ? point.t : null;
+      if (t === null) return null;
+      const clean: WorkoutSample = {
+        t: Math.min(t, MAX_DURATION_SEC),
+        d: positive(point.d, MAX_DISTANCE_M),
+        hr: positive(point.hr, 300),
+        cadence: positive(point.cadence, 400),
+      };
+      return clean;
+    })
+    .filter((point): point is WorkoutSample => point !== null);
+
+  return samples.length > 1 ? samples : undefined;
+}
+
+/**
  * 送られてきた1件を検める。
  * **外から来た数値をそのままカルテへ入れない。** 形の違うものは、黙って落とす。
  */
@@ -67,6 +127,8 @@ function clean(raw: unknown): ImportedWorkout | null {
     cadence: positive(item.cadence, 400),
     elevationGainM: positive(item.elevationGainM, 20_000),
     name: typeof item.name === 'string' && item.name.trim() ? item.name.trim().slice(0, 40) : undefined,
+    laps: cleanLaps(item.laps),
+    samples: cleanSamples(item.samples),
   };
 }
 

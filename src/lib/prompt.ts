@@ -14,6 +14,7 @@ import { shoeDoctrine } from './shoes';
 import { gearNoteDoctrine } from './gear-notes';
 import { checklistDoctrine } from './checklist';
 import { connectionDoctrine } from './sync';
+import { runDoctrine } from './analysis';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
@@ -171,6 +172,18 @@ const TONE = `# 話し方と書き方
 カードの前後には、必ず一言ずつ地の文を添える。カードだけを投げつけない。`;
 
 /**
+ * 直近の練習の、区間ごとの中身。
+ *
+ * 全部の練習を並べるとプロンプトが膨らむので、**いちばん新しい1本だけ**。
+ * 聞かれるのはたいてい直近の練習で、それ以前は平均で足りる。
+ */
+function latestRunDetail(profile: RunnerProfile): string | null {
+  const withLaps = profile.activities.filter((activity) => (activity.laps?.length ?? 0) > 1);
+  const latest = withLaps[withLaps.length - 1];
+  return latest ? runDoctrine(latest) : null;
+}
+
+/**
  * システムプロンプトを毎ターン組み立てる。
  * 固定の人格・指導理論 + その人のカルテ + 今この瞬間の安全ディレクティブ、の三層構造。
  */
@@ -193,6 +206,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     phaseGuidance(phase),
     transition,
     summarizeProfile(profile, now),
+    latestRunDetail(profile),
     dailyDoctrine(profile, now),
     safety.directives.length > 0
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')

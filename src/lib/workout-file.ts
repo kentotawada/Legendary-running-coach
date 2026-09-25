@@ -13,7 +13,7 @@
  */
 
 import type { ActivityType } from './types';
-import type { ImportedWorkout } from './workout';
+import type { ImportedWorkout, WorkoutLap, WorkoutSample } from './workout';
 
 export class WorkoutFileError extends Error {
   constructor(message: string) {
@@ -22,11 +22,27 @@ export class WorkoutFileError extends Error {
   }
 }
 
+/**
+ * 正規表現は使い回す。
+ * 1時間のロング走は数千点あり、点ごとに組み直すと数万回の生成になる。
+ */
+const cache = new Map<string, RegExp>();
+
+function tagPattern(tag: string): RegExp {
+  const key = `t:${tag}`;
+  let pattern = cache.get(key);
+  if (!pattern) {
+    pattern = new RegExp(`<(?:\\w+:)?${tag}\\b([^>]*?)(?:/>|>([\\s\\S]*?)</(?:\\w+:)?${tag}>)`, 'g');
+    cache.set(key, pattern);
+  }
+  pattern.lastIndex = 0;
+  return pattern;
+}
+
 /** 名前空間の接頭辞（ns3: や gpxtpx:）は無視して、同じ名前の中身を全部取る。 */
 function blocks(xml: string, tag: string): { attrs: string; inner: string }[] {
-  const pattern = new RegExp(`<(?:\\w+:)?${tag}\\b([^>]*?)(?:/>|>([\\s\\S]*?)</(?:\\w+:)?${tag}>)`, 'g');
   const found: { attrs: string; inner: string }[] = [];
-  for (const match of xml.matchAll(pattern)) {
+  for (const match of xml.matchAll(tagPattern(tag))) {
     found.push({ attrs: match[1] ?? '', inner: match[2] ?? '' });
   }
   return found;
@@ -128,9 +144,12 @@ function parseTcx(xml: string): ImportedWorkout[] {
     let cadenceWeighted = 0;
     let cadenceSeconds = 0;
 
+    const laps: WorkoutLap[] = [];
+
     for (const lap of blocks(activity.inner, 'Lap')) {
       const lapSeconds = num(lap.inner, 'TotalTimeSeconds') ?? 0;
-      meters += num(lap.inner, 'DistanceMeters') ?? 0;
+      const lapMeters = num(lap.inner, 'DistanceMeters') ?? 0;
+      meters += lapMeters;
       seconds += lapSeconds;
 
       const avg = num(blocks(lap.inner, 'AverageHeartRateBpm')[0]?.inner ?? '', 'Value');
@@ -146,7 +165,20 @@ function parseTcx(xml: string): ImportedWorkout[] {
         cadenceWeighted += cadence * lapSeconds;
         cadenceSeconds += lapSeconds;
       }
+
+      if (lapMeters > 0 || lapSeconds > 0) {
+        laps.push({
+          distanceM: lapMeters,
+          durationSec: lapSeconds,
+          avgHr: avg,
+          maxHr: max,
+          cadence: cadence && cadence > 0 ? cadence : undefined,
+        });
+      }
     }
+
+    // 1秒ごとの推移。**ここが、スクリーンショットでは手に入らない部分。**
+    const samples = tcxSamples(activity.inner);
 
     if (meters <= 0 && seconds <= 0) continue;
 
@@ -161,10 +193,38 @@ function parseTcx(xml: string): ImportedWorkout[] {
       cadence: cadenceSeconds > 0 ? cadenceWeighted / cadenceSeconds : undefined,
       name: meaningfulName(text(activity.inner, 'Notes')),
       source: 'file',
+      laps: laps.length > 1 ? laps : undefined,
+      samples: samples.length > 1 ? samples : undefined,
     });
   }
 
   return workouts;
+}
+
+/**
+ * TCX のトラックポイントを、経過秒・累計距離・心拍の並びに直す。
+ * 距離は活動の開始からの累計で入っている（Garmin の書き方）。
+ */
+function tcxSamples(activityXml: string): WorkoutSample[] {
+  const samples: WorkoutSample[] = [];
+  let firstMs: number | undefined;
+
+  for (const point of blocks(activityXml, 'Trackpoint')) {
+    const ms = time(text(point.inner, 'Time'));
+    if (ms === undefined) continue;
+    if (firstMs === undefined) firstMs = ms;
+
+    const hr = num(blocks(point.inner, 'HeartRateBpm')[0]?.inner ?? '', 'Value');
+    const cadence = num(point.inner, 'RunCadence') ?? num(point.inner, 'Cadence');
+    samples.push({
+      t: Math.round((ms - firstMs) / 1000),
+      d: num(point.inner, 'DistanceMeters'),
+      hr: hr !== undefined && hr > 0 ? hr : undefined,
+      cadence: cadence !== undefined && cadence > 0 ? cadence : undefined,
+    });
+  }
+
+  return samples;
 }
 
 /** 気圧・GPS のぶれで標高は細かく上下する。この幅より小さい変化は積まない。 */
@@ -185,6 +245,7 @@ function parseGpx(xml: string): ImportedWorkout[] {
     let lastMs: number | undefined;
     let prev: { lat: number; lon: number; ele?: number } | undefined;
     let startedIso: string | undefined;
+    const samples: WorkoutSample[] = [];
 
     for (const point of blocks(track.inner, 'trkpt')) {
       const lat = Number(attr(point.attrs, 'lat'));
@@ -222,6 +283,15 @@ function parseGpx(xml: string): ImportedWorkout[] {
         cadenceSum += cadence;
         cadenceCount += 1;
       }
+
+      if (ms !== undefined && firstMs !== undefined) {
+        samples.push({
+          t: Math.round((ms - firstMs) / 1000),
+          d: Math.round(meters),
+          hr: hr !== undefined && hr > 0 ? hr : undefined,
+          cadence: cadence !== undefined && cadence > 0 ? cadence : undefined,
+        });
+      }
     }
 
     const seconds = firstMs !== undefined && lastMs !== undefined ? (lastMs - firstMs) / 1000 : 0;
@@ -242,6 +312,8 @@ function parseGpx(xml: string): ImportedWorkout[] {
       elevationGainM: gain > 0 ? gain : undefined,
       name: meaningfulName(text(track.inner, 'name')),
       source: 'file',
+      // GPX にラップは無い。1kmごとの区切りは、推移から切り出す。
+      samples: samples.length > 1 ? samples : undefined,
     });
   }
 

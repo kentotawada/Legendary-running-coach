@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { RunnerProfile } from '@/lib/types';
+import type { ActivityLog, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { PHASE_LABEL } from '@/lib/phase';
 import Sheet from './Sheet';
@@ -41,6 +41,8 @@ interface Props {
   pushAvailable?: boolean;
   /** 時計・アプリとの連携画面を開く。 */
   onOpenConnect?: () => void;
+  /** 1本の練習の中身（区間・心拍の推移）を開く。 */
+  onOpenRun?: (activity: ActivityLog) => void;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -80,6 +82,7 @@ export default function ProfileSheet({
   stravaAvailable = false,
   pushAvailable = false,
   onOpenConnect,
+  onOpenRun,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -485,14 +488,43 @@ export default function ProfileSheet({
               <Row label="直近の記録">
                 {recent.length > 0 ? (
                   <ul className="space-y-1">
-                    {recent.map((a) => (
-                      <li key={a.id}>
-                        {a.date} {TYPE_LABEL[a.type] ?? a.type}
-                        {a.distanceKm !== undefined ? ` ${a.distanceKm}km` : ''}
-                        {a.durationMin !== undefined ? ` ${a.durationMin}分` : ''}
-                        {a.felt ? <span className="block text-muted">「{a.felt}」</span> : null}
-                      </li>
-                    ))}
+                    {recent.map((a) => {
+                      const detail = (a.laps?.length ?? 0) > 1;
+                      const body = (
+                        <>
+                          {a.date} {TYPE_LABEL[a.type] ?? a.type}
+                          {a.distanceKm !== undefined ? ` ${a.distanceKm}km` : ''}
+                          {a.durationMin !== undefined ? ` ${a.durationMin}分` : ''}
+                          {a.metrics?.avgPace ? ` ${a.metrics.avgPace}` : ''}
+                          {/*
+                            区間が入っている練習だけ、中身を開けるようにする。
+                            開けない記録に矢印を出すと、押しても何も起きない。
+                          */}
+                          {detail && (
+                            <span className="ml-1 text-[12px] font-semibold text-accent">
+                              区間{a.laps!.length} ›
+                            </span>
+                          )}
+                          {a.felt ? <span className="block text-muted">「{a.felt}」</span> : null}
+                        </>
+                      );
+
+                      return (
+                        <li key={a.id}>
+                          {detail && onOpenRun ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenRun(a)}
+                              className="w-full text-left"
+                            >
+                              {body}
+                            </button>
+                          ) : (
+                            body
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <span className="text-muted">まだありません</span>
