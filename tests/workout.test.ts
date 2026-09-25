@@ -151,13 +151,13 @@ describe('何日の練習か', () => {
 });
 
 describe('読めないファイル', () => {
-  it('FIT は、何を選べばよいかまで言う', () => {
-    expect(() => parseWorkoutFile('activity.fit', 'binary')).toThrow(WorkoutFileError);
-    expect(() => parseWorkoutFile('activity.fit', 'binary')).toThrow(/GPX か TCX/);
+  it('壊れた FIT は、読めなかったと言う', () => {
+    const broken = new Uint8Array([1, 2, 3, 4]).buffer;
+    expect(() => parseWorkoutFile('activity.fit', broken)).toThrow(WorkoutFileError);
   });
 
   it('関係のないファイルは、そう言う', () => {
-    expect(() => parseWorkoutFile('memo.txt', 'こんにちは')).toThrow(/GPX か TCX/);
+    expect(() => parseWorkoutFile('memo.txt', 'こんにちは')).toThrow(/FIT・GPX・TCX/);
   });
 
   it('中身が空の GPX は、練習が無いと言う', () => {

@@ -287,10 +287,54 @@ export function runDoctrine(activity: ActivityLog): string | null {
     );
   }
 
+  const form = formLines(activity);
+  if (form.length > 0) lines.push(...form);
+
   lines.push(
     '- **区間の並びから読み取れることを、必ず一言入れること。** 平均だけを褒めない。',
     '  入り方が速すぎなかったか、最後まで刻めたか、心拍がどこから上がったか——',
     '  そこが、スクリーンショットを見ただけでは言えない部分。',
   );
   return lines.join('\n');
+}
+
+/**
+ * フォームの指標。**FIT ファイルからしか入ってこない。**
+ *
+ * 値の良し悪しは、身長・脚の長さ・走る速度で変わる。
+ * **一般的な目安を当てはめて断定しない。** 見るのは、その人の中での変化。
+ */
+function formLines(activity: ActivityLog): string[] {
+  const metrics = activity.metrics;
+  if (!metrics) return [];
+
+  const values: string[] = [];
+  if (metrics.powerW !== undefined) values.push(`ランニングパワー ${metrics.powerW}W`);
+  if (metrics.verticalOscillationCm !== undefined) values.push(`上下動 ${metrics.verticalOscillationCm}cm`);
+  if (metrics.groundContactMs !== undefined) values.push(`接地時間 ${metrics.groundContactMs}ms`);
+  if (metrics.verticalRatio !== undefined) values.push(`上下動比 ${metrics.verticalRatio}%`);
+  if (metrics.stepLengthCm !== undefined) values.push(`歩幅 ${metrics.stepLengthCm}cm`);
+  if (metrics.balanceLeft !== undefined) {
+    const right = Math.round((100 - metrics.balanceLeft) * 10) / 10;
+    values.push(`接地の左右バランス 左${metrics.balanceLeft}% / 右${right}%`);
+  }
+  if (values.length === 0) return [];
+
+  const lines = [`- フォームの指標: ${values.join(' / ')}`];
+
+  // 左右差は、故障につながる形で出ていることがある。ただし断定はしない。
+  if (metrics.balanceLeft !== undefined && Math.abs(metrics.balanceLeft - 50) >= 2) {
+    const heavier = metrics.balanceLeft > 50 ? '左' : '右';
+    lines.push(
+      `- **接地時間が${heavier}に${Math.abs(Math.round((metrics.balanceLeft - 50) * 10) / 10)}%偏っている。**`,
+      '  痛みの訴えがある側と一致するなら、そこは触れる価値がある。',
+      '  **一致しないなら、左右差だけを理由に故障を予言しないこと。** 誰にでも多少の差はある。',
+    );
+  }
+
+  lines.push(
+    '- **上下動・接地時間・歩幅に、一般的な「良い数値」を当てはめないこと。**',
+    '  身長・脚の長さ・走る速度で基準が変わる。見るのは、この人の中での変化と、速度との関係。',
+  );
+  return lines;
 }

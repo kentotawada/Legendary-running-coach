@@ -90,7 +90,7 @@ function FileImport({
         {busy ? '取り込み中…' : 'ファイルを選ぶ'}
         <input
           type="file"
-          accept=".gpx,.tcx,application/gpx+xml,text/xml,application/xml"
+          accept=".fit,.gpx,.tcx,application/gpx+xml,text/xml,application/xml"
           multiple
           disabled={busy}
           className="hidden"
@@ -112,8 +112,8 @@ function FileImport({
       {message && <p className="mt-2 text-[13px] leading-relaxed text-accent">{message}</p>}
 
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-        FIT ファイルは読めません。書き出しの画面で GPX か TCX を選んでください。
-        同じ練習を二度入れても、重なりません。
+        <strong className="font-semibold text-fg">FIT なら、上下動・接地時間・左右バランス・パワーまで入ります。</strong>
+        GPX / TCX には、そこまでは入っていません。同じ練習を二度入れても、重なりません。
       </p>
     </div>
   );

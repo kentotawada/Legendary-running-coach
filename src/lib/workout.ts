@@ -34,8 +34,22 @@ export interface WorkoutSample {
   cadence?: number;
 }
 
+/**
+ * フォームの指標。FIT ファイルからのみ入ってくる。
+ * 単位はこの時点で揃えてある（cm・ms・W・%）。
+ */
+export interface RunningDynamics {
+  powerW?: number;
+  verticalOscillationCm?: number;
+  groundContactMs?: number;
+  /** 接地時間の左右バランス（左の割合 %）。 */
+  balanceLeft?: number;
+  verticalRatio?: number;
+  stepLengthCm?: number;
+}
+
 /** ラップ1本ぶん（時計が区切ったもの）。 */
-export interface WorkoutLap {
+export interface WorkoutLap extends RunningDynamics {
   distanceM: number;
   durationSec: number;
   avgHr?: number;
@@ -78,6 +92,8 @@ export interface ImportedWorkout {
   laps?: WorkoutLap[];
   /** 走行中の推移。間引く前の生の点で渡してよい。 */
   samples?: WorkoutSample[];
+  /** フォームの指標（練習全体の平均）。FIT からのみ。 */
+  dynamics?: RunningDynamics;
 }
 
 /**
@@ -247,6 +263,9 @@ export function toLaps(raw: WorkoutLap[]): ActivityLap[] {
       avgHr: hr(lap.avgHr),
       maxHr: hr(lap.maxHr),
       cadence: normalizeCadence(lap.cadence),
+      powerW: lap.powerW,
+      verticalOscillationCm: lap.verticalOscillationCm,
+      groundContactMs: lap.groundContactMs,
     }));
 }
 
@@ -282,6 +301,8 @@ export function toActivity(workout: ImportedWorkout): Omit<ActivityLog, 'id' | '
       typeof workout.elevationGainM === 'number' && Number.isFinite(workout.elevationGainM)
         ? Math.round(workout.elevationGainM)
         : undefined,
+    // フォームの指標は、入っていれば足す。無い時は項目ごと出さない。
+    ...(workout.dynamics ?? {}),
   };
   const hasMetrics = Object.values(metrics).some((value) => value !== undefined);
 

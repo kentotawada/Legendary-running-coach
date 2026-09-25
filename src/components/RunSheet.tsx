@@ -105,6 +105,25 @@ export default function RunSheet({ activity, onClose }: { activity: ActivityLog;
   const fastest = paces.length > 0 ? Math.min(...paces) : 0;
   const slowest = paces.length > 0 ? Math.max(...paces) : 0;
 
+  const metrics = activity.metrics;
+  const form = [
+    metrics?.powerW !== undefined ? { label: 'パワー', value: `${metrics.powerW}W` } : null,
+    metrics?.verticalOscillationCm !== undefined
+      ? { label: '上下動', value: `${metrics.verticalOscillationCm}cm` }
+      : null,
+    metrics?.groundContactMs !== undefined
+      ? { label: '接地時間', value: `${metrics.groundContactMs}ms` }
+      : null,
+    metrics?.stepLengthCm !== undefined ? { label: '歩幅', value: `${metrics.stepLengthCm}cm` } : null,
+    metrics?.verticalRatio !== undefined ? { label: '上下動比', value: `${metrics.verticalRatio}%` } : null,
+    metrics?.balanceLeft !== undefined
+      ? {
+          label: '左右',
+          value: `${metrics.balanceLeft} : ${Math.round((100 - metrics.balanceLeft) * 10) / 10}`,
+        }
+      : null,
+  ].filter((item): item is { label: string; value: string } => item !== null);
+
   /** 棒の長さは速さに比例させる。速い区間が長く出るので、繰り返しの形が一目で分かる。 */
   const barWidth = (lap: (typeof laps)[number]) => {
     const pace = lap.distanceKm > 0 ? lap.durationSec / lap.distanceKm : 0;
@@ -165,6 +184,30 @@ export default function RunSheet({ activity, onClose }: { activity: ActivityLog;
           {analysis.reps.avgHr !== undefined && ` / 平均心拍 ${analysis.reps.avgHr}`}
           {analysis.reps.restPace && ` / つなぎ ${analysis.reps.restPace}`}
         </p>
+      )}
+
+      {/*
+        フォームの指標は FIT ファイルからしか入らない。
+        良し悪しの目安は身長や速度で変わるので、**判定は書かない。** 数値だけを置く。
+      */}
+      {form.length > 0 && (
+        <div className="mt-4">
+          <p className="text-[13px] font-semibold">フォームの指標</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {form.map((item) => (
+              <span
+                key={item.label}
+                className="rounded-full border border-line px-3 py-1.5 text-[12px] tabular-nums"
+              >
+                <span className="text-muted">{item.label}</span>{' '}
+                <strong className="font-bold">{item.value}</strong>
+              </span>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            良し悪しの目安は、身長や走る速度で変わります。見るのは、自分の中での変化です。
+          </p>
+        </div>
       )}
 
       {activity.series && <HeartRateChart km={activity.series.km} hr={activity.series.hr} />}

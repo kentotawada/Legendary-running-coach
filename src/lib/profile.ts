@@ -599,6 +599,11 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
         a.metrics?.cadence !== undefined ? `ピッチ${a.metrics.cadence}spm` : null,
         a.metrics?.strideM !== undefined ? `ストライド${a.metrics.strideM}m` : null,
         a.metrics?.elevationGainM !== undefined ? `獲得標高${a.metrics.elevationGainM}m` : null,
+        // フォームの指標は FIT からしか入らない。入っている時だけ出す。
+        a.metrics?.powerW !== undefined ? `パワー${a.metrics.powerW}W` : null,
+        a.metrics?.verticalOscillationCm !== undefined ? `上下動${a.metrics.verticalOscillationCm}cm` : null,
+        a.metrics?.groundContactMs !== undefined ? `接地${a.metrics.groundContactMs}ms` : null,
+        a.metrics?.balanceLeft !== undefined ? `左右${a.metrics.balanceLeft}:${Math.round((100 - a.metrics.balanceLeft) * 10) / 10}` : null,
         a.effort !== undefined ? `主観強度${a.effort}/10` : null,
         a.felt ? `「${a.felt}」` : null,
         a.source === 'screenshot' ? '(画像から読取)' : null,
