@@ -256,3 +256,28 @@ describe('取り込み口から見たとき', () => {
     expect(workout.type).toBe('walk');
   });
 });
+
+describe('読めなかった時に、何が足りなかったかを言う', () => {
+  /**
+   * **「見つかりませんでした」だけでは、直す場所が分からない。**
+   * 開けたのか、記録が何点あったのか、何が入っていなかったのかまで言う。
+   */
+  const onlyTimestamps = (timestamps: number[]) => {
+    const writer = new FitWriter();
+    writer.define(0, 20, [{ num: 253, type: UINT32, value: 0 }]);
+    for (const ts of timestamps) writer.record(0, [{ num: 253, type: UINT32, value: ts }]);
+    return writer.toBuffer();
+  };
+
+  it('記録が足りない時は、その点数を言う', () => {
+    const base = fitTime('2026-09-24T00:30:00.000Z');
+    expect(() => parseFit(onlyTimestamps([base]))).toThrow(FitError);
+    expect(() => parseFit(onlyTimestamps([base]))).toThrow(/1点/);
+  });
+
+  it('距離も時間も無い時は、そう言う', () => {
+    // 時刻が動かない＝経過時間0。距離の項目も入っていない。
+    const base = fitTime('2026-09-24T00:30:00.000Z');
+    expect(() => parseFit(onlyTimestamps([base, base, base]))).toThrow(/距離も時間も/);
+  });
+});

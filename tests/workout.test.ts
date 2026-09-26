@@ -3,6 +3,7 @@ import { MAX_FILE_BYTES, WorkoutFileError, parseWorkoutFile } from '@/lib/workou
 import {
   KEEP_SERIES,
   MAX_SERIES_POINTS,
+  describeColumns,
   describeImport,
   downsample,
   importWorkouts,
@@ -621,5 +622,75 @@ describe('取り込める項目が増えた後で、入れ直したとき', () =
     expect(after.upgraded).toBe(0);
     expect(after.skipped).toBe(1);
     expect(after.profile.activities[0].series?.cadence).toBeTruthy();
+  });
+});
+
+describe('ファイルに何が入っていたかを言う', () => {
+  /**
+   * **「グラフが出ない」の原因を、その場で二つに分ける。**
+   * そのファイルに無かったのか、アプリが落としたのか。
+   * ここが言えないと、直す場所が分からない。
+   */
+  const of = (sample: Record<string, number>): ImportedWorkout => ({
+    externalId: 'file:x',
+    startedAt: '2026-09-24T21:10:00Z',
+    type: 'run',
+    source: 'file',
+    distanceM: 12000,
+    durationSec: 3000,
+    samples: [
+      { t: 0, d: 0, ...sample },
+      { t: 75, d: 300, ...sample },
+    ],
+  });
+
+  it('読めた項目と、無かった項目の両方を出す', () => {
+    const line = describeColumns([of({ hr: 158, pace: 250 })]);
+    expect(line).toContain('心拍');
+    expect(line).toContain('ペース');
+    expect(line).toContain('このファイルに無かった項目');
+    expect(line).toContain('上下動');
+    expect(line).toContain('接地時間');
+  });
+
+  it('全部そろっていれば、無かった項目は言わない', () => {
+    const line = describeColumns([
+      of({ hr: 158, pace: 250, cadence: 89, power: 278, vo: 9.4, gct: 231 }),
+    ]);
+    expect(line).not.toContain('無かった項目');
+  });
+
+  it('推移そのものが無ければ、そう言う', () => {
+    const line = describeColumns([{ ...of({}), samples: undefined }]);
+    expect(line).toContain('推移が入っていませんでした');
+  });
+});
+
+describe('カルテへ入れられなかった1件', () => {
+  /** **黙って消さない。** 0件の理由は、必ず言葉にする。 */
+  it('距離も時間も無ければ、落とした数に出る', () => {
+    const result = importWorkouts(
+      createDefaultProfile('u1', NOW.toISOString()),
+      [
+        {
+          externalId: 'file:empty',
+          startedAt: '2026-09-24T21:10:00Z',
+          type: 'run',
+          source: 'file',
+        },
+      ],
+      NOW,
+    );
+
+    expect(result.imported).toBe(0);
+    expect(result.dropped).toBe(1);
+    expect(describeImport(result)).toContain('距離も時間も');
+  });
+
+  it('1件も来ていない時と、落とした時で、言い方を変える', () => {
+    const empty = describeImport({ imported: 0, skipped: 0, upgraded: 0, dropped: 0 });
+    const dropped = describeImport({ imported: 0, skipped: 0, upgraded: 0, dropped: 2 });
+    expect(empty).not.toBe(dropped);
+    expect(dropped).toContain('2件');
   });
 });

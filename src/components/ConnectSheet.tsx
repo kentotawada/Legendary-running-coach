@@ -163,7 +163,20 @@ function FileImport({
         押したのに何も言われない、がいちばん不安になる。
         結果は、押したボタンのすぐ下に出す。
       */}
-      {message && <p className="mt-2 text-[13px] leading-relaxed text-accent">{message}</p>}
+      {/*
+        結果の1行目は「何件入ったか」。2行目は「そのファイルに何が入っていたか」。
+        **役割が違うので、色も大きさも分ける。**
+      */}
+      {message && (
+        <div className="mt-2">
+          <p className="text-[13px] leading-relaxed text-accent">{message.split('\n')[0]}</p>
+          {message.includes('\n') && (
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+              {message.slice(message.indexOf('\n') + 1)}
+            </p>
+          )}
+        </div>
+      )}
 
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
         <strong className="font-semibold text-fg">FIT なら、上下動・接地時間・左右バランス・パワーまで入ります。</strong>
@@ -339,7 +352,7 @@ export default function ConnectSheet({
                 </button>
               </div>
               {!usedFile && syncMessage && (
-                <p className="mt-1.5 text-[12px] text-accent">{syncMessage}</p>
+                <p className="mt-1.5 whitespace-pre-line text-[12px] text-accent">{syncMessage}</p>
               )}
             </>
           ) : (

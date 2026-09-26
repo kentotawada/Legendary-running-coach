@@ -283,7 +283,7 @@ export default function CoachApp() {
               : 'border-line bg-sunken text-muted'
           }`}
         >
-          {syncMessage}
+          <span className="block whitespace-pre-line">{syncMessage}</span>
           {needsDeviceGuide && <span className="mt-0.5 block font-semibold">つなぎ方を見る →</span>}
         </button>
       )}

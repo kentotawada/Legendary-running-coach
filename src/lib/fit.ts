@@ -383,7 +383,12 @@ const round = (value: number | undefined, digits = 1) =>
  */
 export function parseFit(buffer: ArrayBuffer): ImportedWorkout[] {
   const { records, laps, sport } = parseMessages(buffer);
-  if (records.length < 2) throw new FitError('FIT ファイルの中に練習が見つかりませんでした。');
+  // **読めた中身を、そのまま理由にする。** 「見つかりません」だけでは、直しようがない。
+  if (records.length < 2) {
+    throw new FitError(
+      `FIT は開けましたが、走っている間の記録が${records.length}点しかありませんでした。`,
+    );
+  }
 
   const first = records[0];
   const last = records[records.length - 1];
@@ -394,6 +399,13 @@ export function parseFit(buffer: ArrayBuffer): ImportedWorkout[] {
     .filter((value): value is number => typeof value === 'number');
   const distanceM = distances.length > 0 ? Math.max(...distances) - Math.min(...distances) : undefined;
   const durationSec = last.ts - first.ts;
+
+  // 距離も時間も無い練習は、この先で黙って落ちる。**落ちる前に、何が足りないかを言う。**
+  if (!(distanceM && distanceM > 0) && !(durationSec > 0)) {
+    throw new FitError(
+      `FIT は読めましたが、距離も時間も入っていませんでした（記録${records.length}点）。`,
+    );
+  }
 
   const overall = summarize(records);
 
