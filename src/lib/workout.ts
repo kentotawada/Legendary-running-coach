@@ -399,6 +399,33 @@ function trimSeries(profile: RunnerProfile): RunnerProfile {
   };
 }
 
+/**
+ * その記録が、どれだけのことを持っているか。
+ *
+ * **「同じ練習だから飛ばす」の前に、必ずこれで比べる。**
+ * 取り込める項目は後から増える。増えた後に同じファイルを入れ直した時、
+ * 飛ばしてしまうと**新しい項目が永久に入らない**。
+ * 入れ直せば良くなる、という逃げ道を常に残しておく。
+ */
+function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics'>): number {
+  const laps = activity.laps?.length ?? 0;
+  // 推移は、持っている列の数で数える（心拍だけの推移と、6項目の推移は別物）。
+  const columns = activity.series
+    ? (['pace', 'cadence', 'power', 'vo', 'gct'] as const).filter(
+        (key) => (activity.series?.[key]?.length ?? 0) > 0,
+      ).length + 1
+    : 0;
+  // フォームの指標は、1項目ごとに数える。
+  const form = activity.metrics
+    ? (['powerW', 'verticalOscillationCm', 'groundContactMs', 'balanceLeft', 'stepLengthCm'] as const).filter(
+        (key) => activity.metrics?.[key] !== undefined,
+      ).length
+    : 0;
+
+  // 区間は数が多いほど細かいが、1本の重みは推移や指標より軽い。
+  return Math.min(laps, 60) + columns * 10 + form * 10;
+}
+
 export interface ImportResult {
   profile: RunnerProfile;
   imported: number;
@@ -445,12 +472,7 @@ export function importWorkouts(
       // **弾く前に、どちらが詳しいかを見る。**
       // チャットで話した練習を後からファイルで取り込むと、後から来たほうが詳しい。
       // 弾いてしまうと、区間も心拍の推移も永久に失われる。
-      const better =
-        (mapped.laps?.length ?? 0) > (existing.laps?.length ?? 0) ||
-        (Boolean(mapped.series) && !existing.series) ||
-        (Boolean(mapped.metrics?.groundContactMs) && !existing.metrics?.groundContactMs);
-
-      if (better) {
+      if (richness(mapped) > richness(existing)) {
         next = upgradeActivity(next, existing.id, mapped, now);
         if (mapped.externalId) known.add(mapped.externalId);
         upgraded += 1;
