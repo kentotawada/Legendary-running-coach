@@ -39,8 +39,10 @@ export async function POST(request: NextRequest) {
     return storageErrorResponse(error, 'スタンプを記録できませんでした');
   }
 
+  // **カルテも返す。** 画面はここからスタンプを組み立てるので、
+  // 「開いた」印がカルテに入っていないと、その場で消えてしまう。
   return Response.json(
-    { daily: dailyStatus(profile) },
+    { daily: dailyStatus(profile), profile: publicProfile(profile) },
     { headers: isNew ? { 'Set-Cookie': userCookieHeader(userId) } : undefined },
   );
 }

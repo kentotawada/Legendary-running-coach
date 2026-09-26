@@ -5,6 +5,7 @@ import type { DailyStatus } from '@/lib/daily';
 import { MILESTONES } from '@/lib/daily';
 import { DAY_BOUNDARY_NOTE } from '@/lib/day';
 import Sheet from './Sheet';
+import StampIcon from './StampIcon';
 
 interface Props {
   daily: DailyStatus;
@@ -57,12 +58,13 @@ export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Pro
                   stamp.done ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
                 ].join(' ')}
               >
+                {/* 押せた時は色が変わるだけ。絵柄は変えない。 */}
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg ${
-                    stamp.done ? '' : 'opacity-40 grayscale'
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center ${
+                    stamp.done ? 'text-accent' : 'text-muted opacity-45'
                   }`}
                 >
-                  {stamp.emoji}
+                  <StampIcon id={stamp.id} size={28} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className={`block text-[14px] font-semibold ${stamp.done ? 'text-accent' : ''}`}>
