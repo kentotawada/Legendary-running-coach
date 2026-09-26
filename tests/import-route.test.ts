@@ -139,6 +139,31 @@ describe('POST /api/import', () => {
     expect(activity.metrics?.groundContactMs).toBe(231);
   });
 
+  it('心拍ごとの秒数も、そのまま通る', async () => {
+    // **ゾーンの集計の元。ここを whitelist から漏らすと、黙って消える。**
+    const memory = memoryStore();
+    setStore(memory.store);
+
+    const response = await POST(
+      post([{ ...run(), hrSeconds: [[150, 600], [165, 1200]] }]),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.imported).toBe(1);
+
+    expect(memory.read().profile.activities.at(-1)!.hrSeconds).toEqual([
+      [150, 600],
+      [165, 1200],
+    ]);
+  });
+
+  it('形の違う心拍の集計は、落とす', async () => {
+    const memory = memoryStore();
+    setStore(memory.store);
+
+    await POST(post([{ ...run(), hrSeconds: [[0, 600], 'nonsense', [150]] }]));
+    expect(memory.read().profile.activities.at(-1)!.hrSeconds).toBeUndefined();
+  });
+
   it('接続の鍵は、返す記録に混ぜない', async () => {
     setStore(memoryStore().store);
 

@@ -324,6 +324,7 @@ export default function CoachApp() {
       {openRun && (
         <RunSheet
           activity={openRun}
+          profile={profile}
           onClose={() => setOpenRun(null)}
           onBack={cameFromCarte ? () => closeChild(() => setOpenRun(null)) : undefined}
         />
