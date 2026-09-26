@@ -19,13 +19,23 @@ interface Props {
   onError: (message: string) => void;
   /** 何を聞けばいいか分からない時の相談例。 */
   onOpenIdeas?: () => void;
+  /** 時計から書き出した記録ファイル（FIT / TCX / GPX / zip）を取り込む。 */
+  onImportFiles?: (files: File[]) => void;
   apiRef?: { current: ComposerApi | null };
   disabled?: boolean;
 }
 
 const MAX_HEIGHT = 140;
 
-export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disabled = false }: Props) {
+export default function Composer({
+  onSend,
+  onError,
+  onOpenIdeas,
+  onImportFiles,
+  apiRef,
+  disabled = false,
+}: Props) {
+  const recordRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   // 元のファイルも持っておく。枚数が変わるたびに圧縮率を計算し直すため。
   const [files, setFiles] = useState<File[]>([]);
@@ -278,6 +288,21 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
           className="hidden"
           onChange={(e) => void addFiles(e.target.files)}
         />
+        {/*
+          accept は付けない。iOS の「ファイル」は、拡張子から種類を引けないものを
+          選べない状態にしてしまう。.tcx も .fit も、その登録が無い。
+        */}
+        <input
+          ref={recordRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            if (files.length > 0) onImportFiles?.(files);
+          }}
+        />
         <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"
@@ -296,6 +321,31 @@ export default function Composer({ onSend, onError, onOpenIdeas, apiRef, disable
 
           {menuOpen && (
             <div className="absolute bottom-[54px] left-0 z-20 w-56 overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+              {/*
+                時計の記録ファイルを、いちばん上に置く。
+                入る情報がいちばん多い道なので、探させない。
+                スクリーンショットの道は、そのすぐ下に残す。
+              */}
+              {onImportFiles && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    recordRef.current?.click();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left active:bg-sunken"
+                >
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="13" r="7" />
+                    <path d="M12 9.5V13l2.2 1.6" />
+                    <path d="M9 2h6M9.5 5.2 10 2.4M14.5 5.2 14 2.4" />
+                  </svg>
+                  <span className="min-w-0">
+                    <span className="block text-[14px]">時計の記録を送る</span>
+                    <span className="block text-[11px] text-muted">FIT / TCX / GPX / zip</span>
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {

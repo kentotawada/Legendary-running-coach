@@ -278,6 +278,7 @@ export default function CoachApp() {
           onSend={(text, images) => void send(text, images)}
           onError={reportError}
           onOpenIdeas={() => setIdeasOpen(true)}
+          onImportFiles={(files) => void importFiles(files)}
           apiRef={composerRef}
           disabled={busy || !ready}
         />

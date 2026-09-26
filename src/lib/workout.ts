@@ -452,7 +452,9 @@ export function importWorkouts(
 }
 
 /** 取り込んだ結果を、そのまま画面に出せる一文にする。 */
-export function describeImport(result: ImportResult): string {
+export function describeImport(
+  result: Pick<ImportResult, 'imported' | 'skipped' | 'upgraded'>,
+): string {
   const parts: string[] = [];
   if (result.imported > 0) parts.push(`${result.imported}件の練習を取り込みました`);
   // 「差し替えた」は、黙っていると何も起きていないように見える。必ず言う。

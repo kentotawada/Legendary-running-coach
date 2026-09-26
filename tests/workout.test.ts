@@ -304,25 +304,24 @@ describe('カルテへ入れる', () => {
 });
 
 describe('取り込みの知らせ方', () => {
-  const profile = applyProfileUpdate(createDefaultProfile('u1'), { displayName: 'ケント' }, NOW);
 
   it('入った数を言う', () => {
-    expect(describeImport({ profile, imported: 3, skipped: 0, upgraded: 0 })).toContain('3件');
+    expect(describeImport({ imported: 3, skipped: 0, upgraded: 0 })).toContain('3件');
   });
 
   it('全部すでに入っていたなら、そう言う', () => {
-    expect(describeImport({ profile, imported: 0, skipped: 4, upgraded: 0 })).toContain('すべて取り込み済み');
+    expect(describeImport({ imported: 0, skipped: 4, upgraded: 0 })).toContain('すべて取り込み済み');
   });
 
   /** 差し替えを黙っていると、押したのに何も起きていないように見える。 */
   it('より詳しい記録に差し替えた時は、そう言う', () => {
-    const text = describeImport({ profile, imported: 0, skipped: 0, upgraded: 2 });
+    const text = describeImport({ imported: 0, skipped: 0, upgraded: 2 });
     expect(text).toContain('2件');
     expect(text).toContain('差し替え');
   });
 
   it('1件も読めなかった時に、入ったふりをしない', () => {
-    expect(describeImport({ profile, imported: 0, skipped: 0, upgraded: 0 })).toContain('見つかりませんでした');
+    expect(describeImport({ imported: 0, skipped: 0, upgraded: 0 })).toContain('見つかりませんでした');
   });
 });
 

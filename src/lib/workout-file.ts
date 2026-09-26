@@ -146,6 +146,7 @@ function parseTcx(xml: string): ImportedWorkout[] {
     let cadenceSeconds = 0;
 
     const laps: WorkoutLap[] = [];
+    const points: TcxPoint[] = [];
 
     for (const lap of blocks(activity.inner, 'Lap')) {
       const lapSeconds = num(lap.inner, 'TotalTimeSeconds') ?? 0;
@@ -153,15 +154,23 @@ function parseTcx(xml: string): ImportedWorkout[] {
       meters += lapMeters;
       seconds += lapSeconds;
 
-      const avg = num(blocks(lap.inner, 'AverageHeartRateBpm')[0]?.inner ?? '', 'Value');
+      // その区間の中の1点ずつ。**ここが、スクリーンショットでは手に入らない部分。**
+      const lapPoints = tcxPoints(lap.inner);
+      points.push(...lapPoints);
+      const fromPoints = statsOf(lapPoints);
+
+      // 要約に入っていない項目は、点の並びから補う。
+      // ピッチを要約に書かない時計があり、そこで落とすと「ピッチ不明」になってしまう。
+      const avg = num(blocks(lap.inner, 'AverageHeartRateBpm')[0]?.inner ?? '', 'Value') ?? fromPoints.avgHr;
+      const max = num(blocks(lap.inner, 'MaximumHeartRateBpm')[0]?.inner ?? '', 'Value') ?? fromPoints.maxHr;
+      const cadence =
+        num(lap.inner, 'AvgRunCadence') ?? num(lap.inner, 'Cadence') ?? fromPoints.cadence;
+
       if (avg !== undefined && lapSeconds > 0) {
         hrWeighted += avg * lapSeconds;
         hrSeconds += lapSeconds;
       }
-      const max = num(blocks(lap.inner, 'MaximumHeartRateBpm')[0]?.inner ?? '', 'Value');
       if (max !== undefined) maxHr = Math.max(maxHr ?? 0, max);
-
-      const cadence = num(lap.inner, 'AvgRunCadence') ?? num(lap.inner, 'Cadence');
       if (cadence !== undefined && cadence > 0 && lapSeconds > 0) {
         cadenceWeighted += cadence * lapSeconds;
         cadenceSeconds += lapSeconds;
@@ -178,8 +187,27 @@ function parseTcx(xml: string): ImportedWorkout[] {
       }
     }
 
-    // 1秒ごとの推移。**ここが、スクリーンショットでは手に入らない部分。**
-    const samples = tcxSamples(activity.inner);
+    // ラップの外に点がある書き方もある。1点も拾えていなければ、活動全体から取り直す。
+    const all = points.length > 1 ? points : tcxPoints(activity.inner);
+    const base = all[0]?.ms;
+    const samples: WorkoutSample[] =
+      base === undefined
+        ? []
+        : all.map((point) => ({
+            t: Math.round((point.ms - base) / 1000),
+            d: point.d,
+            hr: point.hr,
+            cadence: point.cadence,
+          }));
+
+    // 全体のピッチも、要約に無ければ点から。
+    if (cadenceSeconds === 0) {
+      const overall = statsOf(all);
+      if (overall.cadence !== undefined) {
+        cadenceWeighted = overall.cadence;
+        cadenceSeconds = 1;
+      }
+    }
 
     if (meters <= 0 && seconds <= 0) continue;
 
@@ -202,30 +230,46 @@ function parseTcx(xml: string): ImportedWorkout[] {
   return workouts;
 }
 
-/**
- * TCX のトラックポイントを、経過秒・累計距離・心拍の並びに直す。
- * 距離は活動の開始からの累計で入っている（Garmin の書き方）。
- */
-function tcxSamples(activityXml: string): WorkoutSample[] {
-  const samples: WorkoutSample[] = [];
-  let firstMs: number | undefined;
+/** TCX のトラックポイント1点。時刻は絶対値で持つ（区間に割り当てるため）。 */
+interface TcxPoint {
+  ms: number;
+  /** 活動の開始からの累計距離(m)。Garmin はこの書き方をする。 */
+  d?: number;
+  hr?: number;
+  /** ピッチの生値。 */
+  cadence?: number;
+}
 
-  for (const point of blocks(activityXml, 'Trackpoint')) {
+function tcxPoints(xml: string): TcxPoint[] {
+  const points: TcxPoint[] = [];
+
+  for (const point of blocks(xml, 'Trackpoint')) {
     const ms = time(text(point.inner, 'Time'));
     if (ms === undefined) continue;
-    if (firstMs === undefined) firstMs = ms;
 
     const hr = num(blocks(point.inner, 'HeartRateBpm')[0]?.inner ?? '', 'Value');
     const cadence = num(point.inner, 'RunCadence') ?? num(point.inner, 'Cadence');
-    samples.push({
-      t: Math.round((ms - firstMs) / 1000),
+    points.push({
+      ms,
       d: num(point.inner, 'DistanceMeters'),
       hr: hr !== undefined && hr > 0 ? hr : undefined,
       cadence: cadence !== undefined && cadence > 0 ? cadence : undefined,
     });
   }
 
-  return samples;
+  return points;
+}
+
+/** 点の並びから、平均と最大を出す。測れていない点は数に入れない。 */
+function statsOf(points: TcxPoint[]) {
+  const take = (key: 'hr' | 'cadence') =>
+    points.map((point) => point[key]).filter((value): value is number => typeof value === 'number');
+  const hr = take('hr');
+  const cadence = take('cadence');
+  const mean = (list: number[]) =>
+    list.length > 0 ? list.reduce((sum, value) => sum + value, 0) / list.length : undefined;
+
+  return { avgHr: mean(hr), maxHr: hr.length > 0 ? Math.max(...hr) : undefined, cadence: mean(cadence) };
 }
 
 /** 気圧・GPS のぶれで標高は細かく上下する。この幅より小さい変化は積まない。 */
