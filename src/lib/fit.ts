@@ -71,6 +71,20 @@ function within(value: number | undefined, range: readonly [number, number]): nu
   return value >= range[0] && value <= range[1] ? value : undefined;
 }
 
+/**
+ * 中身を見て FIT かを判断する。
+ * **名前は当てにならない。** 端末やアプリが拡張子を落とすことがある。
+ * FIT は先頭から8バイト目に ".FIT" と書いてある。
+ */
+export function looksLikeFit(data: ArrayBuffer): boolean {
+  if (data.byteLength < 12) return false;
+  const view = new DataView(data);
+  return (
+    String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11)) ===
+    '.FIT'
+  );
+}
+
 export class FitError extends Error {
   constructor(message: string) {
     super(message);

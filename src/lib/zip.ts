@@ -124,3 +124,13 @@ export function isWorkoutFile(name: string): boolean {
 export function isZipName(name: string): boolean {
   return name.toLowerCase().endsWith('.zip');
 }
+
+/**
+ * 中身を見て zip かを判断する。
+ * **名前は当てにならない。** 端末やアプリが拡張子を落としたり付け替えたりする。
+ */
+export function looksLikeZip(data: ArrayBuffer): boolean {
+  if (data.byteLength < 4) return false;
+  const head = new Uint8Array(data, 0, 2);
+  return head[0] === 0x50 && head[1] === 0x4b; // "PK"
+}
