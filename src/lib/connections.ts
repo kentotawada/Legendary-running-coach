@@ -268,6 +268,40 @@ export const CONNECT_SOURCES: ConnectSource[] = [
   },
 ];
 
+/**
+ * Garmin Connect のウェブ版。
+ *
+ * **深い URL を案内しない。** 認証が要るページを直に指すと、
+ * ログインしていない人にはログイン画面しか出ず、「押したのに進めない」になる。
+ * 入口だけを指して、そこから先は手順が持つ。
+ */
+export const GARMIN_URL = 'https://connect.garmin.com/';
+
+/**
+ * 記録ファイルを書き出す手順。
+ *
+ * **スマホの Garmin Connect アプリでは書き出せません。**
+ * 活動画面の「⋮」にあるのは編集・ギア・お気に入り・削除だけで、
+ * 「共有」もリンクを送る機能です（実機で確認済み）。
+ * 遠回りに見えても、ブラウザ版が唯一の道です。
+ */
+export const GARMIN_EXPORT_STEPS: ConnectStep[] = [
+  {
+    title: 'Garmin Connect（ブラウザ版）を開く',
+    detail: '一度ログインしておけば、次からはそのまま開きます',
+  },
+  { title: 'メニューの「アクティビティ」から、その練習を開く' },
+  {
+    title: '右上の歯車（⚙）を押す',
+    detail: 'ハートや鉛筆が並んでいる行の、いちばん右です',
+  },
+  {
+    title: '「ファイルのエクスポート」を選ぶ（= FIT）',
+    detail: 'zip で降りてきますが、そのままこのアプリに渡せます',
+    english: 'Export Original',
+  },
+];
+
 export function findSource(id: string | undefined): ConnectSource | undefined {
   return CONNECT_SOURCES.find((source) => source.id === id);
 }

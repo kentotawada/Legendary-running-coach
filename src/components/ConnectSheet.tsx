@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { StravaConnection } from '@/lib/types';
 import {
   CONNECT_SOURCES,
+  GARMIN_EXPORT_STEPS,
+  GARMIN_URL,
   effortLabel,
   findSource,
   needsSetup,
@@ -84,8 +86,51 @@ function FileImport({
         入力欄の「＋」からも同じことができます。
       </p>
 
+      {/*
+        書き出しは Garmin Connect のブラウザ版にしかない。
+        **スマホのアプリにはこの機能が無い**（「⋮」は編集・削除だけ、「共有」はリンク）。
+        探させると必ず迷うので、入口と手順をここに置く。
+      */}
+      <div className="mt-2.5 rounded-[14px] bg-sunken px-3.5 py-3">
+        <p className="text-[12px] font-semibold">Garmin の記録を書き出す</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+          <strong className="font-semibold text-fg">スマホの Garmin Connect アプリでは書き出せません。</strong>
+          ブラウザ版から取り出します。
+        </p>
+        <ol className="mt-2 space-y-1.5">
+          {GARMIN_EXPORT_STEPS.map((step, index) => (
+            <li key={step.title} className="flex gap-2">
+              <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-[var(--accent-fg)]">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-medium leading-relaxed">{step.title}</span>
+                {step.english && (
+                  <span className="mt-0.5 block text-[10px] text-muted">英語表示: {step.english}</span>
+                )}
+                {step.detail && (
+                  <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{step.detail}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <a
+          href={GARMIN_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2.5 inline-block rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+        >
+          Garmin Connect を開く
+        </a>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+          ログインを求められたら、一度入れば次から続きます。
+          Safari の共有 →「ホーム画面に追加」で、アイコンから直接開けるようになります。
+        </p>
+      </div>
+
       <label
-        className={`mt-2 inline-block cursor-pointer rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent ${
+        className={`mt-2.5 inline-block cursor-pointer rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent ${
           busy ? 'opacity-40' : ''
         }`}
       >
