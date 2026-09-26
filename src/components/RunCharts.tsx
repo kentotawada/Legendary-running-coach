@@ -225,6 +225,20 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         <strong className="font-semibold text-fg">すべての項目で</strong>揃って出ます。
       </p>
 
+      {/*
+        **項目が1つしか無い時に、黙って1本だけ出さない。**
+        取り込んだ時期によって持っている項目が違うので、
+        「グラフが出ない」ではなく「入れ直せば増える」と分かる形にする。
+      */}
+      {shown.length === 1 && (
+        <p className="mt-2 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
+          この練習は<strong className="font-semibold text-fg">{shown[0].label}しか持っていません。</strong>
+          取り込んだ時期によって、残っている項目が違います。
+          <strong className="font-semibold text-fg">同じファイルをもう一度取り込むと、ほかの項目も入ります。</strong>
+          上下動・接地時間・パワーは FIT ファイルにだけ入っています。
+        </p>
+      )}
+
       {shown.map((metric) => (
         <Chart key={metric.key} metric={metric} xs={xs} at={at} onHover={setAt} />
       ))}

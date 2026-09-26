@@ -563,3 +563,63 @@ describe('推移として残すもの', () => {
     expect(series.pace).toEqual([255, 250]);
   });
 });
+
+describe('取り込める項目が増えた後で、入れ直したとき', () => {
+  /**
+   * 取り込める項目は後から増える。
+   * **増えた後に同じファイルを入れ直した時、飛ばしてしまうと新しい項目が永久に入らない。**
+   * 入れ直せば良くなる、という逃げ道を常に残しておく。
+   */
+  const old = (): ImportedWorkout => ({
+    externalId: 'file:2026-09-22T00:01:00Z',
+    startedAt: '2026-09-22T00:01:00Z',
+    type: 'run',
+    distanceM: 18000,
+    durationSec: 4540,
+    source: 'file',
+    laps: Array.from({ length: 18 }, () => ({ distanceM: 1000, durationSec: 252, avgHr: 160 })),
+    // 心拍しか持っていなかった頃の推移
+    samples: Array.from({ length: 60 }, (_, i) => ({ t: i * 75, d: i * 300, hr: 160 })),
+  });
+
+  const rich = (): ImportedWorkout => ({
+    ...old(),
+    samples: Array.from({ length: 60 }, (_, i) => ({
+      t: i * 75,
+      d: i * 300,
+      hr: 160,
+      cadence: 88,
+      pace: 252,
+      power: 280,
+      vo: 9.2,
+      gct: 235,
+    })),
+    dynamics: { powerW: 280, verticalOscillationCm: 9.2, groundContactMs: 235 },
+  });
+
+  it('項目が増えたファイルなら、飛ばさずに差し替える', () => {
+    const before = importWorkouts(createDefaultProfile('u1', NOW.toISOString()), [old()], NOW);
+    expect(before.profile.activities[0].series?.cadence).toBeUndefined();
+
+    const after = importWorkouts(before.profile, [rich()], NOW);
+    expect(after.upgraded).toBe(1);
+    expect(after.skipped).toBe(0);
+    expect(after.profile.activities).toHaveLength(1);
+
+    const series = after.profile.activities[0].series!;
+    expect(series.cadence).toBeTruthy();
+    expect(series.power).toBeTruthy();
+    expect(series.gct).toBeTruthy();
+    expect(after.profile.activities[0].metrics?.groundContactMs).toBe(235);
+  });
+
+  /** 逆は起きてはいけない。詳しいものを、粗いもので上書きしない。 */
+  it('粗いファイルで、詳しい記録を上書きしない', () => {
+    const before = importWorkouts(createDefaultProfile('u1', NOW.toISOString()), [rich()], NOW);
+    const after = importWorkouts(before.profile, [old()], NOW);
+
+    expect(after.upgraded).toBe(0);
+    expect(after.skipped).toBe(1);
+    expect(after.profile.activities[0].series?.cadence).toBeTruthy();
+  });
+});
