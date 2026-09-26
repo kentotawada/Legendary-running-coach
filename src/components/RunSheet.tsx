@@ -95,7 +95,16 @@ function HeartRateChart({ km, hr }: { km: number[]; hr: (number | null)[] }) {
   );
 }
 
-export default function RunSheet({ activity, onClose }: { activity: ActivityLog; onClose: () => void }) {
+export default function RunSheet({
+  activity,
+  onClose,
+  onBack,
+}: {
+  activity: ActivityLog;
+  onClose: () => void;
+  /** カルテから開かれた時だけ渡す。閉じたらカルテへ戻す。 */
+  onBack?: () => void;
+}) {
   const laps = activity.laps ?? [];
   const analysis = analyze(activity);
 
@@ -132,7 +141,13 @@ export default function RunSheet({ activity, onClose }: { activity: ActivityLog;
   };
 
   return (
-    <Sheet label="練習の中身" title={`${activity.date} の練習`} onClose={onClose}>
+    <Sheet
+      label="練習の中身"
+      title={`${activity.date} の練習`}
+      onClose={onClose}
+      onBack={onBack}
+      backLabel={onBack ? 'カルテ' : undefined}
+    >
       <div className="flex gap-2">
         <Tile
           label="距離"

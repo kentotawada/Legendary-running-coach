@@ -64,6 +64,21 @@ export default function CoachApp() {
   const [connectOpen, setConnectOpen] = useState(false);
   /** 中身を開いている練習。区間と心拍の推移を見せる。 */
   const [openRun, setOpenRun] = useState<ActivityLog | null>(null);
+  /**
+   * どこから開いた画面か。
+   * **閉じると全部消えるのは、開いた道を覚えていないのと同じ。**
+   * カルテから開いた画面を閉じたら、カルテに戻す。
+   */
+  const [cameFromCarte, setCameFromCarte] = useState(false);
+
+  /** 子の画面を閉じる。カルテから来ていれば、カルテに戻る。 */
+  const closeChild = (close: () => void) => {
+    close();
+    if (cameFromCarte) {
+      setCameFromCarte(false);
+      setSheetOpen(true);
+    }
+  };
   const [authOpen, setAuthOpen] = useState(false);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
@@ -306,7 +321,13 @@ export default function CoachApp() {
 
       {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
 
-      {openRun && <RunSheet activity={openRun} onClose={() => setOpenRun(null)} />}
+      {openRun && (
+        <RunSheet
+          activity={openRun}
+          onClose={() => setOpenRun(null)}
+          onBack={cameFromCarte ? () => closeChild(() => setOpenRun(null)) : undefined}
+        />
+      )}
 
       {connectOpen && (
         <ConnectSheet
@@ -322,6 +343,15 @@ export default function CoachApp() {
             setConnectOpen(false);
             clearSyncMessage();
           }}
+          onBack={
+            cameFromCarte
+              ? () =>
+                  closeChild(() => {
+                    setConnectOpen(false);
+                    clearSyncMessage();
+                  })
+              : undefined
+          }
         />
       )}
 
@@ -338,6 +368,7 @@ export default function CoachApp() {
         <AuthSheet
           auth={auth}
           onClose={() => setAuthOpen(false)}
+          onBack={cameFromCarte ? () => closeChild(() => setAuthOpen(false)) : undefined}
           onSignedOut={() => window.location.reload()}
         />
       )}
@@ -361,6 +392,7 @@ export default function CoachApp() {
           authAvailable={auth.available}
           onOpenAuth={() => {
             setSheetOpen(false);
+            setCameFromCarte(true);
             setAuthOpen(true);
           }}
           fontSize={fontSize}
@@ -369,10 +401,12 @@ export default function CoachApp() {
           pushAvailable={build?.pushAvailable}
           onOpenConnect={() => {
             setSheetOpen(false);
+            setCameFromCarte(true);
             setConnectOpen(true);
           }}
           onOpenRun={(activity) => {
             setSheetOpen(false);
+            setCameFromCarte(true);
             setOpenRun(activity);
           }}
           onSave={(edit) => void updateProfile(edit)}

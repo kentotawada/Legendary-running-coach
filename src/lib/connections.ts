@@ -47,6 +47,14 @@ export interface ConnectStep {
   english?: string;
 }
 
+/**
+ * 記録ファイルを書き出せるか。
+ *
+ * **確かめていない画面の名前は書かない。** 「設定 → ○○ を押す」と書いて実際に無いと、
+ * その人はそこで詰まって諦める。押す場所ではなく「どこを探すか」を書く。
+ */
+export type ExportAbility = 'yes' | 'none' | 'unknown';
+
 export interface ConnectSource {
   id: SourceId;
   /** 選択肢に出す名前。 */
@@ -64,6 +72,12 @@ export interface ConnectSource {
   steps: ConnectStep[];
   /** 先に知らせておくべき制約。無いなら出さない。 */
   caution?: string;
+  /** 記録ファイルを書き出せるか。 */
+  canExport: ExportAbility;
+  /** どこを探すか。 */
+  exportHint: string;
+  /** 分かっている範囲の形式。 */
+  exportFormats?: string;
   /**
    * 取り込んだ記録の出どころを判定する語。
    * Strava の external_id / device_name に現れる文字列を小文字で持つ。
@@ -109,6 +123,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     steps: linkInStrava('Garmin', 'Garmin'),
     caution:
       'リンクした後の練習から流れます。リンクより前の記録は Garmin からは遡りません（Strava にすでにある分は取り込みます）。',
+    canExport: 'yes',
+    exportHint:
+      'ブラウザ版のアクティビティ画面で、右上の歯車（⚙）→「ファイルのエクスポート」。**スマホのアプリには書き出しがありません**（実機で確認済み）。',
+    exportFormats: 'FIT / TCX / GPX',
     matchers: ['garmin'],
   },
   {
@@ -137,6 +155,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     ],
     caution:
       'Strava は iPhone の「ヘルスケア」へ書き込みはしますが、読み取りはしません。純正ワークアウトだけが、この一手を必要とします。',
+    canExport: 'none',
+    exportHint:
+      '純正の「ワークアウト」には書き出しがありません。橋渡しアプリ（HealthFit など）なら書き出せます。使っていなければ、スクリーンショットで十分です。',
     matchers: ['apple', 'healthfit', 'rungap'],
   },
   {
@@ -162,6 +183,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     ],
     caution:
       'Nike Run Club は外部サービス向けの公式な窓口を出していないため、ここだけ一手増えます。Android では使える橋渡しアプリが限られます。',
+    canExport: 'none',
+    exportHint:
+      'Nike Run Club には記録ファイルの書き出しがありません。**スクリーンショットがいちばん確実です。**橋渡しアプリ（HealthFit / RunGap）を使えば書き出せます。',
     matchers: ['nike'],
   },
   {
@@ -172,6 +196,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('COROS', 'COROS'),
+    canExport: 'yes',
+    exportHint:
+      'アプリかウェブ版の、その練習の画面で「エクスポート」「書き出し」を探してください。FIT があれば FIT を選びます。',
+    exportFormats: 'FIT / TCX / GPX',
     matchers: ['coros'],
   },
   {
@@ -182,6 +210,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Polar', 'Polar Flow'),
+    canExport: 'yes',
+    exportHint:
+      'Polar Flow（ウェブ版）の練習の画面で「エクスポート」を探してください。',
+    exportFormats: 'TCX / GPX',
     matchers: ['polar'],
   },
   {
@@ -191,6 +223,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Suunto', 'Suunto'),
+    canExport: 'yes',
+    exportHint: 'アプリかウェブ版の練習の画面で「エクスポート」を探してください。',
+    exportFormats: 'FIT / GPX',
     matchers: ['suunto'],
   },
   {
@@ -200,6 +235,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Fitbit', 'Fitbit'),
+    canExport: 'yes',
+    exportHint: 'ウェブ版の運動の記録から書き出せます。アプリ側には無いことがあります。',
+    exportFormats: 'TCX',
     matchers: ['fitbit'],
   },
   {
@@ -210,6 +248,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('adidas Running', 'adidas Running'),
+    canExport: 'yes',
+    exportHint: 'ウェブ版の練習の画面で「エクスポート」を探してください。',
+    exportFormats: 'GPX / TCX',
     matchers: ['adidas', 'runtastic'],
   },
   {
@@ -220,6 +261,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'direct',
     minutes: 0,
     steps: [],
+    canExport: 'yes',
+    exportHint:
+      'ウェブ版の活動ページで「…」→ 書き出し。「元のファイル」を選ぶと、時計が記録したそのままが取れます。',
+    exportFormats: '元のファイル（FIT）/ TCX / GPX',
     matchers: ['strava'],
   },
   {
@@ -243,6 +288,9 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     ],
     caution:
       'どちらにも窓口が無いサービスもあります。その時は、これまでどおりスクリーンショットを送ってください。',
+    canExport: 'unknown',
+    exportHint:
+      'その練習の画面で「エクスポート」「書き出し」「Export」を探してください。無ければ、スクリーンショットで送れば同じように読み取ります。',
     matchers: [],
   },
   {
@@ -264,6 +312,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
         title: '上の「Strava とつなぐ」を押せば、その記録がこちらへ入ります',
       },
     ],
+    canExport: 'none',
+    exportHint: 'まだ記録そのものがありません。Strava などで記録を始めると、書き出せるようになります。',
     matchers: [],
   },
 ];
@@ -335,6 +385,12 @@ export function needsSetup(source: ConnectSource, detected: SourceId[] = []): bo
   if (source.route === 'direct') return false;
   return !detected.includes(source.id);
 }
+
+/**
+ * 書き出す形式の選び方。**どのサービスでも同じ。**
+ * 迷った時にこれだけ覚えていれば足りる。
+ */
+export const FORMAT_ORDER = 'FIT → TCX → GPX の順に、入る情報が多くなります。迷ったら上から選んでください。';
 
 /** 画面に出す、残り作業の見積もり。 */
 export function effortLabel(source: ConnectSource, detected: SourceId[] = []): string {

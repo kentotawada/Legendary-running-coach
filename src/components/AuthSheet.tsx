@@ -13,10 +13,12 @@ export interface AuthState {
 interface Props {
   auth: AuthState;
   onClose: () => void;
+  /** カルテから開かれた時だけ渡す。閉じたらカルテへ戻す。 */
+  onBack?: () => void;
   onSignedOut: () => void;
 }
 
-export default function AuthSheet({ auth, onClose, onSignedOut }: Props) {
+export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props) {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -49,7 +51,13 @@ export default function AuthSheet({ auth, onClose, onSignedOut }: Props) {
   };
 
   return (
-    <Sheet label="アカウント" title="アカウント" onClose={onClose}>
+    <Sheet
+      label="アカウント"
+      title="アカウント"
+      onClose={onClose}
+      onBack={onBack}
+      backLabel={onBack ? 'カルテ' : undefined}
+    >
 
           {!auth.available ? (
             <p className="text-[13px] leading-relaxed text-muted">
