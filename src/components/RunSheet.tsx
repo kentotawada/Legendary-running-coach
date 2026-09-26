@@ -75,9 +75,23 @@ export default function RunSheet({
       : null,
   ].filter((item): item is { label: string; value: string } => item !== null);
 
+  /**
+   * 区間の平均ペース(秒/km)。
+   * **本数で割らない。** 距離の違う区間が混ざっていると、それでは実際とずれる。
+   */
+  const lapKm = laps.reduce((sum, lap) => sum + lap.distanceKm, 0);
+  const lapSec = laps.reduce((sum, lap) => sum + lap.durationSec, 0);
+  const meanPace = lapKm > 0 ? lapSec / lapKm : 0;
+
+  /** 区間の距離が揃っているか。揃っているなら、同じ数字を何十行も並べない。 */
+  const evenLaps =
+    laps.length > 0 && laps.every((lap) => Math.abs(lap.distanceKm - laps[0].distanceKm) <= 0.05);
+
+  const paceOf = (lap: (typeof laps)[number]) =>
+    lap.distanceKm > 0 ? lap.durationSec / lap.distanceKm : 0;
+
   /** 棒の長さは速さに比例させる。速い区間が長く出るので、繰り返しの形が一目で分かる。 */
-  const barWidth = (lap: (typeof laps)[number]) => {
-    const pace = lap.distanceKm > 0 ? lap.durationSec / lap.distanceKm : 0;
+  const barWidth = (pace: number) => {
     if (pace <= 0 || slowest === fastest) return 100;
     return 30 + ((slowest - pace) / (slowest - fastest)) * 70;
   };
@@ -171,34 +185,78 @@ export default function RunSheet({
 
       {laps.length > 1 && (
         <div className="mt-5">
-          <p className="text-[13px] font-semibold">区間</p>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[13px] font-semibold">区間</p>
+            <p className="text-[11px] text-muted tabular-nums">
+              {evenLaps ? `${laps[0].distanceKm.toFixed(2)}km ごと・` : ''}
+              {laps.length}本
+            </p>
+          </div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-            棒が長いほど速い区間です。時計が切ったラップ、無ければ1kmごとの区切りです。
+            棒が長いほど速い区間です。
+            <strong className="font-semibold text-fg">縦の線が、この練習の平均ペース。</strong>
+            線より右へ出ていれば、平均より速い区間です。
           </p>
-          <ul className="mt-2 space-y-1">
-            {laps.map((lap) => (
-              <li key={lap.index} className="flex items-center gap-2">
-                <span className="w-5 shrink-0 text-right text-[11px] text-muted tabular-nums">
-                  {lap.index}
-                </span>
-                <span className="w-12 shrink-0 text-[11px] text-muted tabular-nums">
-                  {lap.distanceKm.toFixed(2)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className="block h-4 rounded-sm bg-accent"
-                    style={{ width: `${barWidth(lap)}%` }}
-                  />
-                </span>
-                <span className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums">
-                  {lap.pace?.replace('/km', '') ?? '—'}
-                </span>
-                <span className="w-9 shrink-0 text-right text-[11px] text-muted tabular-nums">
-                  {lap.avgHr ?? ''}
-                </span>
-              </li>
-            ))}
+
+          {/*
+            **どの数字が何なのかを、必ず名前で言う。**
+            数字だけが4列並んでいると、距離なのかペースなのか心拍なのかが読めない。
+          */}
+          <div className="mt-2 flex items-center gap-2 border-b border-line pb-1 text-[10px] text-muted">
+            <span className="w-5 shrink-0 text-right">#</span>
+            {!evenLaps && <span className="w-10 shrink-0">km</span>}
+            <span className="min-w-0 flex-1">速さ</span>
+            <span className="w-[72px] shrink-0 text-right">ペース</span>
+            <span className="w-8 shrink-0 text-right">心拍</span>
+          </div>
+
+          <ul className="mt-1 space-y-1">
+            {laps.map((lap) => {
+              const pace = paceOf(lap);
+              // 平均との差(秒/km)。**「速かった」を言葉ではなく数で出す。**
+              const diff = pace > 0 && meanPace > 0 ? Math.round(pace - meanPace) : 0;
+              const faster = pace > 0 && pace <= meanPace;
+
+              return (
+                <li key={lap.index} className="flex items-center gap-2">
+                  <span className="w-5 shrink-0 text-right text-[11px] text-muted tabular-nums">
+                    {lap.index}
+                  </span>
+                  {!evenLaps && (
+                    <span className="w-10 shrink-0 text-[11px] text-muted tabular-nums">
+                      {lap.distanceKm.toFixed(2)}
+                    </span>
+                  )}
+                  <span className="relative block min-w-0 flex-1">
+                    <span
+                      className={`block h-4 rounded-sm ${faster ? 'bg-accent' : 'bg-accent/35'}`}
+                      style={{ width: `${barWidth(pace)}%` }}
+                    />
+                    {/* 平均の位置。全部の行で同じ場所に立つので、上下に見比べられる。 */}
+                    <span
+                      className="absolute top-[-2px] h-[20px] w-px bg-fg/45"
+                      style={{ left: `${barWidth(meanPace)}%` }}
+                    />
+                  </span>
+                  <span className="w-[72px] shrink-0 text-right text-[11px] tabular-nums">
+                    <span className="font-semibold">{lap.pace?.replace('/km', '') ?? '—'}</span>
+                    {diff !== 0 && (
+                      <span className="ml-1 text-[10px] text-muted">
+                        {diff > 0 ? `+${diff}` : diff}
+                      </span>
+                    )}
+                  </span>
+                  <span className="w-8 shrink-0 text-right text-[11px] text-muted tabular-nums">
+                    {lap.avgHr ?? ''}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
+
+          <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+            ペースの右の小さな数字は、平均との差（秒/km）です。マイナスが速いほう。
+          </p>
         </div>
       )}
 
