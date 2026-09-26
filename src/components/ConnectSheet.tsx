@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import type { StravaConnection } from '@/lib/types';
 import {
   CONNECT_SOURCES,
+  FORMAT_ORDER,
   GARMIN_EXPORT_STEPS,
   GARMIN_URL,
-  effortLabel,
   findSource,
   needsSetup,
   type ConnectSource,
@@ -28,6 +28,8 @@ interface Props {
   onSync?: () => void;
   onDisconnect?: () => void;
   onClose: () => void;
+  /** カルテから開かれた時だけ渡す。閉じたらカルテへ戻す。 */
+  onBack?: () => void;
 }
 
 /** 選んだ道具は端末に覚えておく。毎回選び直させない。 */
@@ -211,6 +213,7 @@ export default function ConnectSheet({
   onImportFiles,
   onDisconnect,
   onClose,
+  onBack,
 }: Props) {
   const [picked, setPicked] = useState<SourceId | null>(null);
   /** 取り込みの結果を、Strava の欄とファイルの欄のどちらに出すか。 */
@@ -234,7 +237,13 @@ export default function ConnectSheet({
 
   if (!available) {
     return (
-      <Sheet label="ランニングアプリとの連携" title="連携する" onClose={onClose}>
+      <Sheet
+        label="ランニングアプリとの連携"
+        title="連携する"
+        onClose={onClose}
+        onBack={onBack}
+        backLabel={onBack ? 'カルテ' : undefined}
+      >
         <p className="text-[13px] leading-relaxed text-muted">
           このアプリでは、いま自動連携を使える設定になっていません。
           記録は、これまでどおり<strong className="font-semibold text-fg">画面のスクリーンショット</strong>
@@ -251,7 +260,13 @@ export default function ConnectSheet({
   }
 
   return (
-    <Sheet label="ランニングアプリとの連携" title="連携する" onClose={onClose}>
+    <Sheet
+      label="ランニングアプリとの連携"
+      title="連携する"
+      onClose={onClose}
+      onBack={onBack}
+      backLabel={onBack ? 'カルテ' : undefined}
+    >
       {empty && (
         <div className="mb-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
           Strava に練習が1件も見つかりませんでした。
@@ -391,48 +406,78 @@ export default function ConnectSheet({
             <Card>
               <div className="flex items-baseline gap-2">
                 <p className="min-w-0 flex-1 text-[14px] font-bold">{source.name}</p>
-                <p className={`shrink-0 text-[11px] font-semibold ${done ? 'text-accent' : 'text-muted'}`}>
-                  {effortLabel(source, detected)}
+                {done && <p className="shrink-0 text-[11px] font-semibold text-accent">もう届いています</p>}
+              </div>
+
+              {done && (
+                <p className="mt-1.5 text-[13px] leading-relaxed text-accent">
+                  {source.route === 'direct'
+                    ? '✓ ①だけで終わりです。ほかに設定はありません。'
+                    : `✓ ${source.name}から記録が届いています。設定は完了しています。`}
+                </p>
+              )}
+
+              {/*
+                **記録ファイルを先に出す。** いちばん情報が入る道なので、
+                そこに辿り着けなかった人だけがスクリーンショットへ降りればいい。
+              */}
+              <div className="mt-3">
+                <p className="text-[12px] font-bold">
+                  記録ファイルで送る
+                  <span className="ml-1.5 font-normal text-muted">いちばん詳しい</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">{source.exportHint}</p>
+                {source.canExport !== 'none' && (
+                  <>
+                    {source.exportFormats && (
+                      <p className="mt-1 text-[11px] text-muted">
+                        形式: <strong className="font-semibold text-fg">{source.exportFormats}</strong>
+                      </p>
+                    )}
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted">{FORMAT_ORDER}</p>
+                  </>
+                )}
+              </div>
+
+              {/* どこで詰まっても、ここへ降りれば必ず届く。 */}
+              <div className="mt-3 border-t border-line pt-2.5">
+                <p className="text-[12px] font-bold">
+                  スクリーンショットで送る
+                  <span className="ml-1.5 font-normal text-muted">どのアプリでも</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                  入力欄の「＋」→「練習データの画像を送る」。
+                  距離・ペース・心拍・ピッチまで読み取ります。
+                  {source.canExport === 'none' && (
+                    <strong className="font-semibold text-fg">
+                      {' '}
+                      このアプリではこちらが確実です。
+                    </strong>
+                  )}
                 </p>
               </div>
 
-              {done ? (
-                <>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-accent">
-                    {source.route === 'direct'
-                      ? '✓ ①だけで終わりです。ほかに設定はありません。'
-                      : `✓ ${source.name}から記録が届いています。設定は完了しています。`}
-                  </p>
-                  {source.steps.length > 0 && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-[12px] text-muted">
-                        念のため、手順を見る
-                      </summary>
-                      <StepList steps={source.steps} />
-                    </details>
-                  )}
-                </>
-              ) : (
-                <>
+              {/* Strava 連携が使える環境でだけ出す。今は設定が無ければ出ない。 */}
+              {available && source.route === 'link' && !done && (
+                <details className="mt-3 border-t border-line pt-2.5">
+                  <summary className="cursor-pointer text-[12px] font-bold">
+                    Strava につないで、書き出しをやめる
+                  </summary>
                   <StepList steps={source.steps} />
-
-                  {source.route === 'link' && (
-                    <a
-                      href={STRAVA_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent"
-                    >
-                      Strava を開く
-                    </a>
-                  )}
-
+                  <a
+                    href={STRAVA_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent"
+                  >
+                    Strava を開く
+                  </a>
                   {source.caution && (
                     <p className="mt-3 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
                       {source.caution}
                     </p>
                   )}
-                </>
+                </details>
               )}
             </Card>
           </div>

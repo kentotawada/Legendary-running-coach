@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONNECT_SOURCES,
+  FORMAT_ORDER,
+  GARMIN_EXPORT_STEPS,
+  GARMIN_URL,
   detectSource,
   effortLabel,
   findSource,
@@ -151,5 +154,56 @@ describe('選択肢の引き当て', () => {
     expect(findSource('garmin')?.name).toBe('Garmin の時計');
     expect(findSource('unknown')).toBeUndefined();
     expect(findSource(undefined)).toBeUndefined();
+  });
+});
+
+describe('どのサービスからでも、道がある', () => {
+  /**
+   * 「このアプリは対応していません」で終わらせない。
+   * 書き出せるなら書き出し、書き出せないならスクリーンショット。
+   * **どちらにも当てはまらない選択肢を、一覧に置かない。**
+   */
+  it('どの選択肢にも、取り込む道の説明がある', () => {
+    for (const source of CONNECT_SOURCES) {
+      expect(source.exportHint.length, source.id).toBeGreaterThan(10);
+      expect(['yes', 'none', 'unknown']).toContain(source.canExport);
+    }
+  });
+
+  it('書き出せる道具には、形式が書いてある', () => {
+    for (const source of CONNECT_SOURCES.filter((item) => item.canExport === 'yes')) {
+      expect(source.exportFormats, source.id).toBeTruthy();
+    }
+  });
+
+  /**
+   * 書き出せないサービスに「書き出してください」と書くと、そこで詰まって諦める。
+   * 無いものは無いと言い、代わりの道を示す。
+   */
+  it('書き出せないサービスは、そう言って代わりを示す', () => {
+    const nike = findSource('nike')!;
+    expect(nike.canExport).toBe('none');
+    expect(nike.exportHint).toContain('スクリーンショット');
+
+    const apple = findSource('apple-watch')!;
+    expect(apple.canExport).toBe('none');
+  });
+
+  /** 実機で確認した事実。アプリを探させて時間を無駄にさせない。 */
+  it('Garmin は、スマホアプリに書き出しが無いことを先に言う', () => {
+    const garmin = findSource('garmin')!;
+    expect(garmin.canExport).toBe('yes');
+    expect(garmin.exportHint).toContain('スマホのアプリには書き出しがありません');
+    expect(garmin.exportFormats).toContain('FIT');
+  });
+
+  it('形式の選び方は、どのサービスでも同じ一言で済む', () => {
+    expect(FORMAT_ORDER).toContain('FIT');
+    expect(FORMAT_ORDER).toContain('GPX');
+  });
+
+  it('Garmin の書き出し手順は、認証の要る深いURLを指さない', () => {
+    expect(GARMIN_URL).toBe('https://connect.garmin.com/');
+    expect(GARMIN_EXPORT_STEPS.length).toBeGreaterThan(2);
   });
 });

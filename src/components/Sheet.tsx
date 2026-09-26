@@ -11,13 +11,29 @@ interface Props {
   onClose: () => void;
   /** 右上に置く追加の操作。 */
   action?: React.ReactNode;
+  /**
+   * 前の画面へ戻る。別のシートから開かれた時だけ渡す。
+   * **閉じると全部消えるのは、開いた道を覚えていないのと同じ。**
+   * カルテから開いた画面を閉じたら、カルテに戻るのが自然。
+   */
+  onBack?: () => void;
+  /** 戻り先の呼び名。「カルテへ」のように出す。 */
+  backLabel?: string;
 }
 
 /**
  * 下から出る共通のシート。
  * 画面ごとに枠を書き分けると、角丸や余白がじわじわずれて全体が雑に見える。
  */
-export default function Sheet({ label, title, children, onClose, action }: Props) {
+export default function Sheet({
+  label,
+  title,
+  children,
+  onClose,
+  action,
+  onBack,
+  backLabel,
+}: Props) {
   // 背面のチャットが一緒にスクロールしないようにする。
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -29,11 +45,12 @@ export default function Sheet({ label, title, children, onClose, action }: Props
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      // Esc は「1つ戻る」。戻り先が無い時だけ閉じる。
+      if (event.key === 'Escape') (onBack ?? onClose)();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, onBack]);
 
   return (
     <div
@@ -48,8 +65,21 @@ export default function Sheet({ label, title, children, onClose, action }: Props
         {/* つまんで下げられることが見て分かる持ち手。 */}
         <div className="sticky top-0 z-10 bg-elevated pt-2.5">
           <div aria-hidden="true" className="mx-auto h-1 w-9 rounded-full bg-line" />
-          {(title || action) && (
+          {(title || action || onBack) && (
             <div className="mt-2 flex items-center gap-2 px-5 pb-3">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label={backLabel ? `${backLabel}に戻る` : '前の画面に戻る'}
+                  className="-ml-2 flex h-9 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 text-[13px] font-medium text-accent transition active:scale-95"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                  {backLabel && <span className="whitespace-nowrap">{backLabel}</span>}
+                </button>
+              )}
               <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-tight">{title}</h2>
               {action}
               <button
