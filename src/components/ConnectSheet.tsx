@@ -78,8 +78,10 @@ function FileImport({
       <p className="text-[13px] font-semibold">ファイルから取り込む</p>
       <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
         連携を使わずに入れる道です。<strong className="font-semibold text-fg">過去の練習をまとめて</strong>
-        入れる時にも使えます。Garmin Connect などから <strong className="font-semibold text-fg">GPX</strong> か{' '}
-        <strong className="font-semibold text-fg">TCX</strong> で書き出したファイルを選んでください。
+        入れる時にも使えます。Garmin Connect などから書き出したファイル（
+        <strong className="font-semibold text-fg">FIT</strong>・TCX・GPX）を選んでください。
+        <strong className="font-semibold text-fg">zip のままでも開けます。</strong>
+        入力欄の「＋」からも同じことができます。
       </p>
 
       <label
