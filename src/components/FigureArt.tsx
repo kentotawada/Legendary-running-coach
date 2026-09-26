@@ -32,39 +32,103 @@ function path(points: readonly P[]): string {
   return points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`).join(' ');
 }
 
-/** 手足。太い丸端の線で描くと、棒ではなく腕や脚に見える。 */
+/**
+ * 節ごとに太さの変わる肉づけ。
+ *
+ * **同じ太さの線は、どうやっても棒にしか見えない。**
+ * 人の脚は太ももが太くて足首が細い。その差があるだけで、
+ * 「棒」ではなく「脚」として読めるようになる。
+ * 関節には丸を置いて、節の継ぎ目が角張らないようにする。
+ */
+function Flesh({
+  points,
+  from,
+  to,
+  far = false,
+}: {
+  points: readonly P[];
+  /** 付け根の太さ。 */
+  from: number;
+  /** 先の太さ。 */
+  to: number;
+  far?: boolean;
+}) {
+  // 付け根からの道のりで太さを配る。節の長さが違っても、先細りが自然に見える。
+  const run = [0];
+  for (let i = 1; i < points.length; i += 1) {
+    const [ax, ay] = points[i - 1];
+    const [bx, by] = points[i];
+    run.push(run[i - 1] + Math.hypot(bx - ax, by - ay));
+  }
+  const total = run[run.length - 1] || 1;
+  const widths = run.map((length) => from + (to - from) * (length / total));
+
+  return (
+    <g fill="currentColor" opacity={far ? FAR_OPACITY : 1}>
+      {points.slice(1).map((point, index) => {
+        const [ax, ay] = points[index];
+        const [bx, by] = point;
+        const length = Math.hypot(bx - ax, by - ay) || 1;
+        // 進む向きに垂直な方向へ、太さの半分だけ広げる。
+        const nx = -(by - ay) / length;
+        const ny = (bx - ax) / length;
+        const ha = widths[index] / 2;
+        const hb = widths[index + 1] / 2;
+        return (
+          <path
+            key={`${bx},${by}`}
+            d={`M${ax + nx * ha} ${ay + ny * ha} L${bx + nx * hb} ${by + ny * hb} L${bx - nx * hb} ${by - ny * hb} L${ax - nx * ha} ${ay - ny * ha} Z`}
+          />
+        );
+      })}
+      {points.map((point, index) => (
+        <circle key={`${point[0]},${point[1]}`} cx={point[0]} cy={point[1]} r={widths[index] / 2} />
+      ))}
+    </g>
+  );
+}
+
+/** 手足。付け根を太く、先を細く。 */
 function Limb({
   points,
   far = false,
-  width = 9,
+  width = 13,
 }: {
   points: readonly P[];
   far?: boolean;
   width?: number;
 }) {
-  return (
-    <path
-      d={path(points)}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={width}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      opacity={far ? FAR_OPACITY : 1}
-    />
-  );
+  // 先細りは控えめに。落としすぎると、腕が糸のように見える。
+  return <Flesh points={points} from={width} to={width * 0.72} far={far} />;
 }
 
-/** 胴。太い丸端の線にすると、体の塊として読める。 */
-function Torso({ neck, hip, width = 20 }: { neck: P; hip: P; width?: number }) {
+/**
+ * 胴。
+ * **肩幅を持たせる。** 首から腰まで同じ太さだと、体ではなく1本の柱に見える。
+ * 首の分だけ上へ伸ばしておくと、頭が胴に埋まらない。
+ */
+function Torso({
+  neck,
+  hip,
+  width = 23,
+  shoulders = 30,
+}: {
+  neck: P;
+  hip: P;
+  width?: number;
+  shoulders?: number;
+}) {
+  const [nx, ny] = neck;
+  const [hx, hy] = hip;
+  const length = Math.hypot(hx - nx, hy - ny) || 1;
+  // 首は、腰と逆の向きへ少しだけ伸ばす。
+  const up: P = [nx - ((hx - nx) / length) * 7, ny - ((hy - ny) / length) * 7];
+
   return (
-    <path
-      d={path([neck, hip])}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={width}
-      strokeLinecap="round"
-    />
+    <g>
+      <Flesh points={[up, neck]} from={12} to={shoulders} />
+      <Flesh points={[neck, hip]} from={shoulders} to={width} />
+    </g>
   );
 }
 
@@ -75,11 +139,25 @@ function Torso({ neck, hip, width = 20 }: { neck: P; hip: P; width?: number }) {
  */
 function Head({ at, angle = 0, r = 13 }: { at: P; angle?: number; r?: number }) {
   const [x, y] = at;
+  // 顔の面。**塗りつぶしの丸のままでは、頭ではなく球に見える。**
+  // 前寄りを明るく抜くと、暗いほうが髪、明るいほうが顔として読める。
+  //
+  // 鼻は付けない。面で向きが分かるところに出っぱりを足すと、
+  // **横顔ではなく、くちばしに見える。**
+  const face = r - 2.5;
+  const chord = -face * 0.38;
+  const half = Math.sqrt(Math.max(face * face - chord * chord, 0));
+
   return (
     <g transform={`translate(${x} ${y}) rotate(${angle})`}>
       <circle cx={0} cy={0} r={r} fill="currentColor" />
-      {/* 鼻。向きを示すだけの小さな出っぱり。 */}
-      <path d={`M${r - 2} -3 L${r + 5} 1 L${r - 2} 4 Z`} fill="currentColor" />
+      <path
+        // 大きいほうの弧を取る（0 にすると、顔ではなく後頭部側の細い月型になる）。
+        d={`M${chord} ${-half} A${face} ${face} 0 1 1 ${chord} ${half} Z`}
+        fill="var(--bg-sunken)"
+      />
+      {/* 目。1つで足りる。横を向いているので、もう片方は見えない。 */}
+      <circle cx={face * 0.38} cy={-1.5} r={1.9} fill="currentColor" />
     </g>
   );
 }
@@ -90,15 +168,18 @@ function FrontHead({ at, r = 13 }: { at: P; r?: number }) {
   return (
     <g>
       <circle cx={x} cy={y} r={r} fill="currentColor" />
-      <circle cx={x - 4.5} cy={y - 1} r={2} fill="var(--bg-sunken)" />
-      <circle cx={x + 4.5} cy={y - 1} r={2} fill="var(--bg-sunken)" />
+      {/* 顔の面を抜く。上に残った帯が髪に見える。 */}
+      <circle cx={x} cy={y + 2.5} r={r - 2.5} fill="var(--bg-sunken)" />
+      <circle cx={x - 4.5} cy={y + 1} r={2} fill="currentColor" />
+      <circle cx={x + 4.5} cy={y + 1} r={2} fill="currentColor" />
     </g>
   );
 }
 
 /** 足。地面に着いていることを示す。足が無いと、立っているのか浮いているのか分からない。 */
 function Foot({ from, to, far = false }: { from: P; to: P; far?: boolean }) {
-  return <Limb points={[from, to]} far={far} width={7} />;
+  // かかとが太く、つま先が細い。靴の形に近づけると、地面に着いているのが分かる。
+  return <Flesh points={[from, to]} from={10} to={6} far={far} />;
 }
 
 /** 伸びている場所・効いている場所。線ではなく面で示す。 */
