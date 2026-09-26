@@ -15,7 +15,11 @@ import {
 } from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
-import { prepareForTransport, type ImportedWorkout } from '@/lib/workout';
+import { describeImport, prepareForTransport, type ImportedWorkout } from '@/lib/workout';
+import { isWorkoutFile, isZipName, unzip } from '@/lib/zip';
+
+/** 一度に送る練習の数。多すぎると受信の上限に当たる。 */
+const IMPORT_BATCH = 100;
 
 interface DoneEvent {
   type: 'done';
@@ -338,55 +342,115 @@ export function useCoachChat(): CoachChat {
    *
    * **読むのはここ（ブラウザ）で済ませる。** ロング走の GPX は数MBあり、
    * そのまま送ると受信の上限に当たる。サーバーへは数値だけを送る。
+   *
+   * zip もそのまま受ける。Garmin の「ファイルのエクスポート」は zip で降ってくるし、
+   * アカウント全体の一括書き出しも zip。**開ければ、1回の操作で全期間が入る。**
    */
   const importFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
     setSyncing(true);
     setSyncMessage(null);
 
-    try {
-      const workouts: ImportedWorkout[] = [];
-      const failed: string[] = [];
+    const workouts: ImportedWorkout[] = [];
+    const failed: string[] = [];
 
+    const read = (name: string, data: ArrayBuffer) => {
+      try {
+        // FIT は二進のまま、GPX / TCX は文字にしてから渡す。
+        const content = name.toLowerCase().endsWith('.fit') ? data : new TextDecoder().decode(data);
+        workouts.push(...parseWorkoutFile(name, content));
+      } catch (error) {
+        failed.push(`${name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
+      }
+    };
+
+    try {
       for (const file of files) {
         if (file.size > MAX_FILE_BYTES) {
           failed.push(`${file.name}（大きすぎます）`);
           continue;
         }
-        try {
-          // FIT は二進形式なので、文字ではなくそのまま読む。
+
+        if (!isZipName(file.name)) {
           const binary = file.name.toLowerCase().endsWith('.fit');
-          const content = binary ? await file.arrayBuffer() : await file.text();
-          workouts.push(...parseWorkoutFile(file.name, content));
+          if (binary) read(file.name, await file.arrayBuffer());
+          else {
+            try {
+              workouts.push(...parseWorkoutFile(file.name, await file.text()));
+            } catch (error) {
+              failed.push(`${file.name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
+            }
+          }
+          continue;
+        }
+
+        try {
+          setSyncMessage(`${file.name} を開いています…`);
+          const entries = await unzip(
+            await file.arrayBuffer(),
+            (name) => isWorkoutFile(name) || isZipName(name),
+          );
+          for (const entry of entries) {
+            // 一括書き出しは、zip の中にさらに zip が入っていることがある。1段だけ開く。
+            if (isZipName(entry.name)) {
+              for (const inner of await unzip(entry.data, isWorkoutFile)) read(inner.name, inner.data);
+            } else {
+              read(entry.name, entry.data);
+            }
+          }
         } catch (error) {
-          failed.push(`${file.name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
+          failed.push(`${file.name}（${error instanceof Error ? error.message : '開けませんでした'}）`);
         }
       }
 
-      // 1枚も読めなかった時に「取り込みました」と言わない。
+      // 1件も読めなかった時に「取り込みました」と言わない。
       if (workouts.length === 0) {
         setSyncMessage(failed[0] ? `読み取れませんでした: ${failed[0]}` : '練習が見つかりませんでした。');
         return;
       }
 
-      const response = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // 区間は全部残し、細かい推移は間引いてから送る。生のままだと受信の上限に当たる。
-        body: JSON.stringify({ workouts: prepareForTransport(workouts) }),
-      });
-      const data = (await response.json().catch(() => null)) as
-        | { profile?: RunnerProfile; message?: string; error?: string }
-        | null;
+      const prepared = prepareForTransport(workouts);
+      const total = { imported: 0, skipped: 0, upgraded: 0 };
+      let latest: RunnerProfile | undefined;
 
-      if (!response.ok) {
-        setSyncMessage(data?.error ?? '取り込めませんでした。');
-        return;
+      // 数年ぶんを一度に送ると受信の上限に当たる。小分けにして順に送る。
+      for (let from = 0; from < prepared.length; from += IMPORT_BATCH) {
+        const batch = prepared.slice(from, from + IMPORT_BATCH);
+        if (prepared.length > IMPORT_BATCH) {
+          setSyncMessage(`取り込み中… ${Math.min(from + batch.length, prepared.length)} / ${prepared.length}件`);
+        }
+
+        const response = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workouts: batch }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | {
+              profile?: RunnerProfile;
+              imported?: number;
+              skipped?: number;
+              upgraded?: number;
+              error?: string;
+            }
+          | null;
+
+        if (!response.ok) {
+          // 途中まで入った分は残る。全部やり直しにしない。
+          setSyncMessage(data?.error ?? '取り込めませんでした。');
+          if (latest) setProfile(latest);
+          return;
+        }
+        total.imported += data?.imported ?? 0;
+        total.skipped += data?.skipped ?? 0;
+        total.upgraded += data?.upgraded ?? 0;
+        if (data?.profile) latest = data.profile;
       }
-      if (data?.profile) setProfile(data.profile);
+
+      if (latest) setProfile(latest);
       // 読めなかったファイルがあったことは、隠さずに添える。
       const note = failed.length > 0 ? `（${failed.length}件は読めませんでした）` : '';
-      setSyncMessage(`${data?.message ?? '取り込みました。'}${note}`);
+      setSyncMessage(`${describeImport(total)}${note}`);
     } catch {
       setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
     } finally {
