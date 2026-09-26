@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_IMAGES, MAX_TOTAL_BYTES, base64Bytes, validateImages } from '@/lib/images';
-import { budgetForCount } from '@/lib/downscale';
+import {
+  MAX_IMAGES,
+  MAX_TOTAL_BYTES,
+  base64Bytes,
+  looksLikeAttachment,
+  validateImages,
+} from '@/lib/images';
+import { MAX_TILES, budgetForCount, tilesFor } from '@/lib/downscale';
 import { stripInlineData } from '@/lib/store';
 import { IMAGE_MARKER } from '@/lib/markers';
 import { toDisplayMessages } from '@/lib/profile';
@@ -25,9 +31,19 @@ describe('validateImages', () => {
   });
 
   it('対応していない形式は理由を添えて断る', () => {
-    const result = validateImages([{ mimeType: 'application/pdf', data: 'AAAA' }]);
+    const result = validateImages([{ mimeType: 'text/csv', data: 'AAAA' }]);
     expect(result.images).toEqual([]);
     expect(result.error).toContain('対応していない');
+  });
+
+  /**
+   * iPhone の「フルページ」スクリーンショットは PDF で保存される。
+   * 長い画面を1枚で渡せる唯一の道なので、ここで受ける。
+   */
+  it('PDF を受け取る', () => {
+    const result = validateImages([{ mimeType: 'application/pdf', data: 'QUJD' }]);
+    expect(result.error).toBeUndefined();
+    expect(result.images[0].mimeType).toBe('application/pdf');
   });
 
   it('枚数の上限を超えたら断る', () => {
@@ -112,5 +128,63 @@ describe('枚数に応じた圧縮の割り当て', () => {
   it('1枚だけの時は、必要以上に劣化させない', () => {
     // 10枚割り当ての数倍の容量を1枚に使える。
     expect(budgetForCount(1)).toBeGreaterThan(budgetForCount(10) * 3);
+  });
+});
+
+describe('縦に長い画像の切り分け', () => {
+  /**
+   * スクロールして撮った1枚や、繋ぎ合わせた画像は縦横比が極端になる。
+   * 長辺に合わせて縮めると、**横幅が100px台まで潰れて数字が読めなくなる。**
+   * 読めない画像を送るのは、送っていないのと同じ。
+   */
+  it('普通の画面は、切らない', () => {
+    expect(tilesFor(1170, 2532)).toHaveLength(1);
+    expect(tilesFor(1170, 1170)).toHaveLength(1);
+  });
+
+  it('長い画面は、読める形に切り分ける', () => {
+    const tiles = tilesFor(1170, 9000);
+    expect(tiles.length).toBeGreaterThan(1);
+    expect(tiles.length).toBeLessThanOrEqual(MAX_TILES);
+    // どの1枚も、横幅に対して極端に縦長にならない
+    for (const tile of tiles) expect(tile.height / 1170).toBeLessThan(2.6);
+  });
+
+  it('どれだけ長くても、切りすぎない', () => {
+    expect(tilesFor(1170, 60_000)).toHaveLength(MAX_TILES);
+  });
+
+  /** 境目で数字が切れると、そこだけ読み取れない。少し重ねて切る。 */
+  it('切れ目を少し重ねる', () => {
+    const tiles = tilesFor(1000, 6000);
+    for (let i = 1; i < tiles.length; i += 1) {
+      const previousEnd = tiles[i - 1].y + tiles[i - 1].height;
+      expect(previousEnd).toBeGreaterThan(tiles[i].y);
+    }
+  });
+
+  it('全体を覆う（端を落とさない）', () => {
+    const tiles = tilesFor(1000, 6000);
+    expect(tiles[0].y).toBe(0);
+    const last = tiles[tiles.length - 1];
+    expect(last.y + last.height).toBe(6000);
+  });
+
+  it('大きさが分からない時でも落ちない', () => {
+    expect(tilesFor(0, 0)).toHaveLength(1);
+  });
+});
+
+describe('送れる添付の見分け', () => {
+  it('画像と PDF を通す', () => {
+    expect(looksLikeAttachment({ type: 'image/png' })).toBe(true);
+    expect(looksLikeAttachment({ type: 'application/pdf' })).toBe(true);
+    // iCloud 経由などで type が空のことがある。名前で判断する。
+    expect(looksLikeAttachment({ type: '', name: 'フルページ.pdf' })).toBe(true);
+  });
+
+  it('練習の記録ファイルは、添付として扱わない', () => {
+    expect(looksLikeAttachment({ type: '', name: '12345.fit' })).toBe(false);
+    expect(looksLikeAttachment({ type: '', name: 'export.zip' })).toBe(false);
   });
 });

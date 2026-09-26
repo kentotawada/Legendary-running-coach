@@ -1,5 +1,5 @@
 import type { ImageAttachment } from './types';
-import { TOTAL_IMAGE_BUDGET_BYTES, base64Bytes } from './images';
+import { PDF_TYPE, TOTAL_IMAGE_BUDGET_BYTES, base64Bytes, looksLikePdf } from './images';
 
 /**
  * スマホのスクリーンショットは1枚で数MBある。10枚まとめて送れるようにすると、
@@ -58,44 +58,149 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function render(image: HTMLImageElement, maxDimension: number, quality: number): string {
-  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+interface Tile {
+  y: number;
+  height: number;
+}
+
+/**
+ * 縦に長い画像は、切り分けてから縮小する。
+ *
+ * スクロールして撮った1枚や、繋ぎ合わせた画像は、縦横比が極端になる。
+ * 長辺に合わせて縮めると、**横幅が100px台まで潰れて数字が読めなくなる。**
+ * 読めない画像を送るのは、送っていないのと同じ。
+ */
+const TALL_RATIO = 2.2;
+/** 切り分けた1枚の縦横比の目安。スマホの画面に近い形にする。 */
+const TILE_ASPECT = 1.6;
+/** 切り分ける上限。多すぎると1枚あたりの容量が足りなくなる。 */
+export const MAX_TILES = 6;
+/** 境目で数字が切れないように、少し重ねて切る。 */
+const OVERLAP = 0.04;
+
+export function tilesFor(width: number, height: number): Tile[] {
+  if (width <= 0 || height <= 0) return [{ y: 0, height }];
+  if (height / width <= TALL_RATIO) return [{ y: 0, height }];
+
+  const wanted = Math.ceil(height / (width * TILE_ASPECT));
+  const count = Math.min(MAX_TILES, Math.max(2, wanted));
+  const step = height / count;
+  const overlap = step * OVERLAP;
+
+  return Array.from({ length: count }, (_, index) => {
+    const start = Math.max(0, index * step - overlap);
+    const end = Math.min(height, (index + 1) * step + overlap);
+    return { y: Math.round(start), height: Math.round(end - start) };
+  });
+}
+
+function render(
+  image: HTMLImageElement,
+  tile: Tile,
+  maxDimension: number,
+  quality: number,
+): string {
+  const scale = Math.min(1, maxDimension / Math.max(image.width, tile.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(image.width * scale);
-  canvas.height = Math.round(image.height * scale);
+  canvas.height = Math.round(tile.height * scale);
 
   const context = canvas.getContext('2d');
   if (!context) throw new Error('画像を処理できませんでした。');
 
   // スクリーンショットの細い文字を潰さないよう、補間の質を上げる。
   context.imageSmoothingQuality = 'high';
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.drawImage(
+    image,
+    0,
+    tile.y,
+    image.width,
+    tile.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
 
   return canvas.toDataURL('image/jpeg', quality);
+}
+
+/** PDF はそのまま渡す。縮められないので、大きすぎるものはここで断る。 */
+export const MAX_PDF_BYTES = 2_500_000;
+
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  // 一度に渡すと引数の数で落ちるので、小分けにする。
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+/** PDF には見た目が無い。添付欄に出す絵をこちらで作る。 */
+function pdfPreview(name: string): string {
+  const label = (name || 'PDF').replace(/[<>&]/g, '').slice(0, 18);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="320" viewBox="0 0 240 320">
+    <rect width="240" height="320" rx="16" fill="#f3f1ee"/>
+    <rect x="46" y="60" width="148" height="180" rx="10" fill="#fff" stroke="#d9d4cd" stroke-width="3"/>
+    <path d="M150 60v34h34" fill="none" stroke="#d9d4cd" stroke-width="3"/>
+    <g fill="#c9c3bb">
+      <rect x="66" y="120" width="108" height="8" rx="4"/>
+      <rect x="66" y="142" width="88" height="8" rx="4"/>
+      <rect x="66" y="164" width="108" height="8" rx="4"/>
+      <rect x="66" y="186" width="70" height="8" rx="4"/>
+    </g>
+    <text x="120" y="272" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#6b645c">${label}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * iPhone の「フルページ」スクリーンショットは PDF で保存される。
+ * **長い画面を1枚で渡せる唯一の道**なので、縮小はせずそのまま送る。
+ */
+async function preparePdf(file: File): Promise<PreparedImage> {
+  const buffer = await file.arrayBuffer();
+  if (buffer.byteLength > MAX_PDF_BYTES) {
+    throw new Error('PDF が大きすぎます。ページを分けるか、画像で送ってください。');
+  }
+  const data = toBase64(buffer);
+  const preview = pdfPreview(file.name);
+
+  return { mimeType: PDF_TYPE, data, preview, thumbnail: preview, bytes: buffer.byteLength };
 }
 
 /**
  * 目安サイズに収まる範囲で、いちばん高い品質を選ぶ。
  * どの段階でも収まらない時は、最後の段階（最も軽い）を使う。
+ *
+ * 縦に長い画像は切り分けるので、1枚から複数枚になることがある。
  */
-export async function prepareImage(file: File, budgetBytes: number): Promise<PreparedImage> {
+export async function prepareFile(file: File, budgetBytes: number): Promise<PreparedImage[]> {
+  if (looksLikePdf(file)) return [await preparePdf(file)];
+
   const image = await loadImage(file);
-  let dataUrl = '';
-  let bytes = 0;
+  const tiles = tilesFor(image.width, image.height);
+  const perTile = Math.max(120_000, Math.floor(budgetBytes / tiles.length));
 
-  for (const step of STEPS) {
-    dataUrl = render(image, step.maxDimension, step.quality);
-    bytes = base64Bytes(dataUrl.slice(dataUrl.indexOf(',') + 1));
-    if (bytes <= budgetBytes) break;
-  }
+  return tiles.map((tile) => {
+    let dataUrl = '';
+    let bytes = 0;
+    for (const step of STEPS) {
+      dataUrl = render(image, tile, step.maxDimension, step.quality);
+      bytes = base64Bytes(dataUrl.slice(dataUrl.indexOf(',') + 1));
+      if (bytes <= perTile) break;
+    }
 
-  return {
-    mimeType: 'image/jpeg',
-    data: dataUrl.slice(dataUrl.indexOf(',') + 1),
-    preview: dataUrl,
-    thumbnail: render(image, THUMBNAIL_MAX_DIMENSION, THUMBNAIL_QUALITY),
-    bytes,
-  };
+    return {
+      mimeType: 'image/jpeg',
+      data: dataUrl.slice(dataUrl.indexOf(',') + 1),
+      preview: dataUrl,
+      thumbnail: render(image, tile, THUMBNAIL_MAX_DIMENSION, THUMBNAIL_QUALITY),
+      bytes,
+    };
+  });
 }
 
 export interface PrepareResult {
@@ -120,10 +225,14 @@ export async function prepareImages(files: File[]): Promise<PrepareResult> {
 
   for (const file of files) {
     try {
-      images.push(await prepareImage(file, budget));
+      images.push(...(await prepareFile(file, budget)));
       accepted.push(file);
-    } catch {
-      failed.push(file.name || '名前のないファイル');
+    } catch (error) {
+      failed.push(
+        error instanceof Error && error.message
+          ? `${file.name || '名前のないファイル'}（${error.message}）`
+          : file.name || '名前のないファイル',
+      );
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
-import { FILE_ACCEPT, MAX_IMAGES, MAX_TOTAL_BYTES, looksLikeImage } from '@/lib/images';
+import { FILE_ACCEPT, MAX_IMAGES, MAX_TOTAL_BYTES, looksLikeAttachment } from '@/lib/images';
 import { useVoiceInput } from '@/hooks/useSpeech';
 
 export interface ComposerApi {
@@ -102,7 +102,7 @@ export default function Composer({
       const pictures = items
         .filter((item) => item.kind === 'file')
         .map((item) => item.getAsFile())
-        .filter((file): file is File => Boolean(file) && looksLikeImage(file!));
+        .filter((file): file is File => Boolean(file) && looksLikeAttachment(file!));
       if (pictures.length === 0) return;
       // 画像が入っていた時だけ、本文への貼り付けを止める。
       event.preventDefault();
@@ -181,18 +181,19 @@ export default function Composer({
     const all = incoming ? Array.from(incoming) : [];
     if (all.length === 0) return;
 
-    const pictures = all.filter((file) => looksLikeImage(file));
+    // 画像のほかに PDF も受ける。iPhone の「フルページ」スクリーンショットは PDF で保存される。
+    const pictures = all.filter((file) => looksLikeAttachment(file));
     const rejected = all.length - pictures.length;
     if (pictures.length === 0) {
       onError(
         rejected === 1
-          ? `「${all[0].name || 'このファイル'}」は画像ではないため送れません。練習画面のスクリーンショットを送ってください。`
-          : '画像ではないファイルは送れません。練習画面のスクリーンショットを送ってください。',
+          ? `「${all[0].name || 'このファイル'}」は送れません。練習画面のスクリーンショット（画像か PDF）を送ってください。`
+          : '送れない形式でした。練習画面のスクリーンショット（画像か PDF）を送ってください。',
       );
       return;
     }
     if (rejected > 0) {
-      onError(`画像以外の${rejected}件は送れないため、外しました。`);
+      onError(`画像でも PDF でもない${rejected}件は送れないため、外しました。`);
     }
 
     const room = MAX_IMAGES - files.length;
@@ -298,9 +299,17 @@ export default function Composer({
           multiple
           className="hidden"
           onChange={(event) => {
-            const files = Array.from(event.target.files ?? []);
+            const all = Array.from(event.target.files ?? []);
             event.target.value = '';
-            if (files.length > 0) onImportFiles?.(files);
+            if (all.length === 0) return;
+
+            // 選んだものを振り分ける。
+            // **どちらを押したかでユーザーを間違いにしない。**
+            // スクリーンショットや PDF は添付欄へ、時計の記録は取り込みへ。
+            const media = all.filter((file) => looksLikeAttachment(file));
+            const records = all.filter((file) => !looksLikeAttachment(file));
+            if (media.length > 0) void addFiles(media);
+            if (records.length > 0) onImportFiles?.(records);
           }}
         />
         <div ref={menuRef} className="relative shrink-0">
@@ -342,7 +351,7 @@ export default function Composer({
                   </svg>
                   <span className="min-w-0">
                     <span className="block text-[14px]">時計の記録を送る</span>
-                    <span className="block text-[11px] text-muted">FIT / TCX / GPX / zip</span>
+                    <span className="block text-[11px] text-muted">FIT / TCX / GPX / zip / PDF</span>
                   </span>
                 </button>
               )}

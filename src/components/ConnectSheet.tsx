@@ -405,10 +405,20 @@ export default function ConnectSheet({
         どの道でも詰まる人は必ずいる。逃げ道を最後に置いておく。
         「つながらなかったから使えない」で終わらせないため。
       */}
-      <p className="mt-4 text-[11px] leading-relaxed text-muted">
-        うまくいかない時は、これまでどおり画面のスクリーンショットを送ってください。
-        距離・ペース・心拍・ピッチまで、同じように読み取ります。
-      </p>
+      <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
+        <p className="text-[12px] font-semibold">スクリーンショットで送る時のコツ</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+          何枚も撮らなくて済む方法があります。Safari で開いた画面なら、
+          スクリーンショットを撮った直後に左下の小さい画像を押し、上の
+          <strong className="font-semibold text-fg">「フルページ」</strong>
+          を選ぶと、<strong className="font-semibold text-fg">スクロールした先まで1枚（PDF）で保存できます。</strong>
+          それをそのまま送れば、全部まとめて読み取ります。
+        </p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+          アプリの画面は「フルページ」にできないことがあります。その時は今までどおり
+          何枚かに分けて送ってください。縦に長い画像も、読める大きさに切り分けて扱います。
+        </p>
+      </div>
     </Sheet>
   );
 }
