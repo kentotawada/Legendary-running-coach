@@ -156,8 +156,10 @@ describe('読めないファイル', () => {
     expect(() => parseWorkoutFile('activity.fit', broken)).toThrow(WorkoutFileError);
   });
 
-  it('関係のないファイルは、そう言う', () => {
-    expect(() => parseWorkoutFile('memo.txt', 'こんにちは')).toThrow(/FIT・GPX・TCX/);
+  /** 「読めませんでした」だけでは、どれが悪いのか分からない。名前を必ず出す。 */
+  it('関係のないファイルは、名前を挙げてそう言う', () => {
+    expect(() => parseWorkoutFile('memo.txt', 'こんにちは')).toThrow(/memo\.txt/);
+    expect(() => parseWorkoutFile('memo.txt', 'こんにちは')).toThrow(/FIT・TCX・GPX/);
   });
 
   it('中身が空の GPX は、練習が無いと言う', () => {

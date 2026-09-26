@@ -16,7 +16,7 @@ import {
 import type { ProfileEdit } from '@/components/GoalEditor';
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
 import { describeImport, prepareForTransport, type ImportedWorkout } from '@/lib/workout';
-import { isWorkoutFile, isZipName, unzip } from '@/lib/zip';
+import { isWorkoutFile, isZipName, looksLikeZip, unzip } from '@/lib/zip';
 
 /** 一度に送る練習の数。多すぎると受信の上限に当たる。 */
 const IMPORT_BATCH = 100;
@@ -352,60 +352,55 @@ export function useCoachChat(): CoachChat {
     setSyncMessage(null);
 
     const workouts: ImportedWorkout[] = [];
+    /** 読めなかったものは、名前と理由をそのまま覚えておく。件数だけでは直しようがない。 */
     const failed: string[] = [];
 
     const read = (name: string, data: ArrayBuffer) => {
       try {
-        // FIT は二進のまま、GPX / TCX は文字にしてから渡す。
-        const content = name.toLowerCase().endsWith('.fit') ? data : new TextDecoder().decode(data);
-        workouts.push(...parseWorkoutFile(name, content));
+        workouts.push(...parseWorkoutFile(name, data));
       } catch (error) {
-        failed.push(`${name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
+        failed.push(error instanceof Error ? error.message : `「${name}」を読めませんでした。`);
+      }
+    };
+
+    const open = async (name: string, data: ArrayBuffer, depth = 0) => {
+      // **名前ではなく中身で見分ける。** 端末が拡張子を落とすことがある。
+      if (!looksLikeZip(data) && !isZipName(name)) {
+        read(name, data);
+        return;
+      }
+
+      try {
+        setSyncMessage(`${name} を開いています…`);
+        // 一括書き出しは、zip の中にさらに zip が入っていることがある。1段だけ開く。
+        const entries = await unzip(data, (inner) =>
+          depth === 0 ? isWorkoutFile(inner) || isZipName(inner) : isWorkoutFile(inner),
+        );
+        if (entries.length === 0) {
+          failed.push(`「${name}」の中に、練習のファイル（FIT / TCX / GPX）が見つかりませんでした。`);
+          return;
+        }
+        for (const entry of entries) await open(entry.name, entry.data, depth + 1);
+      } catch (error) {
+        failed.push(
+          error instanceof Error ? `「${name}」: ${error.message}` : `「${name}」を開けませんでした。`,
+        );
       }
     };
 
     try {
       for (const file of files) {
         if (file.size > MAX_FILE_BYTES) {
-          failed.push(`${file.name}（大きすぎます）`);
+          failed.push(`「${file.name}」は大きすぎます。`);
           continue;
         }
-
-        if (!isZipName(file.name)) {
-          const binary = file.name.toLowerCase().endsWith('.fit');
-          if (binary) read(file.name, await file.arrayBuffer());
-          else {
-            try {
-              workouts.push(...parseWorkoutFile(file.name, await file.text()));
-            } catch (error) {
-              failed.push(`${file.name}（${error instanceof Error ? error.message : '読めませんでした'}）`);
-            }
-          }
-          continue;
-        }
-
-        try {
-          setSyncMessage(`${file.name} を開いています…`);
-          const entries = await unzip(
-            await file.arrayBuffer(),
-            (name) => isWorkoutFile(name) || isZipName(name),
-          );
-          for (const entry of entries) {
-            // 一括書き出しは、zip の中にさらに zip が入っていることがある。1段だけ開く。
-            if (isZipName(entry.name)) {
-              for (const inner of await unzip(entry.data, isWorkoutFile)) read(inner.name, inner.data);
-            } else {
-              read(entry.name, entry.data);
-            }
-          }
-        } catch (error) {
-          failed.push(`${file.name}（${error instanceof Error ? error.message : '開けませんでした'}）`);
-        }
+        await open(file.name, await file.arrayBuffer());
       }
 
-      // 1件も読めなかった時に「取り込みました」と言わない。
+      // 1件も読めなかった時に「取り込みました」と言わない。**理由をそのまま出す。**
       if (workouts.length === 0) {
-        setSyncMessage(failed[0] ? `読み取れませんでした: ${failed[0]}` : '練習が見つかりませんでした。');
+        const more = failed.length > 1 ? `（ほか${failed.length - 1}件）` : '';
+        setSyncMessage(failed[0] ? `${failed[0]}${more}` : '練習が見つかりませんでした。');
         return;
       }
 
@@ -417,7 +412,9 @@ export function useCoachChat(): CoachChat {
       for (let from = 0; from < prepared.length; from += IMPORT_BATCH) {
         const batch = prepared.slice(from, from + IMPORT_BATCH);
         if (prepared.length > IMPORT_BATCH) {
-          setSyncMessage(`取り込み中… ${Math.min(from + batch.length, prepared.length)} / ${prepared.length}件`);
+          setSyncMessage(
+            `取り込み中… ${Math.min(from + batch.length, prepared.length)} / ${prepared.length}件`,
+          );
         }
 
         const response = await fetch('/api/import', {
@@ -448,8 +445,8 @@ export function useCoachChat(): CoachChat {
       }
 
       if (latest) setProfile(latest);
-      // 読めなかったファイルがあったことは、隠さずに添える。
-      const note = failed.length > 0 ? `（${failed.length}件は読めませんでした）` : '';
+      // 読めなかったファイルがあったことは、隠さずに添える。理由も1つ出す。
+      const note = failed.length > 0 ? `（${failed.length}件は読めませんでした: ${failed[0]}）` : '';
       setSyncMessage(`${describeImport(total)}${note}`);
     } catch {
       setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
