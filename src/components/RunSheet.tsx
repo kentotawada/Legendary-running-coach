@@ -1,9 +1,11 @@
 'use client';
 
-import type { ActivityLog } from '@/lib/types';
+import type { ActivityLog, RunnerProfile } from '@/lib/types';
 import { analyze } from '@/lib/analysis';
+import { heartRateZones } from '@/lib/zones';
 import RunCharts from './RunCharts';
 import Sheet from './Sheet';
+import ZoneBars from './ZoneBars';
 
 /**
  * 1本の練習の中身を見る画面。
@@ -39,16 +41,20 @@ function Tile({ label, value, note }: { label: string; value: string; note?: str
 
 export default function RunSheet({
   activity,
+  profile,
   onClose,
   onBack,
 }: {
   activity: ActivityLog;
+  /** ゾーンの境目は本人の心拍から決まるので、カルテが要る。 */
+  profile?: RunnerProfile | null;
   onClose: () => void;
   /** カルテから開かれた時だけ渡す。閉じたらカルテへ戻す。 */
   onBack?: () => void;
 }) {
   const laps = activity.laps ?? [];
   const analysis = analyze(activity);
+  const zones = profile ? heartRateZones(profile) : null;
 
   const paces = laps
     .map((lap) => (lap.distanceKm > 0 ? lap.durationSec / lap.distanceKm : 0))
@@ -179,6 +185,14 @@ export default function RunSheet({
             良し悪しの目安は、身長や走る速度で変わります。見るのは、自分の中での変化です。
           </p>
         </div>
+      )}
+
+      {zones && (
+        <ZoneBars
+          hrSeconds={activity.hrSeconds}
+          zones={zones.zones}
+          note={`${zones.basisLabel}。ゾーンの境目は、カルテの最大心拍・LTHR・安静時心拍で変わります。`}
+        />
       )}
 
       {activity.series && <RunCharts series={activity.series} />}

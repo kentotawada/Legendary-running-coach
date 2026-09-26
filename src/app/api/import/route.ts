@@ -34,6 +34,9 @@ export const dynamic = 'force-dynamic';
 /** 一度に受け取る上限。数年分を一括で入れる時でも、何回かに分けてもらう。 */
 const MAX_WORKOUTS = 300;
 
+/** 心拍ごとの秒数の上限。30〜240bpm より多い種類は来ない。 */
+const MAX_HR_BUCKETS = 220;
+
 const TYPES: ActivityType[] = ['run', 'walk', 'cross', 'strength', 'stretch', 'rest'];
 const SOURCES: WorkoutSource[] = ['health', 'file'];
 
@@ -131,6 +134,27 @@ function cleanSamples(raw: unknown): WorkoutSample[] | undefined {
 }
 
 /**
+ * 心拍ごとの秒数。[bpm, 秒] の並びだけを通す。
+ * **ここを足し忘れると、読めていてもゾーンの集計が黙って消える。**
+ */
+function cleanHrSeconds(raw: unknown): [number, number][] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+
+  const pairs = raw
+    .slice(0, MAX_HR_BUCKETS)
+    .map((item): [number, number] | null => {
+      if (!Array.isArray(item) || item.length !== 2) return null;
+      const bpm = positive(item[0], 300);
+      const seconds = positive(item[1], MAX_DURATION_SEC);
+      if (bpm === undefined || seconds === undefined || bpm < 30) return null;
+      return [Math.round(bpm), Math.round(seconds)];
+    })
+    .filter((pair): pair is [number, number] => pair !== null);
+
+  return pairs.length > 0 ? pairs : undefined;
+}
+
+/**
  * 送られてきた1件を検める。
  * **外から来た数値をそのままカルテへ入れない。** 形の違うものは、黙って落とす。
  */
@@ -164,6 +188,7 @@ function clean(raw: unknown): ImportedWorkout | null {
     laps: cleanLaps(item.laps),
     samples: cleanSamples(item.samples),
     dynamics: cleanDynamics(item.dynamics),
+    hrSeconds: cleanHrSeconds(item.hrSeconds),
   };
 }
 

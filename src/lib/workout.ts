@@ -45,6 +45,46 @@ export interface WorkoutSample {
 }
 
 /**
+ * 心拍ごとの秒数。[bpm, 秒] の並び。
+ *
+ * **ゾーンごとの時間は、ここから毎回出す。**
+ * 記録のほうにゾーンを焼き込むと、最大心拍を直した時に過去が古いまま残る。
+ */
+export type HrSeconds = [number, number][];
+
+/** これより長く空いていたら、走っていない時間とみなして数えない。 */
+const HR_GAP_SEC = 30;
+
+/**
+ * 間引く前の全点から、心拍ごとの秒数を数える。
+ *
+ * **間引いた後で数えない。** 200点に落としてから数えると1点が25秒を背負うことになり、
+ * ゾーンの割合が数％ずれる。時計の画面と見比べた時に、その数％が目につく。
+ */
+export function hrHistogram(samples: readonly WorkoutSample[]): HrSeconds | undefined {
+  const seconds = new Map<number, number>();
+
+  for (let i = 0; i < samples.length - 1; i += 1) {
+    const hr = samples[i].hr;
+    if (typeof hr !== 'number' || !Number.isFinite(hr)) continue;
+
+    const span = samples[i + 1].t - samples[i].t;
+    // 止まっていた分は数えない。マイナスや長すぎる間隔も落とす。
+    if (!(span > 0) || span > HR_GAP_SEC) continue;
+
+    const bpm = Math.round(hr);
+    if (bpm < 30 || bpm > 240) continue;
+    seconds.set(bpm, (seconds.get(bpm) ?? 0) + span);
+  }
+
+  if (seconds.size === 0) return undefined;
+  return [...seconds.entries()]
+    .map(([bpm, total]): [number, number] => [bpm, Math.round(total)])
+    .filter(([, total]) => total > 0)
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/**
  * フォームの指標。FIT ファイルからのみ入ってくる。
  * 単位はこの時点で揃えてある（cm・ms・W・%）。
  */
@@ -102,6 +142,8 @@ export interface ImportedWorkout {
   laps?: WorkoutLap[];
   /** 走行中の推移。間引く前の生の点で渡してよい。 */
   samples?: WorkoutSample[];
+  /** 心拍ごとの秒数。間引く前に数えたもの。 */
+  hrSeconds?: HrSeconds;
   /** フォームの指標（練習全体の平均）。FIT からのみ。 */
   dynamics?: RunningDynamics;
 }
@@ -272,6 +314,9 @@ export function prepareForTransport(workouts: ImportedWorkout[]): ImportedWorkou
     return {
       ...workout,
       laps,
+      // **ゾーンの集計は、間引く前にここで済ませる。**
+      // 送った後では、もう全点は手元に無い。
+      hrSeconds: workout.hrSeconds ?? (workout.samples ? hrHistogram(workout.samples) : undefined),
       samples: index >= keepFrom && workout.samples ? thin(workout.samples) : undefined,
     };
   });
@@ -352,6 +397,7 @@ export function toActivity(workout: ImportedWorkout): Omit<ActivityLog, 'id' | '
     externalId: workout.externalId,
     laps: laps.length > 1 ? laps : undefined,
     series: workout.samples ? downsample(workout.samples) : undefined,
+    hrSeconds: workout.hrSeconds,
   };
 }
 
@@ -409,7 +455,7 @@ function trimSeries(profile: RunnerProfile): RunnerProfile {
  * 飛ばしてしまうと**新しい項目が永久に入らない**。
  * 入れ直せば良くなる、という逃げ道を常に残しておく。
  */
-function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics'>): number {
+function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics' | 'hrSeconds'>): number {
   const laps = activity.laps?.length ?? 0;
   // 推移は、持っている列の数で数える（心拍だけの推移と、6項目の推移は別物）。
   const columns = activity.series
@@ -424,8 +470,11 @@ function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics'>): n
       ).length
     : 0;
 
+  // ゾーンの集計を持っているかどうかも、詳しさのうち。
+  const zones = activity.hrSeconds && activity.hrSeconds.length > 0 ? 1 : 0;
+
   // 区間は数が多いほど細かいが、1本の重みは推移や指標より軽い。
-  return Math.min(laps, 60) + columns * 10 + form * 10;
+  return Math.min(laps, 60) + columns * 10 + form * 10 + zones * 10;
 }
 
 export interface ImportResult {

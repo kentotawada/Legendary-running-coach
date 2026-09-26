@@ -17,6 +17,12 @@ export interface HeartRateZone {
   name: string;
   /** "142-152" のような bpm 範囲。 */
   range: string;
+  /**
+   * 範囲の下端・上端(bpm)。端のゾーンは片側が無い。
+   * **文字列の range を読み直させない。** 走った心拍を振り分けるのに使う。
+   */
+  from?: number;
+  to?: number;
   purpose: string;
 }
 
@@ -61,7 +67,7 @@ function toZones(bounds: number[], toBpm: (ratio: number) => number, ceiling: nu
     const to = index === ZONE_META.length - 1 ? undefined : edges[index] - 1;
     const range =
       from === undefined ? `〜${to}` : to === undefined ? `${from}〜${ceiling}` : `${from}〜${to}`;
-    return { ...meta, range };
+    return { ...meta, range, from, to };
   });
 }
 
@@ -133,4 +139,46 @@ export function zoneDoctrine(profile: RunnerProfile): string {
     lines.push('- 推定値を使った時は、その旨を一言添えること。断定しない。');
   }
   return lines.join('\n');
+}
+
+/** ゾーンごとに、そこで走った時間。 */
+export interface ZoneTime {
+  zone: HeartRateZone;
+  seconds: number;
+  /** 走った時間全体に占める割合(0〜1)。 */
+  ratio: number;
+}
+
+/**
+ * 心拍ごとの秒数を、ゾーンに振り分ける。
+ *
+ * **記録のほうにゾーンを焼き込まない。** 最大心拍やLTHRは後から変わる。
+ * 変わった時に過去の練習が古いゾーンのまま残ると、見比べが嘘になる。
+ * 練習には「心拍ごとの秒数」だけを持たせ、ゾーンはその都度ここで当てる。
+ */
+export function timeInZones(
+  hrSeconds: readonly (readonly [number, number])[] | undefined,
+  zones: readonly HeartRateZone[],
+): ZoneTime[] {
+  if (!hrSeconds || hrSeconds.length === 0 || zones.length === 0) return [];
+
+  const seconds = zones.map(() => 0);
+  let total = 0;
+
+  for (const [bpm, secs] of hrSeconds) {
+    if (!(secs > 0)) continue;
+    const index = zones.findIndex(
+      (zone) => (zone.from === undefined || bpm >= zone.from) && (zone.to === undefined || bpm <= zone.to),
+    );
+    if (index < 0) continue;
+    seconds[index] += secs;
+    total += secs;
+  }
+
+  if (total <= 0) return [];
+  return zones.map((zone, index) => ({
+    zone,
+    seconds: Math.round(seconds[index]),
+    ratio: seconds[index] / total,
+  }));
 }

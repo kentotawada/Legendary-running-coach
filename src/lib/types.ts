@@ -207,6 +207,12 @@ export interface ActivityLog {
   laps?: ActivityLap[];
   /** 走行中の推移。直近の練習にだけ残す（古い分は落とす）。 */
   series?: ActivitySeries;
+  /**
+   * 心拍ごとの秒数。[bpm, 秒] の並び。
+   * **ゾーンごとの時間は、これと今のゾーン表から毎回出す。**
+   * ゾーンを焼き込むと、最大心拍を直した時に過去が古いまま残る。
+   */
+  hrSeconds?: [number, number][];
   createdAt: string;
 }
 
