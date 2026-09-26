@@ -28,6 +28,11 @@
   */
   --chart-ink: #cf4d18;
   --chart-grid: var(--border);
+  /*
+    平均の線。目盛りより濃く、データの線より薄い。
+    ここが data と同じ濃さだと、どちらが実測か分からなくなる。
+  */
+  --chart-mean: #a1a1aa;
   --radius: 16px;
   /* 本文の大きさ。カルテの「文字の大きさ」から書き換える。 */
   --chat-font-scale: 1;
@@ -53,6 +58,7 @@
     --good: #7cc79b;
     --good-soft: #162c1e;
     --chart-ink: #e4652f;
+    --chart-mean: #6b6b74;
   }
 }
 

@@ -34,6 +34,15 @@ interface Metric {
    * 時計の画面と見比べた時に必ず混乱する。小さいほど良い項目でも、そのまま描く。
    */
   inverted?: boolean;
+  /**
+   * 平均の出し方が、点の足し算では合わない項目だけ渡す。
+   *
+   * **ペースがそれ。** 1点ごとのペースをただ足して割ると、
+   * ゆっくり走った時間の重みが軽くなり、全体の平均ペースとずれる。
+   * 同じ画面に「平均ペース 5:13」と「平均 5:16」が並ぶことになり、
+   * どちらが本当なのか分からなくなる。
+   */
+  mean?: number;
   /** 値の書き方。 */
   format?: (value: number) => string;
 }
@@ -114,8 +123,8 @@ function Chart({
 }: {
   metric: Metric;
   xs: number[];
-  /** 横軸の目盛りの位置(px)。全部のグラフで同じ位置に立てる。 */
-  ticks: number[];
+  /** 横軸の目盛り。全部のグラフで同じ位置に立て、文字もその下に出す。 */
+  ticks: Tick[];
   at: number | null;
   onHover: (index: number | null) => void;
 }) {
@@ -125,11 +134,17 @@ function Chart({
   const low = Math.min(...numbers);
   const high = Math.max(...numbers);
   const { base, span } = scaleOf(low, high);
+  // **平均は、そのグラフの中の基準。** 「いつもより速い/遅い」はここからの距離で読む。
+  const mean =
+    metric.mean ?? numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
   // 小さいほど良い項目は、上下をひっくり返す。速い方が上に来るほうが読みやすい。
   const plot = metric.inverted ? metric.values.map((v) => (v === null ? null : high + low - v)) : metric.values;
   const path = pathOf(plot, xs, base, span);
 
   const show = metric.format ?? ((value: number) => `${Math.round(value)}`);
+  // ペースだけ上下が逆なので、平均線の高さも裏返してから置く。
+  const meanPlot = metric.inverted ? high + low - mean : mean;
+  const meanY = PLOT_HEIGHT - ((meanPlot - base) / span) * PLOT_HEIGHT;
   const current = at !== null ? metric.values[at] : null;
   const headline = current !== null && current !== undefined ? show(current) : `${show(low)}〜${show(high)}`;
 
@@ -142,8 +157,14 @@ function Chart({
 
   return (
     <div className="mt-3">
-      <div className="flex items-baseline justify-between">
-        <p className="text-[12px] font-semibold">{metric.label}</p>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="min-w-0 truncate text-[12px] font-semibold">
+          {metric.label}
+          {/* グラフの中の横線が何の線かは、ここで名指ししないと伝わらない。 */}
+          <span className="ml-1.5 font-normal text-[11px] text-muted tabular-nums">
+            平均 {show(mean)}
+          </span>
+        </p>
         <p className="text-[12px] tabular-nums">
           <span className={current !== null && current !== undefined ? 'font-bold' : 'text-muted'}>
             {headline}
@@ -162,7 +183,12 @@ function Chart({
         onPointerMove={(event) => event.buttons !== 0 && onHover(indexAt(event, xs))}
         onPointerLeave={() => onHover(null)}
       >
-        {[0, 0.5, 1].map((ratio) => (
+        {/*
+          上下の枠だけ。**真ん中の線はやめた。**
+          意味の無い高さに線があると、そこが基準だと読めてしまう。
+          基準になるのは平均の線だけ。
+        */}
+        {[0, 1].map((ratio) => (
           <line
             key={ratio}
             x1={0}
@@ -178,11 +204,11 @@ function Chart({
           横の目盛り線。**数値の線より必ず薄く、細く。**
           目盛りが主役になると、肝心の推移が読めなくなる。
         */}
-        {ticks.map((x) => (
+        {ticks.map((tick) => (
           <line
-            key={x}
-            x1={x}
-            x2={x}
+            key={tick.value}
+            x1={tick.x}
+            x2={tick.x}
             y1={0}
             y2={PLOT_HEIGHT}
             stroke="var(--chart-grid)"
@@ -190,6 +216,19 @@ function Chart({
             vectorEffect="non-scaling-stroke"
           />
         ))}
+        {/*
+          平均の線。**目盛りより濃く、実測の線より薄い。**
+          同じ濃さにすると、どちらが走った結果なのか分からなくなる。
+        */}
+        <line
+          x1={0}
+          x2={WIDTH}
+          y1={meanY}
+          y2={meanY}
+          stroke="var(--chart-mean)"
+          strokeWidth={1.5}
+          shapeRendering="crispEdges"
+        />
         <path d={path} fill="none" stroke="var(--chart-ink)" strokeWidth={2} strokeLinejoin="round" />
         {at !== null && (
           <line
@@ -206,6 +245,7 @@ function Chart({
           <circle cx={xs[at!]} cy={pointY} r={3.5} fill="var(--chart-ink)" stroke="var(--bg-elevated)" strokeWidth={2} />
         )}
       </svg>
+      <AxisRow ticks={ticks} />
     </div>
   );
 }
@@ -219,10 +259,10 @@ interface Tick {
 /**
  * 横軸の文字。
  *
- * **グラフの上と下、両方に置く。**
- * 項目が7段あると縦に700pxを超える。下に一度だけ置くと、
- * 上のほうのグラフを見ている間、目盛りが画面の外にいる。
- * グラフごとに繰り返すと今度は数字だらけになるので、両端だけにする。
+ * **1段ごとに置く。**
+ * 項目が7段あると縦に700pxを超えるので、まとめて1か所に置くと、
+ * 見ているグラフと目盛りが同じ画面に入らない。
+ * 何km地点の話かは、そのグラフを見ながら読めないと意味がない。
  */
 function AxisRow({ ticks }: { ticks: Tick[] }) {
   if (ticks.length === 0) return null;
@@ -292,10 +332,23 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
       })),
     };
   }, [source, useDistance]);
-  const tickXs = ticks.map((tick) => tick.x);
+
+  // 全体の平均ペース。点ごとのペースを平均したものとは別物なので、ここで出す。
+  const runKm = (series.km[series.km.length - 1] ?? 0) - (series.km[0] ?? 0);
+  const runSec = (series.t[series.t.length - 1] ?? 0) - (series.t[0] ?? 0);
+  const overallPace = runKm > 0 && runSec > 0 ? runSec / runKm : undefined;
 
   const metrics: Metric[] = [
-    { key: 'pace', label: 'ペース', unit: '/km', values: series.pace ?? [], inverted: true, format: (v) => formatPace(v).replace('/km', '') },
+    {
+      key: 'pace',
+      label: 'ペース',
+      unit: '/km',
+      values: series.pace ?? [],
+      inverted: true,
+      // 走った時間 ÷ 走った距離。上のタイルの「平均ペース」と同じ出し方に揃える。
+      mean: overallPace,
+      format: (v) => formatPace(v).replace('/km', ''),
+    },
     { key: 'hr', label: '心拍', unit: 'bpm', values: series.hr },
     { key: 'cadence', label: 'ピッチ', unit: 'spm', values: series.cadence ?? [] },
     { key: 'power', label: 'パワー', unit: 'W', values: series.power ?? [] },
@@ -367,17 +420,10 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         </p>
       )}
 
-      <div className="mt-3">
-        <AxisRow ticks={ticks} />
-      </div>
-
+      {/* 目盛りの文字は、グラフ1つずつの下に出す（Chart の中）。 */}
       {shown.map((metric) => (
-        <Chart key={metric.key} metric={metric} xs={xs} ticks={tickXs} at={at} onHover={setAt} />
+        <Chart key={metric.key} metric={metric} xs={xs} ticks={ticks} at={at} onHover={setAt} />
       ))}
-
-      <div className="mt-1">
-        <AxisRow ticks={ticks} />
-      </div>
 
     </div>
   );
