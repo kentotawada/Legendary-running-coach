@@ -7,17 +7,32 @@ import { formatPace } from '@/lib/goals';
 /**
  * 1本の練習の推移。
  *
- * 作りの方針:
+ * **時計の画面と同じ形に揃えてある。** 見比べる相手が決まっているものは、
+ * 独自の見せ方をするほど読みにくくなる。並びはこう:
+ *
+ *   見出し / 大きな数字（平均・最大）/ 縦軸つきのグラフ / 横軸の目盛り / 軸の名前
+ *
  *  - **1つのグラフに軸は1つ。** 心拍とペースを重ねると、無い相関が見えてしまう。
- *    項目ごとに小さなグラフを縦に並べ、横軸だけを共有する。
  *  - **触った位置は全部のグラフで揃う。** 「5km地点で心拍が上がった時、
  *    ピッチはどうだったか」は、同じ瞬間を横断して見ないと答えられない。
  *  - 1項目1本なので凡例は置かない。見出しがその名前になっている。
- *  - 値はグラフの外（見出しの右）からも読める。触らないと読めない値は、読めない値と同じ。
+ *  - 色は項目ごとに変える。7段を行き来する時、色が目印になる。
  */
 
 const WIDTH = 320;
-const PLOT_HEIGHT = 58;
+const PLOT_HEIGHT = 108;
+
+/** 横軸に置く目盛りの数。時計の画面と同じ6つ。 */
+const X_TICKS = 6;
+
+/**
+ * 1時間を超える練習では、目盛りを減らす。
+ * **「1:12:00」は「18:00」の倍の幅がある。** 6つのままだと端の2つが重なって読めない。
+ */
+const X_TICKS_LONG = 4;
+
+/** 縦軸の目盛りの本数（区切りの数）。多いと数字だらけになる。 */
+const Y_STEPS = 4;
 
 export type Axis = 'time' | 'distance';
 
@@ -25,6 +40,8 @@ interface Metric {
   key: string;
   label: string;
   unit: string;
+  /** 項目の色。globals.css で検証済みの並びから取る。 */
+  color: string;
   values: (number | null)[];
   /**
    * 軸を上下ひっくり返す。
@@ -43,6 +60,10 @@ interface Metric {
    * どちらが本当なのか分からなくなる。
    */
   mean?: number;
+  /** 2つめの大きな数字。最大が意味を持つ項目にだけ置く。 */
+  extra?: 'max' | 'best';
+  /** 縦軸の刻みの候補。単位ごとに、人が使っている刻みがある。 */
+  ySteps?: number[];
   /** 値の書き方。 */
   format?: (value: number) => string;
 }
@@ -53,48 +74,55 @@ function clock(seconds: number): string {
   return m >= 60 ? `${Math.floor(m / 60)}:${`${m % 60}`.padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
-/**
- * 横軸の目盛りを置く値。
- *
- * **きりの良い数にだけ置く。** 「3.54km」のような端数の目盛りは、
- * 読む時にいちいち計算させることになる。
- * 走る人が頭の中で使っている刻み（1km・5km、5分・15分）に合わせる。
- *
- * 数は欲張らない。幅320の中に6本も7本も入れると、
- * 目盛りの字が重なって、かえって読めなくなる。
- */
-const DISTANCE_STEPS = [0.2, 0.5, 1, 2, 5, 10, 20];
-const TIME_STEPS = [60, 300, 600, 900, 1800, 3600];
+/** 1・2・2.5・5 の刻み。人が数えやすい数だけを使う。 */
+const LADDER = [1, 2, 2.5, 5];
 
-export function ticksFor(min: number, max: number, steps: number[], want = 4): number[] {
-  const span = max - min;
-  if (!(span > 0)) return [];
+function pickStep(span: number, steps: number[] | undefined, want: number): number {
+  if (steps) return steps.find((candidate) => span / candidate <= want) ?? steps[steps.length - 1];
+  if (!(span > 0)) return 1;
 
-  // 用意した刻みで足りない長さ（ウルトラなど）は、いちばん粗い刻みの倍数まで広げる。
-  // ここで諦めて最大値を使うと、目盛りが何十本も立つ。
-  const widest = steps[steps.length - 1];
-  const step =
-    steps.find((candidate) => span / candidate <= want) ??
-    widest * Math.ceil(span / want / widest);
-  const ticks: number[] = [];
-  // 端数の誤差で最後の1本が落ちないよう、ごく小さい余裕を足して比べる。
-  for (let value = Math.ceil(min / step) * step; value <= max + step * 1e-6; value += step) {
-    ticks.push(Math.round(value * 1000) / 1000);
+  const magnitude = 10 ** Math.floor(Math.log10(span / want));
+  for (const factor of LADDER) {
+    if (span / (factor * magnitude) <= want) return factor * magnitude;
   }
-  return ticks;
+  return 10 * magnitude;
 }
 
 /**
- * 縦軸の下端と幅。
+ * 縦軸。
  *
- * **ずっと同じ値だった項目を、枠線に見せない。**
- * 幅を0のまま描くと線が下端に貼りつき、区切り線と見分けがつかなくなる。
- * 変わらなかったのなら、真ん中に平らな線として出す。
+ * **目盛りの数に、軸の端を合わせる。** データの最小・最大をそのまま端にすると、
+ * 目盛りが半端な位置に立ち、いくつの線なのか読めない。
+ * きりの良い値まで外へ広げてから、その間を刻む。
  */
-export function scaleOf(low: number, high: number): { base: number; span: number } {
-  const width = high - low;
-  if (width < 1e-6) return { base: low - 1, span: 2 };
-  return { base: low, span: width };
+export function axisFor(
+  low: number,
+  high: number,
+  steps?: number[],
+): { base: number; span: number; ticks: number[] } {
+  const step = pickStep(high - low, steps, Y_STEPS);
+  let base = Math.floor(low / step) * step;
+  let top = Math.ceil(high / step) * step;
+  // ずっと同じ値だった項目は、上下に1つずつ広げて真ん中に置く。
+  if (top - base < step * 0.5) {
+    base -= step;
+    top += step;
+  }
+
+  const ticks: number[] = [];
+  for (let value = base; value <= top + step * 1e-6; value += step) {
+    ticks.push(Math.round(value * 1000) / 1000);
+  }
+  return { base, span: top - base, ticks };
+}
+
+/**
+ * 横軸の目盛り。
+ * **等間隔に割る。** 時計の画面がそうなっているので、同じ形に揃える。
+ */
+export function xTicksFor(min: number, max: number, count = X_TICKS): number[] {
+  if (!(max > min)) return [min];
+  return Array.from({ length: count }, (_, i) => min + ((max - min) * i) / (count - 1));
 }
 
 /** 測れていない点で線を切る。繋ぐと、そこに値があったことになってしまう。 */
@@ -114,17 +142,110 @@ function pathOf(values: (number | null)[], xs: number[], min: number, span: numb
   return path;
 }
 
+/** 線の下を塗る面。切れ目ごとに閉じるので、測れていない区間は塗らない。 */
+function areaOf(values: (number | null)[], xs: number[], min: number, span: number): string {
+  let path = '';
+  let from: number | null = null;
+  let previous = 0;
+
+  values.forEach((value, index) => {
+    const x = xs[index];
+    if (value === null) {
+      if (from !== null) path += `L${previous.toFixed(1)},${PLOT_HEIGHT} L${from.toFixed(1)},${PLOT_HEIGHT} Z`;
+      from = null;
+      return;
+    }
+    const y = PLOT_HEIGHT - ((value - min) / span) * PLOT_HEIGHT;
+    if (from === null) {
+      from = x;
+      path += `M${x.toFixed(1)},${y.toFixed(1)}`;
+    } else {
+      path += `L${x.toFixed(1)},${y.toFixed(1)}`;
+    }
+    previous = x;
+  });
+
+  if (from !== null) path += `L${previous.toFixed(1)},${PLOT_HEIGHT} L${(from as number).toFixed(1)},${PLOT_HEIGHT} Z`;
+  return path;
+}
+
+interface Tick {
+  value: number;
+  ratio: number;
+  label: string;
+}
+
+/** 大きな数字。単位は添え字で小さく。 */
+function Stat({ value, unit, note }: { value: string; unit: string; note: string }) {
+  return (
+    <div className="min-w-0 flex-1 border-t border-line pt-1.5">
+      <p className="truncate text-[20px] font-bold leading-tight tabular-nums">
+        {value}
+        <span className="ml-1 text-[11px] font-medium text-muted">{unit}</span>
+      </p>
+      <p className="mt-0.5 text-[11px] text-muted">{note}</p>
+    </div>
+  );
+}
+
+/**
+ * 横軸の文字。
+ *
+ * **1段ごとに置く。** 項目が7段あると縦に1000pxを超えるので、
+ * まとめて1か所に置くと、見ているグラフと目盛りが同じ画面に入らない。
+ * 何km地点の話かは、そのグラフを見ながら読めないと意味がない。
+ */
+function XAxis({ ticks, caption }: { ticks: Tick[]; caption: string }) {
+  return (
+    <>
+      <div className="relative mt-1 h-2">
+        {ticks.map((tick) => (
+          <span
+            key={tick.value}
+            className="absolute top-0 block h-1.5 w-1.5 rounded-full bg-line"
+            style={{ left: `${tick.ratio * 100}%`, transform: 'translateX(-50%)' }}
+          />
+        ))}
+      </div>
+      <div className="relative mt-0.5 h-4 text-[10px] text-muted tabular-nums">
+        {ticks.map((tick) => {
+          // 端の文字は、はみ出さないよう内側へ寄せる。
+          const edge = tick.ratio < 0.06 ? 'left' : tick.ratio > 0.94 ? 'right' : 'center';
+          return (
+            <span
+              key={tick.value}
+              className="absolute top-0 whitespace-nowrap"
+              style={
+                edge === 'left'
+                  ? { left: 0 }
+                  : edge === 'right'
+                    ? { right: 0 }
+                    : { left: `${tick.ratio * 100}%`, transform: 'translateX(-50%)' }
+              }
+            >
+              {tick.label}
+            </span>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-center text-[10px] text-muted">{caption}</p>
+    </>
+  );
+}
+
 function Chart({
   metric,
   xs,
   ticks,
+  caption,
   at,
   onHover,
 }: {
   metric: Metric;
   xs: number[];
-  /** 横軸の目盛り。全部のグラフで同じ位置に立て、文字もその下に出す。 */
+  /** 横軸の目盛り。全部のグラフで同じ位置に立てる。 */
   ticks: Tick[];
+  caption: string;
   at: number | null;
   onHover: (index: number | null) => void;
 }) {
@@ -133,163 +254,168 @@ function Chart({
 
   const low = Math.min(...numbers);
   const high = Math.max(...numbers);
-  const { base, span } = scaleOf(low, high);
+  const axis = axisFor(low, high, metric.ySteps);
+
   // **平均は、そのグラフの中の基準。** 「いつもより速い/遅い」はここからの距離で読む。
-  const mean =
-    metric.mean ?? numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
-  // 小さいほど良い項目は、上下をひっくり返す。速い方が上に来るほうが読みやすい。
-  const plot = metric.inverted ? metric.values.map((v) => (v === null ? null : high + low - v)) : metric.values;
-  const path = pathOf(plot, xs, base, span);
+  const mean = metric.mean ?? numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
 
   const show = metric.format ?? ((value: number) => `${Math.round(value)}`);
-  // ペースだけ上下が逆なので、平均線の高さも裏返してから置く。
-  const meanPlot = metric.inverted ? high + low - mean : mean;
-  const meanY = PLOT_HEIGHT - ((meanPlot - base) / span) * PLOT_HEIGHT;
+  // ペースだけ上下が逆。軸も平均線も、まとめて裏返してから置く。
+  const flip = (value: number) => (metric.inverted ? axis.base + (axis.base + axis.span) - value : value);
+  const plot = metric.values.map((value) => (value === null ? null : flip(value)));
+
+  const path = pathOf(plot, xs, axis.base, axis.span);
+  const area = areaOf(plot, xs, axis.base, axis.span);
+  const meanY = PLOT_HEIGHT - ((flip(mean) - axis.base) / axis.span) * PLOT_HEIGHT;
+
   const current = at !== null ? metric.values[at] : null;
-  const headline = current !== null && current !== undefined ? show(current) : `${show(low)}〜${show(high)}`;
+  const best = metric.inverted ? low : high;
 
   const pointY = (() => {
     if (at === null) return null;
     const value = plot[at];
     if (value === null || value === undefined) return null;
-    return PLOT_HEIGHT - ((value - base) / span) * PLOT_HEIGHT;
+    return PLOT_HEIGHT - ((value - axis.base) / axis.span) * PLOT_HEIGHT;
   })();
 
   return (
-    <div className="mt-3">
+    <section className="mt-5 border-t border-line pt-4 first:mt-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="min-w-0 truncate text-[12px] font-semibold">
-          {metric.label}
-          {/* グラフの中の横線が何の線かは、ここで名指ししないと伝わらない。 */}
-          <span className="ml-1.5 font-normal text-[11px] text-muted tabular-nums">
-            平均 {show(mean)}
-          </span>
-        </p>
-        <p className="text-[12px] tabular-nums">
-          <span className={current !== null && current !== undefined ? 'font-bold' : 'text-muted'}>
-            {headline}
-          </span>
-          <span className="ml-0.5 text-[10px] text-muted">{metric.unit}</span>
-        </p>
+        <p className="min-w-0 truncate text-[13px] font-semibold">{metric.label}</p>
+        {current !== null && current !== undefined && (
+          <p className="shrink-0 text-[13px] font-bold tabular-nums" style={{ color: metric.color }}>
+            {show(current)}
+            <span className="ml-0.5 text-[10px] font-medium text-muted">{metric.unit}</span>
+          </p>
+        )}
       </div>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${PLOT_HEIGHT}`}
-        className="mt-1 w-full touch-none"
-        style={{ height: PLOT_HEIGHT }}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`${metric.label}の推移。${show(low)}から${show(high)}${metric.unit}。`}
-        onPointerDown={(event) => onHover(indexAt(event, xs))}
-        onPointerMove={(event) => event.buttons !== 0 && onHover(indexAt(event, xs))}
-        onPointerLeave={() => onHover(null)}
-      >
-        {/*
-          上下の枠だけ。**真ん中の線はやめた。**
-          意味の無い高さに線があると、そこが基準だと読めてしまう。
-          基準になるのは平均の線だけ。
-        */}
-        {[0, 1].map((ratio) => (
-          <line
-            key={ratio}
-            x1={0}
-            x2={WIDTH}
-            y1={PLOT_HEIGHT * ratio}
-            y2={PLOT_HEIGHT * ratio}
-            stroke="var(--chart-grid)"
-            strokeWidth={1}
-            shapeRendering="crispEdges"
-          />
-        ))}
-        {/*
-          横の目盛り線。**数値の線より必ず薄く、細く。**
-          目盛りが主役になると、肝心の推移が読めなくなる。
-        */}
-        {ticks.map((tick) => (
-          <line
-            key={tick.value}
-            x1={tick.x}
-            x2={tick.x}
-            y1={0}
-            y2={PLOT_HEIGHT}
-            stroke="var(--chart-grid)"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
-        {/*
-          平均の線。**目盛りより濃く、実測の線より薄い。**
-          同じ濃さにすると、どちらが走った結果なのか分からなくなる。
-        */}
-        <line
-          x1={0}
-          x2={WIDTH}
-          y1={meanY}
-          y2={meanY}
-          stroke="var(--chart-mean)"
-          strokeWidth={1.5}
-          shapeRendering="crispEdges"
-        />
-        <path d={path} fill="none" stroke="var(--chart-ink)" strokeWidth={2} strokeLinejoin="round" />
-        {at !== null && (
-          <line
-            x1={xs[at]}
-            x2={xs[at]}
-            y1={0}
-            y2={PLOT_HEIGHT}
-            stroke="var(--chart-ink)"
-            strokeWidth={1}
-            opacity={0.5}
+
+      {/* 大きな数字を先に出す。グラフを読む前に、まず結論が分かるように。 */}
+      <div className="mt-2 flex gap-3">
+        <Stat value={show(mean)} unit={metric.unit} note="平均" />
+        {metric.extra && (
+          <Stat
+            value={show(metric.extra === 'best' ? best : high)}
+            unit={metric.unit}
+            note={metric.extra === 'best' ? 'ベスト' : '最大'}
           />
         )}
-        {pointY !== null && (
-          <circle cx={xs[at!]} cy={pointY} r={3.5} fill="var(--chart-ink)" stroke="var(--bg-elevated)" strokeWidth={2} />
-        )}
-      </svg>
-      <AxisRow ticks={ticks} />
-    </div>
-  );
-}
+        {!metric.extra && <div className="min-w-0 flex-1" />}
+      </div>
 
-interface Tick {
-  value: number;
-  x: number;
-  label: string;
-}
+      <div className="mt-3 flex gap-1.5">
+        {/*
+          縦軸の文字。**SVG の外に置く。**
+          中に入れると、横幅に合わせて引き伸ばされた時に字まで歪む。
+        */}
+        <div className="relative w-9 shrink-0 text-[10px] text-muted tabular-nums" style={{ height: PLOT_HEIGHT }}>
+          {axis.ticks.map((value) => (
+            <span
+              key={value}
+              className="absolute right-0 whitespace-nowrap"
+              style={{
+                top: `${(1 - (value - axis.base) / axis.span) * 100}%`,
+                transform: 'translateY(-50%)',
+              }}
+            >
+              {show(metric.inverted ? flip(value) : value)}
+            </span>
+          ))}
+        </div>
 
-/**
- * 横軸の文字。
- *
- * **1段ごとに置く。**
- * 項目が7段あると縦に700pxを超えるので、まとめて1か所に置くと、
- * 見ているグラフと目盛りが同じ画面に入らない。
- * 何km地点の話かは、そのグラフを見ながら読めないと意味がない。
- */
-function AxisRow({ ticks }: { ticks: Tick[] }) {
-  if (ticks.length === 0) return null;
-
-  return (
-    <div className="relative h-4 text-[10px] text-muted tabular-nums">
-      {ticks.map((tick) => {
-        const ratio = tick.x / WIDTH;
-        // 端の文字は、はみ出さないよう内側へ寄せる。
-        const edge = ratio < 0.06 ? 'left' : ratio > 0.94 ? 'right' : 'center';
-        return (
-          <span
-            key={tick.value}
-            className="absolute top-0 whitespace-nowrap"
-            style={
-              edge === 'left'
-                ? { left: 0 }
-                : edge === 'right'
-                  ? { right: 0 }
-                  : { left: `${ratio * 100}%`, transform: 'translateX(-50%)' }
-            }
+        <div className="min-w-0 flex-1">
+          <svg
+            viewBox={`0 0 ${WIDTH} ${PLOT_HEIGHT}`}
+            className="block w-full touch-none"
+            style={{ height: PLOT_HEIGHT }}
+            preserveAspectRatio="none"
+            role="img"
+            aria-label={`${metric.label}の推移。平均${show(mean)}${metric.unit}。${show(low)}から${show(high)}。`}
+            onPointerDown={(event) => onHover(indexAt(event, xs))}
+            onPointerMove={(event) => event.buttons !== 0 && onHover(indexAt(event, xs))}
+            onPointerLeave={() => onHover(null)}
           >
-            {tick.label}
-          </span>
-        );
-      })}
-    </div>
+            {/* 縦軸の目盛り線。数値の線より必ず薄く、細く。 */}
+            {axis.ticks.map((value) => {
+              const y = (1 - (value - axis.base) / axis.span) * PLOT_HEIGHT;
+              return (
+                <line
+                  key={value}
+                  x1={0}
+                  x2={WIDTH}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--chart-grid)"
+                  strokeWidth={1}
+                  shapeRendering="crispEdges"
+                />
+              );
+            })}
+            {ticks.map((tick) => (
+              <line
+                key={tick.value}
+                x1={tick.ratio * WIDTH}
+                x2={tick.ratio * WIDTH}
+                y1={0}
+                y2={PLOT_HEIGHT}
+                stroke="var(--chart-grid)"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+
+            <path d={area} fill={metric.color} opacity={0.3} />
+            <path
+              d={path}
+              fill="none"
+              stroke={metric.color}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {/*
+              平均の線。**破線にする。**
+              実測と同じ実線だと、どちらが走った結果なのか分からなくなる。
+            */}
+            <line
+              x1={0}
+              x2={WIDTH}
+              y1={meanY}
+              y2={meanY}
+              stroke="var(--chart-mean)"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {at !== null && (
+              <line
+                x1={xs[at]}
+                x2={xs[at]}
+                y1={0}
+                y2={PLOT_HEIGHT}
+                stroke="var(--chart-mean)"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {pointY !== null && (
+              <circle
+                cx={xs[at!]}
+                cy={pointY}
+                r={3.5}
+                fill={metric.color}
+                stroke="var(--bg-elevated)"
+                strokeWidth={2}
+              />
+            )}
+          </svg>
+
+          <XAxis ticks={ticks} caption={caption} />
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -306,7 +432,7 @@ function indexAt(event: React.PointerEvent<SVGSVGElement>, xs: number[]): number
 }
 
 export default function RunCharts({ series }: { series: ActivitySeries }) {
-  const [axis, setAxis] = useState<Axis>('distance');
+  const [axis, setAxis] = useState<Axis>('time');
   const [at, setAt] = useState<number | null>(null);
 
   const hasDistance = series.km.some((value) => value > 0);
@@ -320,15 +446,16 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
     const min = Math.min(...source, 0);
     const width = Math.max(max - min, 0.001);
     const place = (value: number) => ((value - min) / width) * WIDTH;
+    const label = (value: number) =>
+      useDistance ? `${value.toFixed(max - min >= 10 ? 1 : 2)}` : clock(value);
+    const count = !useDistance && max >= 3600 ? X_TICKS_LONG : X_TICKS;
 
-    const values = ticksFor(min, max, useDistance ? DISTANCE_STEPS : TIME_STEPS);
     return {
       xs: source.map(place),
-      // 目盛りは、位置と書く文字を一組で持つ。全部のグラフで同じ位置に立つ。
-      ticks: values.map((value) => ({
+      ticks: xTicksFor(min, max, count).map((value) => ({
         value,
-        x: place(value),
-        label: useDistance ? `${value}km` : `${Math.round(value / 60)}分`,
+        ratio: (value - min) / width,
+        label: label(value),
       })),
     };
   }, [source, useDistance]);
@@ -343,67 +470,81 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
       key: 'pace',
       label: 'ペース',
       unit: '/km',
+      color: 'var(--chart-1)',
       values: series.pace ?? [],
       inverted: true,
+      extra: 'best',
       // 走った時間 ÷ 走った距離。上のタイルの「平均ペース」と同じ出し方に揃える。
       mean: overallPace,
+      // 秒の刻みは、10・15・30秒…と人が使っている単位で。
+      ySteps: [10, 15, 30, 60, 120, 300, 600],
       format: (v) => formatPace(v).replace('/km', ''),
     },
-    { key: 'hr', label: '心拍', unit: 'bpm', values: series.hr },
-    { key: 'cadence', label: 'ピッチ', unit: 'spm', values: series.cadence ?? [] },
-    { key: 'power', label: 'パワー', unit: 'W', values: series.power ?? [] },
-    { key: 'vo', label: '上下動', unit: 'cm', values: series.vo ?? [], format: (v) => v.toFixed(1) },
-    { key: 'gct', label: '接地時間', unit: 'ms', values: series.gct ?? [] },
+    { key: 'hr', label: '心拍', unit: 'bpm', color: 'var(--chart-2)', values: series.hr, extra: 'max' },
+    {
+      key: 'cadence',
+      label: 'ピッチ',
+      unit: 'spm',
+      color: 'var(--chart-3)',
+      values: series.cadence ?? [],
+      extra: 'max',
+    },
+    {
+      key: 'power',
+      label: 'パワー',
+      unit: 'W',
+      color: 'var(--chart-4)',
+      values: series.power ?? [],
+      extra: 'max',
+    },
+    {
+      key: 'vo',
+      label: '上下動',
+      unit: 'cm',
+      color: 'var(--chart-5)',
+      values: series.vo ?? [],
+      ySteps: [0.2, 0.5, 1, 2, 5],
+      format: (v) => v.toFixed(1),
+    },
+    { key: 'gct', label: '接地時間', unit: 'ms', color: 'var(--chart-6)', values: series.gct ?? [] },
     // 歩幅はピッチと対になる。並べて見ると「回転で速いのか、伸びで速いのか」が分かる。
-    { key: 'step', label: '歩幅', unit: 'cm', values: series.step ?? [] },
+    { key: 'step', label: '歩幅', unit: 'cm', color: 'var(--chart-7)', values: series.step ?? [] },
   ];
   const shown = metrics.filter((metric) => metric.values.some((value) => value !== null));
   if (shown.length === 0) return null;
 
-  const total = useDistance
-    ? `${(series.km[series.km.length - 1] ?? 0).toFixed(2)}km`
-    : clock(series.t[series.t.length - 1] ?? 0);
-  const here = at !== null ? (useDistance ? `${series.km[at].toFixed(2)}km` : clock(series.t[at])) : null;
+  const caption = useDistance ? '距離（km）' : '時間（時：分：秒）';
 
   return (
     <div className="mt-5">
-      <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-[13px] font-semibold">
-          走っている間の推移
-          {/*
-            触っている間はその地点、触っていない間は全体の長さ。
-            目盛りはきりの良い数までしか出ないので、**最後まで走った値はここで見せる。**
-          */}
-          <span
-            className={`ml-1.5 font-normal tabular-nums ${here ? 'text-accent' : 'text-muted'}`}
+      <p className="text-[13px] font-semibold">走っている間の推移</p>
+
+      {/* 横軸の切り替え。時計の画面と同じ、横いっぱいの2つ割り。 */}
+      <div className="mt-2 flex overflow-hidden rounded-[10px] bg-sunken p-0.5 text-[12px]">
+        {(['time', 'distance'] as Axis[]).map((value) => (
+          <button
+            key={value}
+            type="button"
+            disabled={value === 'distance' && !hasDistance}
+            onClick={() => {
+              setAxis(value);
+              setAt(null);
+            }}
+            className={`min-w-0 flex-1 rounded-[8px] py-1.5 font-medium disabled:opacity-30 ${
+              (useDistance ? 'distance' : 'time') === value
+                ? 'bg-accent text-[var(--accent-fg)]'
+                : 'text-muted'
+            }`}
           >
-            {here ?? total}
-          </span>
-        </p>
-        {/* 横軸の切り替え。グラフの上に1列だけ置く。 */}
-        <div className="flex shrink-0 overflow-hidden rounded-full border border-line text-[11px]">
-          {(['distance', 'time'] as Axis[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              disabled={value === 'distance' && !hasDistance}
-              onClick={() => {
-                setAxis(value);
-                setAt(null);
-              }}
-              className={`px-2.5 py-1 font-medium disabled:opacity-30 ${
-                (useDistance ? 'distance' : 'time') === value ? 'bg-accent text-[var(--accent-fg)]' : 'text-muted'
-              }`}
-            >
-              {value === 'distance' ? '距離' : '時間'}
-            </button>
-          ))}
-        </div>
+            {value === 'distance' ? '距離' : '時間'}
+          </button>
+        ))}
       </div>
 
-      <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
         グラフを触ると、その地点の値が
         <strong className="font-semibold text-fg">すべての項目で</strong>揃って出ます。
+        破線は平均です。
       </p>
 
       {/*
@@ -420,11 +561,17 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         </p>
       )}
 
-      {/* 目盛りの文字は、グラフ1つずつの下に出す（Chart の中）。 */}
       {shown.map((metric) => (
-        <Chart key={metric.key} metric={metric} xs={xs} ticks={ticks} at={at} onHover={setAt} />
+        <Chart
+          key={metric.key}
+          metric={metric}
+          xs={xs}
+          ticks={ticks}
+          caption={caption}
+          at={at}
+          onHover={setAt}
+        />
       ))}
-
     </div>
   );
 }
