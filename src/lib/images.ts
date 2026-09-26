@@ -8,7 +8,24 @@ import type { ImageAttachment } from './types';
 export const DEFAULT_IMAGE_MESSAGE = '練習データのスクリーンショットです。読み取って分析してください。';
 
 /** Gemini が扱える形式だけを通す。 */
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  // iPhone の「フルページ」スクリーンショットは PDF で保存される。
+  // 長い画面を1枚で渡せる唯一の道なので、ここで受ける。
+  'application/pdf',
+];
+
+export const PDF_TYPE = 'application/pdf';
+
+/** PDF として扱うファイルか。 */
+export function looksLikePdf(file: { type?: string; name?: string }): boolean {
+  if ((file.type ?? '').toLowerCase() === PDF_TYPE) return true;
+  return /\.pdf$/i.test(file.name ?? '');
+}
 
 /**
  * ファイル選択で見せる形式。
@@ -26,6 +43,11 @@ export function looksLikeImage(file: { type?: string; name?: string }): boolean 
   if (type.startsWith('image/')) return true;
   // iCloud 経由などで type が空のことがある。名前で判断する。
   return /\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?)$/i.test(file.name ?? '');
+}
+
+/** コーチに読ませる添付（画像か PDF）か。練習の記録ファイルと振り分けるために使う。 */
+export function looksLikeAttachment(file: { type?: string; name?: string }): boolean {
+  return looksLikeImage(file) || looksLikePdf(file);
 }
 
 /**
@@ -89,7 +111,7 @@ export function validateImages(input: unknown): ImageValidation {
     const mimeType = typeof candidate.mimeType === 'string' ? candidate.mimeType.toLowerCase() : '';
     let data = typeof candidate.data === 'string' ? candidate.data : '';
 
-    // "data:image/jpeg;base64,...." で送られてきた場合に備える。
+    // "data:image/jpeg;base64,...." や "data:application/pdf;base64,..." に備える。
     const commaIndex = data.indexOf(',');
     if (data.startsWith('data:') && commaIndex > 0) data = data.slice(commaIndex + 1);
 
@@ -97,7 +119,7 @@ export function validateImages(input: unknown): ImageValidation {
       return {
         images: [],
         thumbnails: [],
-        error: '対応していない画像形式です。JPEG / PNG / WebP で送ってください。',
+        error: '対応していない形式です。JPEG / PNG / WebP の画像か、PDF で送ってください。',
       };
     }
     if (!data) return { images: [], thumbnails: [], error: '画像データが空です。' };
