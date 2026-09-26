@@ -1,6 +1,7 @@
 'use client';
 
 import type { DailyStatus } from '@/lib/daily';
+import StampIcon from './StampIcon';
 
 /**
  * 毎日ここを開く理由になる帯。
@@ -20,13 +21,13 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
             key={stamp.id}
             title={stamp.label}
             className={[
-              'flex h-7 w-7 items-center justify-center rounded-full border text-[13px] transition',
+              'flex h-7 w-7 items-center justify-center rounded-full border transition',
               stamp.done
-                ? 'border-[color:var(--accent)] bg-accent-soft'
-                : 'border-line bg-sunken opacity-45 grayscale',
+                ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                : 'border-line bg-sunken text-muted opacity-50',
             ].join(' ')}
           >
-            {stamp.emoji}
+            <StampIcon id={stamp.id} size={17} />
           </span>
         ))}
       </span>

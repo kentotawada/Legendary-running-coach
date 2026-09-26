@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
-import type { DailyStatus } from '@/lib/daily';
+import { dailyStatus, type DailyStatus } from '@/lib/daily';
 import type { ResolvedGear } from '@/lib/gear';
 import type { AuthState } from '@/components/AuthSheet';
 import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
@@ -103,7 +103,18 @@ export function useCoachChat(): CoachChat {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [daily, setDaily] = useState<DailyStatus | null>(null);
+  /**
+   * 今日のスタンプ。
+   *
+   * **サーバーから受け取って持ち続けない。カルテから毎回組み立てる。**
+   * スタンプの中身（走ったか・体重をはかったか）は、全部カルテに書いてある。
+   * 別々に持つと、練習を取り込んでカルテが変わってもスタンプだけ古いままになる。
+   * 実際それが起きていた: 今日の記録を入れても「体を動かす」が済みにならなかった。
+   */
+  const daily = useMemo<DailyStatus | null>(
+    () => (profile ? dailyStatus(profile) : null),
+    [profile],
+  );
   const [gear, setGear] = useState<ResolvedGear[]>([]);
   const [auth, setAuth] = useState<AuthState>({ available: false, isAuthenticated: false });
   const [savingWeight, setSavingWeight] = useState(false);
@@ -517,7 +528,7 @@ export function useCoachChat(): CoachChat {
         // 「今日ここを開いた」を記録する。スタンプはこれが起点。
         void fetch('/api/daily', { method: 'POST' })
           .then((r) => r.json())
-          .then((d: { daily?: DailyStatus }) => d.daily && setDaily(d.daily))
+          .then((d: { profile?: RunnerProfile }) => d.profile && setProfile(d.profile))
           .catch(() => undefined);
         setProfile(data.profile);
         // つないであるなら、開いた時点でもう取り込んでおく。
@@ -592,9 +603,8 @@ export function useCoachChat(): CoachChat {
         profile?: RunnerProfile;
         error?: string;
       };
-      if (!response.ok || !data.daily) throw new Error(data.error ?? '体重を記録できませんでした。');
-      setDaily(data.daily);
-      if (data.profile) setProfile(data.profile);
+      if (!response.ok || !data.profile) throw new Error(data.error ?? '体重を記録できませんでした。');
+      setProfile(data.profile);
     } catch (e) {
       setError(e instanceof Error ? e.message : '体重を記録できませんでした。');
     } finally {

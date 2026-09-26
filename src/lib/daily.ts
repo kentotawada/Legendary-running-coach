@@ -15,7 +15,10 @@ export type StampId = 'opened' | 'weighed' | 'moved';
 export interface Stamp {
   id: StampId;
   label: string;
-  emoji: string;
+  /**
+   * 絵柄は StampIcon が持つ。ここには置かない。
+   * **端末ごとに絵柄の変わる絵文字は、説明の道具にならない。**
+   */
   done: boolean;
   hint: string;
 }
@@ -121,21 +124,18 @@ export function dailyStatus(profile: RunnerProfile, now: Date = new Date()): Dai
     {
       id: 'opened',
       label: 'コーチに会う',
-      emoji: '👋',
       done: Boolean(record?.opened),
       hint: 'アプリを開くだけで押されます',
     },
     {
       id: 'weighed',
       label: '体重をはかる',
-      emoji: '⚖️',
       done: record?.weightKg !== undefined,
       hint: '増えた減ったは気にしない。乗ることが習慣です',
     },
     {
       id: 'moved',
       label: '体を動かす',
-      emoji: '👟',
       done: movedOn(profile, date),
       hint: '走る・歩く・補強、どれでも構いません',
     },
