@@ -68,6 +68,7 @@ const richer = (): ImportedWorkout =>
       power: 278,
       vo: 9.4,
       gct: 231,
+      step: 132,
     })),
     dynamics: { powerW: 278, verticalOscillationCm: 9.4, groundContactMs: 231 },
   });
@@ -132,6 +133,9 @@ describe('POST /api/import', () => {
     const activity = memory.read().profile.activities.at(-1)!;
 
     expect(activity.series?.gct?.length).toBeGreaterThan(0);
+    // **歩幅は入口の whitelist から漏れやすい。** 通っていることをここで押さえる。
+    expect(activity.series?.step?.length).toBeGreaterThan(0);
+    expect(activity.series?.step?.[0]).toBe(132);
     expect(activity.metrics?.groundContactMs).toBe(231);
   });
 

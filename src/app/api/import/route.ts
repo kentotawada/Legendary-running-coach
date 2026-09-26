@@ -121,6 +121,7 @@ function cleanSamples(raw: unknown): WorkoutSample[] | undefined {
         power: positive(point.power, MAX_DYNAMICS.powerW),
         vo: positive(point.vo, MAX_DYNAMICS.verticalOscillationCm),
         gct: positive(point.gct, MAX_DYNAMICS.groundContactMs),
+        step: positive(point.step, MAX_DYNAMICS.stepLengthCm),
       };
       return clean;
     })

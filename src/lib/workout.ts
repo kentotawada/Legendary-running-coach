@@ -40,6 +40,8 @@ export interface WorkoutSample {
   vo?: number;
   /** 接地時間(ms)。 */
   gct?: number;
+  /** 歩幅(cm)。ピッチと掛け合わせると速度になる、フォームのもう一方の軸。 */
+  step?: number;
 }
 
 /**
@@ -194,7 +196,7 @@ export function autoSplits(samples: WorkoutSample[], everyM = 1000): WorkoutLap[
 export const MAX_SERIES_POINTS = 240;
 
 /** 推移として持つ項目。**1つのグラフに1つの軸**なので、項目ごとに別の列で持つ。 */
-const TRACKED = ['hr', 'pace', 'cadence', 'power', 'vo', 'gct'] as const;
+const TRACKED = ['hr', 'pace', 'cadence', 'power', 'vo', 'gct', 'step'] as const;
 type Tracked = (typeof TRACKED)[number];
 
 /** 小数を残す項目。心拍やパワーは整数で足りる。 */
@@ -204,9 +206,9 @@ export function downsample(samples: WorkoutSample[], max = MAX_SERIES_POINTS): A
   const points = samples.filter((point) => point.hr !== undefined || point.d !== undefined);
   if (points.length < 2) return undefined;
 
-  const step = Math.max(1, Math.ceil(points.length / max));
+  const every = Math.max(1, Math.ceil(points.length / max));
   const kept: WorkoutSample[] = [];
-  for (let i = 0; i < points.length; i += step) kept.push(points[i]);
+  for (let i = 0; i < points.length; i += every) kept.push(points[i]);
   // 最後の点は必ず残す。終盤がどうだったかが、いちばん知りたいところ。
   const last = points[points.length - 1];
   if (kept[kept.length - 1]?.t !== last.t) kept.push(last);
@@ -411,7 +413,7 @@ function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics'>): n
   const laps = activity.laps?.length ?? 0;
   // 推移は、持っている列の数で数える（心拍だけの推移と、6項目の推移は別物）。
   const columns = activity.series
-    ? (['pace', 'cadence', 'power', 'vo', 'gct'] as const).filter(
+    ? (['pace', 'cadence', 'power', 'vo', 'gct', 'step'] as const).filter(
         (key) => (activity.series?.[key]?.length ?? 0) > 0,
       ).length + 1
     : 0;
@@ -521,6 +523,7 @@ const COLUMNS: { key: keyof WorkoutSample; label: string }[] = [
   { key: 'power', label: 'パワー' },
   { key: 'vo', label: '上下動' },
   { key: 'gct', label: '接地時間' },
+  { key: 'step', label: '歩幅' },
 ];
 
 export function describeColumns(workouts: ImportedWorkout[]): string {

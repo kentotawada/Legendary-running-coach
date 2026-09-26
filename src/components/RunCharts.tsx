@@ -44,6 +44,19 @@ function clock(seconds: number): string {
   return m >= 60 ? `${Math.floor(m / 60)}:${`${m % 60}`.padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
+/**
+ * 縦軸の下端と幅。
+ *
+ * **ずっと同じ値だった項目を、枠線に見せない。**
+ * 幅を0のまま描くと線が下端に貼りつき、区切り線と見分けがつかなくなる。
+ * 変わらなかったのなら、真ん中に平らな線として出す。
+ */
+export function scaleOf(low: number, high: number): { base: number; span: number } {
+  const width = high - low;
+  if (width < 1e-6) return { base: low - 1, span: 2 };
+  return { base: low, span: width };
+}
+
 /** 測れていない点で線を切る。繋ぐと、そこに値があったことになってしまう。 */
 function pathOf(values: (number | null)[], xs: number[], min: number, span: number): string {
   let path = '';
@@ -77,10 +90,10 @@ function Chart({
 
   const low = Math.min(...numbers);
   const high = Math.max(...numbers);
-  const span = Math.max(high - low, 1);
+  const { base, span } = scaleOf(low, high);
   // 小さいほど良い項目は、上下をひっくり返す。速い方が上に来るほうが読みやすい。
   const plot = metric.inverted ? metric.values.map((v) => (v === null ? null : high + low - v)) : metric.values;
-  const path = pathOf(plot, xs, low, span);
+  const path = pathOf(plot, xs, base, span);
 
   const show = metric.format ?? ((value: number) => `${Math.round(value)}`);
   const current = at !== null ? metric.values[at] : null;
@@ -90,7 +103,7 @@ function Chart({
     if (at === null) return null;
     const value = plot[at];
     if (value === null || value === undefined) return null;
-    return PLOT_HEIGHT - ((value - low) / span) * PLOT_HEIGHT;
+    return PLOT_HEIGHT - ((value - base) / span) * PLOT_HEIGHT;
   })();
 
   return (
@@ -183,6 +196,8 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
     { key: 'power', label: 'パワー', unit: 'W', values: series.power ?? [] },
     { key: 'vo', label: '上下動', unit: 'cm', values: series.vo ?? [], format: (v) => v.toFixed(1) },
     { key: 'gct', label: '接地時間', unit: 'ms', values: series.gct ?? [] },
+    // 歩幅はピッチと対になる。並べて見ると「回転で速いのか、伸びで速いのか」が分かる。
+    { key: 'step', label: '歩幅', unit: 'cm', values: series.step ?? [] },
   ];
   const shown = metrics.filter((metric) => metric.values.some((value) => value !== null));
   if (shown.length === 0) return null;
@@ -235,7 +250,7 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
           この練習は<strong className="font-semibold text-fg">{shown[0].label}しか持っていません。</strong>
           取り込んだ時期によって、残っている項目が違います。
           <strong className="font-semibold text-fg">同じファイルをもう一度取り込むと、ほかの項目も入ります。</strong>
-          上下動・接地時間・パワーは FIT ファイルにだけ入っています。
+          上下動・接地時間・歩幅・パワーは FIT ファイルにだけ入っています。
         </p>
       )}
 
