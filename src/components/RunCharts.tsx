@@ -45,6 +45,37 @@ function clock(seconds: number): string {
 }
 
 /**
+ * 横軸の目盛りを置く値。
+ *
+ * **きりの良い数にだけ置く。** 「3.54km」のような端数の目盛りは、
+ * 読む時にいちいち計算させることになる。
+ * 走る人が頭の中で使っている刻み（1km・5km、5分・15分）に合わせる。
+ *
+ * 数は欲張らない。幅320の中に6本も7本も入れると、
+ * 目盛りの字が重なって、かえって読めなくなる。
+ */
+const DISTANCE_STEPS = [0.2, 0.5, 1, 2, 5, 10, 20];
+const TIME_STEPS = [60, 300, 600, 900, 1800, 3600];
+
+export function ticksFor(min: number, max: number, steps: number[], want = 4): number[] {
+  const span = max - min;
+  if (!(span > 0)) return [];
+
+  // 用意した刻みで足りない長さ（ウルトラなど）は、いちばん粗い刻みの倍数まで広げる。
+  // ここで諦めて最大値を使うと、目盛りが何十本も立つ。
+  const widest = steps[steps.length - 1];
+  const step =
+    steps.find((candidate) => span / candidate <= want) ??
+    widest * Math.ceil(span / want / widest);
+  const ticks: number[] = [];
+  // 端数の誤差で最後の1本が落ちないよう、ごく小さい余裕を足して比べる。
+  for (let value = Math.ceil(min / step) * step; value <= max + step * 1e-6; value += step) {
+    ticks.push(Math.round(value * 1000) / 1000);
+  }
+  return ticks;
+}
+
+/**
  * 縦軸の下端と幅。
  *
  * **ずっと同じ値だった項目を、枠線に見せない。**
@@ -77,11 +108,14 @@ function pathOf(values: (number | null)[], xs: number[], min: number, span: numb
 function Chart({
   metric,
   xs,
+  ticks,
   at,
   onHover,
 }: {
   metric: Metric;
   xs: number[];
+  /** 横軸の目盛りの位置(px)。全部のグラフで同じ位置に立てる。 */
+  ticks: number[];
   at: number | null;
   onHover: (index: number | null) => void;
 }) {
@@ -140,6 +174,22 @@ function Chart({
             shapeRendering="crispEdges"
           />
         ))}
+        {/*
+          横の目盛り線。**数値の線より必ず薄く、細く。**
+          目盛りが主役になると、肝心の推移が読めなくなる。
+        */}
+        {ticks.map((x) => (
+          <line
+            key={x}
+            x1={x}
+            x2={x}
+            y1={0}
+            y2={PLOT_HEIGHT}
+            stroke="var(--chart-grid)"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         <path d={path} fill="none" stroke="var(--chart-ink)" strokeWidth={2} strokeLinejoin="round" />
         {at !== null && (
           <line
@@ -156,6 +206,49 @@ function Chart({
           <circle cx={xs[at!]} cy={pointY} r={3.5} fill="var(--chart-ink)" stroke="var(--bg-elevated)" strokeWidth={2} />
         )}
       </svg>
+    </div>
+  );
+}
+
+interface Tick {
+  value: number;
+  x: number;
+  label: string;
+}
+
+/**
+ * 横軸の文字。
+ *
+ * **グラフの上と下、両方に置く。**
+ * 項目が7段あると縦に700pxを超える。下に一度だけ置くと、
+ * 上のほうのグラフを見ている間、目盛りが画面の外にいる。
+ * グラフごとに繰り返すと今度は数字だらけになるので、両端だけにする。
+ */
+function AxisRow({ ticks }: { ticks: Tick[] }) {
+  if (ticks.length === 0) return null;
+
+  return (
+    <div className="relative h-4 text-[10px] text-muted tabular-nums">
+      {ticks.map((tick) => {
+        const ratio = tick.x / WIDTH;
+        // 端の文字は、はみ出さないよう内側へ寄せる。
+        const edge = ratio < 0.06 ? 'left' : ratio > 0.94 ? 'right' : 'center';
+        return (
+          <span
+            key={tick.value}
+            className="absolute top-0 whitespace-nowrap"
+            style={
+              edge === 'left'
+                ? { left: 0 }
+                : edge === 'right'
+                  ? { right: 0 }
+                  : { left: `${ratio * 100}%`, transform: 'translateX(-50%)' }
+            }
+          >
+            {tick.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -182,12 +275,24 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
 
   // 横軸の値を、描く位置に直す。**時間で等間隔に描かない。**
   // 止まっていた時間があると、距離で見た形が歪む。
-  const xs = useMemo(() => {
+  const { xs, ticks } = useMemo(() => {
     const max = Math.max(...source, 0.001);
     const min = Math.min(...source, 0);
     const width = Math.max(max - min, 0.001);
-    return source.map((value) => ((value - min) / width) * WIDTH);
-  }, [source]);
+    const place = (value: number) => ((value - min) / width) * WIDTH;
+
+    const values = ticksFor(min, max, useDistance ? DISTANCE_STEPS : TIME_STEPS);
+    return {
+      xs: source.map(place),
+      // 目盛りは、位置と書く文字を一組で持つ。全部のグラフで同じ位置に立つ。
+      ticks: values.map((value) => ({
+        value,
+        x: place(value),
+        label: useDistance ? `${value}km` : `${Math.round(value / 60)}分`,
+      })),
+    };
+  }, [source, useDistance]);
+  const tickXs = ticks.map((tick) => tick.x);
 
   const metrics: Metric[] = [
     { key: 'pace', label: 'ペース', unit: '/km', values: series.pace ?? [], inverted: true, format: (v) => formatPace(v).replace('/km', '') },
@@ -212,7 +317,15 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 text-[13px] font-semibold">
           走っている間の推移
-          {here && <span className="ml-1.5 font-normal text-accent tabular-nums">{here}</span>}
+          {/*
+            触っている間はその地点、触っていない間は全体の長さ。
+            目盛りはきりの良い数までしか出ないので、**最後まで走った値はここで見せる。**
+          */}
+          <span
+            className={`ml-1.5 font-normal tabular-nums ${here ? 'text-accent' : 'text-muted'}`}
+          >
+            {here ?? total}
+          </span>
         </p>
         {/* 横軸の切り替え。グラフの上に1列だけ置く。 */}
         <div className="flex shrink-0 overflow-hidden rounded-full border border-line text-[11px]">
@@ -254,14 +367,18 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         </p>
       )}
 
+      <div className="mt-3">
+        <AxisRow ticks={ticks} />
+      </div>
+
       {shown.map((metric) => (
-        <Chart key={metric.key} metric={metric} xs={xs} at={at} onHover={setAt} />
+        <Chart key={metric.key} metric={metric} xs={xs} ticks={tickXs} at={at} onHover={setAt} />
       ))}
 
-      <div className="mt-1 flex justify-between text-[10px] text-muted tabular-nums">
-        <span>{useDistance ? '0km' : '0:00'}</span>
-        <span>{total}</span>
+      <div className="mt-1">
+        <AxisRow ticks={ticks} />
       </div>
+
     </div>
   );
 }
