@@ -433,6 +433,11 @@ export interface ImportResult {
   skipped: number;
   /** すでにある記録を、より詳しい内容に差し替えた数。 */
   upgraded: number;
+  /**
+   * 受け取ったのに、カルテへ入れられなかった数。
+   * **黙って落とさない。** 距離も時間も無い1件は、ここに出る。
+   */
+  dropped: number;
 }
 
 /**
@@ -454,13 +459,18 @@ export function importWorkouts(
   let imported = 0;
   let skipped = 0;
   let upgraded = 0;
+  let dropped = 0;
 
   // 古い順に入れる。
   const ordered = [...workouts].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
   for (const workout of ordered) {
     const mapped = toActivity(workout);
-    if (!mapped) continue;
+    // 距離も時間も無いと、記録として成り立たない。**飛ばしたことは必ず数える。**
+    if (!mapped) {
+      dropped += 1;
+      continue;
+    }
 
     // すでに持っている練習か。元IDが同じもの、または別の入口から来た同じ練習。
     const existing =
@@ -494,23 +504,66 @@ export function importWorkouts(
     }
   }
 
-  return { profile: trimSeries(next), imported, skipped, upgraded };
+  return { profile: trimSeries(next), imported, skipped, upgraded, dropped };
+}
+
+/**
+ * ファイルから読めた項目を、そのまま並べる。
+ *
+ * **グラフが出ない時、原因がファイル側かアプリ側かを、その場で分けるための一行。**
+ * 上下動・接地時間・パワーは FIT にしか入っていない。
+ * 「アプリが壊れている」と「そのファイルに無い」は、まるで違う話。
+ */
+const COLUMNS: { key: keyof WorkoutSample; label: string }[] = [
+  { key: 'hr', label: '心拍' },
+  { key: 'pace', label: 'ペース' },
+  { key: 'cadence', label: 'ピッチ' },
+  { key: 'power', label: 'パワー' },
+  { key: 'vo', label: '上下動' },
+  { key: 'gct', label: '接地時間' },
+];
+
+export function describeColumns(workouts: ImportedWorkout[]): string {
+  const has = new Set<string>();
+
+  outer: for (const workout of workouts) {
+    for (const sample of workout.samples ?? []) {
+      for (const column of COLUMNS) {
+        if (typeof sample[column.key] === 'number') has.add(column.key);
+      }
+      // 全部そろったら、それ以上は見ない。数万点を数え直す意味がない。
+      if (has.size === COLUMNS.length) break outer;
+    }
+  }
+
+  const found = COLUMNS.filter((column) => has.has(column.key)).map((column) => column.label);
+  if (found.length === 0) return 'ファイルには、走っている間の推移が入っていませんでした。';
+
+  const missing = COLUMNS.filter((column) => !has.has(column.key)).map((column) => column.label);
+  const tail = missing.length > 0 ? `／このファイルに無かった項目: ${missing.join('・')}` : '';
+  return `ファイルから読めた項目: ${found.join('・')}${tail}`;
 }
 
 /** 取り込んだ結果を、そのまま画面に出せる一文にする。 */
 export function describeImport(
-  result: Pick<ImportResult, 'imported' | 'skipped' | 'upgraded'>,
+  result: Pick<ImportResult, 'imported' | 'skipped' | 'upgraded'> & { dropped?: number },
 ): string {
   const parts: string[] = [];
   if (result.imported > 0) parts.push(`${result.imported}件の練習を取り込みました`);
   // 「差し替えた」は、黙っていると何も起きていないように見える。必ず言う。
   if (result.upgraded > 0) parts.push(`${result.upgraded}件は、より詳しい記録に差し替えました`);
 
+  // **「見つかりませんでした」で終わらせない。** 何件を、なぜ入れられなかったかを言う。
+  const dropped = result.dropped ?? 0;
   if (parts.length === 0) {
+    if (dropped > 0) {
+      return `${dropped}件を読みましたが、距離も時間も入っていなかったため、カルテには入れませんでした。`;
+    }
     return result.skipped > 0
       ? 'すべて取り込み済みでした。新しい練習はありません。'
       : '取り込める練習が見つかりませんでした。';
   }
   if (result.skipped > 0) parts.push(`${result.skipped}件はすでに入っていました`);
+  if (dropped > 0) parts.push(`${dropped}件は距離も時間も無く、入れられませんでした`);
   return `${parts.join('。')}。`;
 }

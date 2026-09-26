@@ -191,7 +191,12 @@ export async function POST(request: NextRequest) {
     .filter((workout): workout is ImportedWorkout => workout !== null);
 
   if (workouts.length === 0) {
-    return Response.json({ error: '取り込める練習が見つかりませんでした。' }, { status: 400 });
+    // 取り込み結果の「見つかりませんでした」とは別の文にする。
+    // **同じ文言だと、どこで落ちたのか画面から分からない。**
+    return Response.json(
+      { error: `送られた${body.workouts.length}件は、形が合わず受け取れませんでした。` },
+      { status: 400 },
+    );
   }
 
   let state;
@@ -214,6 +219,11 @@ export async function POST(request: NextRequest) {
       ok: true,
       imported: result.imported,
       skipped: result.skipped,
+      // **数え上げは、1つ残らず返す。**
+      // ここから漏らすと、受け取った側は「何も起きなかった」と読む。
+      // 差し替えだけが起きた取り込みが、丸ごと失敗に見えていた。
+      upgraded: result.upgraded,
+      dropped: result.dropped,
       message: describeImport(result),
       // 接続の鍵を含むので、必ず publicProfile を通す。
       profile: publicProfile(result.profile),

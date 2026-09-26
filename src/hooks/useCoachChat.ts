@@ -15,7 +15,12 @@ import {
 } from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
-import { describeImport, prepareForTransport, type ImportedWorkout } from '@/lib/workout';
+import {
+  describeColumns,
+  describeImport,
+  prepareForTransport,
+  type ImportedWorkout,
+} from '@/lib/workout';
 import { isWorkoutFile, isZipName, looksLikeZip, unzip } from '@/lib/zip';
 
 /** 一度に送る練習の数。多すぎると受信の上限に当たる。 */
@@ -357,7 +362,13 @@ export function useCoachChat(): CoachChat {
 
     const read = (name: string, data: ArrayBuffer) => {
       try {
-        workouts.push(...parseWorkoutFile(name, data));
+        const found = parseWorkoutFile(name, data);
+        // 例外も投げず、1本も返さないファイルがある。**黙って消さない。**
+        if (found.length === 0) {
+          failed.push(`「${name}」の中に、練習が入っていませんでした。`);
+          return;
+        }
+        workouts.push(...found);
       } catch (error) {
         failed.push(error instanceof Error ? error.message : `「${name}」を読めませんでした。`);
       }
@@ -405,7 +416,7 @@ export function useCoachChat(): CoachChat {
       }
 
       const prepared = prepareForTransport(workouts);
-      const total = { imported: 0, skipped: 0, upgraded: 0 };
+      const total = { imported: 0, skipped: 0, upgraded: 0, dropped: 0 };
       let latest: RunnerProfile | undefined;
 
       // 数年ぶんを一度に送ると受信の上限に当たる。小分けにして順に送る。
@@ -428,6 +439,7 @@ export function useCoachChat(): CoachChat {
               imported?: number;
               skipped?: number;
               upgraded?: number;
+              dropped?: number;
               error?: string;
             }
           | null;
@@ -441,13 +453,16 @@ export function useCoachChat(): CoachChat {
         total.imported += data?.imported ?? 0;
         total.skipped += data?.skipped ?? 0;
         total.upgraded += data?.upgraded ?? 0;
+        total.dropped += data?.dropped ?? 0;
         if (data?.profile) latest = data.profile;
       }
 
       if (latest) setProfile(latest);
       // 読めなかったファイルがあったことは、隠さずに添える。理由も1つ出す。
       const note = failed.length > 0 ? `（${failed.length}件は読めませんでした: ${failed[0]}）` : '';
-      setSyncMessage(`${describeImport(total)}${note}`);
+      // **ファイルに何が入っていたかを、その場で見せる。**
+      // グラフが出ない時、原因がファイル側なのかアプリ側なのかが、これで分かる。
+      setSyncMessage(`${describeImport(total)}${note}\n${describeColumns(workouts)}`);
     } catch {
       setSyncMessage('取り込めませんでした。通信の状態を確かめてください。');
     } finally {
