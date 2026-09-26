@@ -179,7 +179,7 @@ function FileImport({
       )}
 
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-        <strong className="font-semibold text-fg">FIT なら、上下動・接地時間・左右バランス・パワーまで入ります。</strong>
+        <strong className="font-semibold text-fg">FIT なら、上下動・接地時間・歩幅・左右バランス・パワーまで入ります。</strong>
         GPX / TCX には、そこまでは入っていません。同じ練習を二度入れても、重なりません。
       </p>
     </div>

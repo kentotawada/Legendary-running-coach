@@ -177,6 +177,8 @@ export interface ActivitySeries {
   vo?: (number | null)[];
   /** 接地時間(ms)。FIT からのみ。 */
   gct?: (number | null)[];
+  /** 歩幅(cm)。FIT からのみ。 */
+  step?: (number | null)[];
 }
 
 export interface ActivityLog {

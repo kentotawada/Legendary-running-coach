@@ -655,9 +655,13 @@ describe('ファイルに何が入っていたかを言う', () => {
 
   it('全部そろっていれば、無かった項目は言わない', () => {
     const line = describeColumns([
-      of({ hr: 158, pace: 250, cadence: 89, power: 278, vo: 9.4, gct: 231 }),
+      of({ hr: 158, pace: 250, cadence: 89, power: 278, vo: 9.4, gct: 231, step: 132 }),
     ]);
     expect(line).not.toContain('無かった項目');
+  });
+
+  it('歩幅も、読めた項目として数える', () => {
+    expect(describeColumns([of({ hr: 158, step: 132 })])).toContain('歩幅');
   });
 
   it('推移そのものが無ければ、そう言う', () => {
@@ -692,5 +696,30 @@ describe('カルテへ入れられなかった1件', () => {
     const dropped = describeImport({ imported: 0, skipped: 0, upgraded: 0, dropped: 2 });
     expect(empty).not.toBe(dropped);
     expect(dropped).toContain('2件');
+  });
+});
+
+describe('歩幅の推移', () => {
+  /**
+   * 歩幅は、ピッチと対になるフォームの軸。
+   * **平均だけでは「回転で速いのか、伸びで速いのか」が分からない。**
+   * 1点ごとに残して、時間・距離の軸で見られるようにする。
+   */
+  const samples = Array.from({ length: 20 }, (_, i) => ({
+    t: i * 30,
+    d: i * 150,
+    hr: 158,
+    step: 130 + (i % 4),
+  }));
+
+  it('間引いても、歩幅の列が残る', () => {
+    const series = downsample(samples)!;
+    expect(series.step).toBeTruthy();
+    expect(series.step!.filter((value) => value !== null).length).toBeGreaterThan(1);
+  });
+
+  it('歩幅が1点も無ければ、列ごと持たない', () => {
+    const series = downsample(samples.map(({ step: _step, ...rest }) => rest))!;
+    expect(series.step).toBeUndefined();
   });
 });

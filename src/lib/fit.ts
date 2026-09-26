@@ -449,6 +449,7 @@ export function parseFit(buffer: ArrayBuffer): ImportedWorkout[] {
     power: record.powerW,
     vo: record.verticalOscillationCm,
     gct: record.groundContactMs,
+    step: record.stepLengthCm,
   }));
 
   return [

@@ -203,6 +203,8 @@ describe('FIT を読む', () => {
     expect(workout.samples!.length).toBeGreaterThan(100);
     expect(workout.samples![0].t).toBe(0);
     expect(workout.samples![0].hr).toBe(150);
+    // 歩幅も1点ごとに残す。平均だけでは、途中で伸びたか縮んだかが分からない。
+    expect(workout.samples![0].step).toBe(120);
   });
 
   it('カルテの記録に、フォームの数値が入る', () => {
