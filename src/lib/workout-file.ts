@@ -193,11 +193,12 @@ function parseTcx(xml: string): ImportedWorkout[] {
     const samples: WorkoutSample[] =
       base === undefined
         ? []
-        : all.map((point) => ({
+        : all.map((point, index) => ({
             t: Math.round((point.ms - base) / 1000),
             d: point.d,
             hr: point.hr,
             cadence: point.cadence,
+            pace: paceBetween(all[index - 1], point),
           }));
 
     // 全体のピッチも、要約に無ければ点から。
@@ -258,6 +259,21 @@ function tcxPoints(xml: string): TcxPoint[] {
   }
 
   return points;
+}
+
+/**
+ * 2点間のペース(秒/km)。
+ *
+ * TCX / GPX には速度が書かれていないので、距離と時刻の差から出す。
+ * **止まっていた区間はペースを持たせない。** 分母が0に近づくと、とんでもない数字になる。
+ */
+function paceBetween(previous: TcxPoint | undefined, point: TcxPoint): number | undefined {
+  if (!previous || previous.d === undefined || point.d === undefined) return undefined;
+  const meters = point.d - previous.d;
+  const seconds = (point.ms - previous.ms) / 1000;
+  if (meters < 1 || seconds <= 0) return undefined;
+  const pace = seconds / (meters / 1000);
+  return pace >= 120 && pace <= 1200 ? Math.round(pace) : undefined;
 }
 
 /** 点の並びから、平均と最大を出す。測れていない点は数に入れない。 */
@@ -330,11 +346,15 @@ function parseGpx(xml: string): ImportedWorkout[] {
       }
 
       if (ms !== undefined && firstMs !== undefined) {
+        const last = samples[samples.length - 1];
+        const gapM = last?.d !== undefined ? meters - last.d : 0;
+        const gapSec = last ? Math.round((ms - firstMs) / 1000) - last.t : 0;
         samples.push({
           t: Math.round((ms - firstMs) / 1000),
           d: Math.round(meters),
           hr: hr !== undefined && hr > 0 ? hr : undefined,
           cadence: cadence !== undefined && cadence > 0 ? cadence : undefined,
+          pace: gapM >= 1 && gapSec > 0 ? Math.round(gapSec / (gapM / 1000)) : undefined,
         });
       }
     }

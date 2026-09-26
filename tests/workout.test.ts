@@ -4,6 +4,7 @@ import {
   KEEP_SERIES,
   MAX_SERIES_POINTS,
   describeImport,
+  downsample,
   importWorkouts,
   normalizeCadence,
   toActivity,
@@ -516,5 +517,49 @@ describe('より詳しい記録が来た時', () => {
     expect(twice.upgraded).toBe(0);
     expect(twice.skipped).toBe(1);
     expect(twice.profile.activities).toHaveLength(1);
+  });
+});
+
+describe('推移として残すもの', () => {
+  const sample = (t: number, d: number, extra: Partial<import('@/lib/workout').WorkoutSample> = {}) => ({
+    t,
+    d,
+    hr: 160,
+    ...extra,
+  });
+
+  /**
+   * **ピッチは spm に揃えてから残す。**
+   * 片脚の回転数（約90）のまま描くと、グラフだけが時計の半分の値になり、
+   * 見比べた人が必ず混乱する。
+   */
+  it('ピッチは spm に直してから持つ', () => {
+    const series = downsample([sample(0, 0, { cadence: 88 }), sample(10, 50, { cadence: 90 })])!;
+    expect(series.cadence).toEqual([176, 180]);
+  });
+
+  it('すでに spm なら、そのまま', () => {
+    const series = downsample([sample(0, 0, { cadence: 176 }), sample(10, 50, { cadence: 180 })])!;
+    expect(series.cadence).toEqual([176, 180]);
+  });
+
+  /** 1点も測れていない項目の列を持つと、容量を食うだけになる。 */
+  it('測れていない項目は、列ごと持たない', () => {
+    const series = downsample([sample(0, 0), sample(10, 50)])!;
+    expect(series.power).toBeUndefined();
+    expect(series.gct).toBeUndefined();
+    expect(series.hr).toEqual([160, 160]);
+  });
+
+  it('フォームの数値は、項目ごとに分けて持つ', () => {
+    const series = downsample([
+      sample(0, 0, { power: 280, vo: 9.5, gct: 240, pace: 255 }),
+      sample(10, 50, { power: 300, vo: 8.8, gct: 225, pace: 250 }),
+    ])!;
+    expect(series.power).toEqual([280, 300]);
+    // 上下動だけは小数を残す。0.1cm の差が意味を持つため。
+    expect(series.vo).toEqual([9.5, 8.8]);
+    expect(series.gct).toEqual([240, 225]);
+    expect(series.pace).toEqual([255, 250]);
   });
 });

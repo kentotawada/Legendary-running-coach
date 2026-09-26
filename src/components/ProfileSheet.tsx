@@ -63,6 +63,96 @@ const TYPE_LABEL: Record<string, string> = {
   rest: '完全休養',
 };
 
+/** 何をした日かが、一目で分かる印。 */
+const TYPE_EMOJI: Record<string, string> = {
+  run: '👟',
+  walk: '🚶',
+  cross: '🚴',
+  strength: '💪',
+  stretch: '🧘',
+  rest: '😴',
+};
+
+/** 日付を「9/24（木）」の形に。年は、今の年と違う時だけ出す。 */
+function shortDate(date: string, now = new Date()): string {
+  const [year, month, day] = date.split('-').map(Number);
+  if (!year || !month || !day) return date;
+  const weekday = '日月火水木金土'[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  const head = year === now.getFullYear() ? '' : `${year}/`;
+  return `${head}${month}/${day}（${weekday}）`;
+}
+
+/**
+ * 1本の練習を1行で。
+ *
+ * **文字を並べただけだと、読み飛ばされる。**
+ * 日付・種目・数値・本人の言葉は役割が違うので、見た目でも分ける。
+ * 数値は等幅にして、縦に並んだ時に桁が揃うようにする。
+ */
+function ActivityRow({
+  activity,
+  onOpen,
+}: {
+  activity: ActivityLog;
+  onOpen?: (activity: ActivityLog) => void;
+}) {
+  // 区間が入っている練習だけ、中身を開けるようにする。
+  // 開けない記録に矢印を出すと、押しても何も起きない。
+  const openable = (activity.laps?.length ?? 0) > 1 && Boolean(onOpen);
+
+  const numbers = [
+    activity.distanceKm !== undefined ? `${activity.distanceKm}km` : null,
+    activity.durationMin !== undefined ? `${activity.durationMin}分` : null,
+    activity.metrics?.avgPace ?? null,
+    activity.metrics?.avgHr !== undefined ? `♥${activity.metrics.avgHr}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const body = (
+    <span className="block rounded-[12px] border border-line bg-bg px-3 py-2">
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="shrink-0 text-[13px]">
+          {TYPE_EMOJI[activity.type] ?? '👟'}
+        </span>
+        <span className="shrink-0 text-[12px] font-semibold tabular-nums">
+          {shortDate(activity.date)}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[12px] text-muted">
+          {activity.session ?? TYPE_LABEL[activity.type] ?? activity.type}
+        </span>
+        {openable && (
+          <span className="shrink-0 text-[11px] font-semibold text-accent">
+            区間{activity.laps!.length} ›
+          </span>
+        )}
+      </span>
+
+      {numbers.length > 0 && (
+        <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[13px] tabular-nums">
+          {numbers.map((value, index) => (
+            <span key={value} className={index === 0 ? 'font-bold' : ''}>
+              {value}
+            </span>
+          ))}
+        </span>
+      )}
+
+      {/* 本人の言葉は、数値と同じ見た目にしない。時計に測れない情報なので、別の行に。 */}
+      {activity.felt && (
+        <span className="mt-1 block border-l-2 border-line pl-2 text-[11px] leading-relaxed text-muted">
+          {activity.felt}
+        </span>
+      )}
+    </span>
+  );
+
+  if (!openable) return body;
+  return (
+    <button type="button" onClick={() => onOpen!(activity)} className="block w-full text-left active:opacity-70">
+      {body}
+    </button>
+  );
+}
+
 /**
  * コーチが何を覚えているかを、本人がいつでも確認・削除できる画面。
  * 「勝手に学習されている」不安を残さないための装置でもある。
@@ -487,44 +577,12 @@ export default function ProfileSheet({
               )}
               <Row label="直近の記録">
                 {recent.length > 0 ? (
-                  <ul className="space-y-1">
-                    {recent.map((a) => {
-                      const detail = (a.laps?.length ?? 0) > 1;
-                      const body = (
-                        <>
-                          {a.date} {TYPE_LABEL[a.type] ?? a.type}
-                          {a.distanceKm !== undefined ? ` ${a.distanceKm}km` : ''}
-                          {a.durationMin !== undefined ? ` ${a.durationMin}分` : ''}
-                          {a.metrics?.avgPace ? ` ${a.metrics.avgPace}` : ''}
-                          {/*
-                            区間が入っている練習だけ、中身を開けるようにする。
-                            開けない記録に矢印を出すと、押しても何も起きない。
-                          */}
-                          {detail && (
-                            <span className="ml-1 text-[12px] font-semibold text-accent">
-                              区間{a.laps!.length} ›
-                            </span>
-                          )}
-                          {a.felt ? <span className="block text-muted">「{a.felt}」</span> : null}
-                        </>
-                      );
-
-                      return (
-                        <li key={a.id}>
-                          {detail && onOpenRun ? (
-                            <button
-                              type="button"
-                              onClick={() => onOpenRun(a)}
-                              className="w-full text-left"
-                            >
-                              {body}
-                            </button>
-                          ) : (
-                            body
-                          )}
-                        </li>
-                      );
-                    })}
+                  <ul className="-mr-1 space-y-1.5">
+                    {recent.map((a) => (
+                      <li key={a.id}>
+                        <ActivityRow activity={a} onOpen={onOpenRun} />
+                      </li>
+                    ))}
                   </ul>
                 ) : (
                   <span className="text-muted">まだありません</span>

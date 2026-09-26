@@ -167,6 +167,16 @@ export interface ActivitySeries {
   km: number[];
   /** 心拍。測れていない点は null。 */
   hr: (number | null)[];
+  /** ペース(秒/km)。 */
+  pace?: (number | null)[];
+  /** ピッチ(spm)。 */
+  cadence?: (number | null)[];
+  /** ランニングパワー(W)。FIT からのみ。 */
+  power?: (number | null)[];
+  /** 上下動(cm)。FIT からのみ。 */
+  vo?: (number | null)[];
+  /** 接地時間(ms)。FIT からのみ。 */
+  gct?: (number | null)[];
 }
 
 export interface ActivityLog {
