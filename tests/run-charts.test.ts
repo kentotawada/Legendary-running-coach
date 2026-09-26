@@ -1,65 +1,79 @@
 import { describe, expect, it } from 'vitest';
-import { scaleOf, ticksFor } from '@/components/RunCharts';
+import { axisFor, xTicksFor } from '@/components/RunCharts';
 
 /**
- * グラフの縦軸。
- * **変わらなかった項目を、枠線に見せない。**
+ * グラフの軸。
+ * **目盛りは、きりの良い値にだけ立てる。** 半端な位置に立つと、
+ * いくつの線なのかを読むたびに計算させることになる。
  */
-describe('scaleOf', () => {
-  it('ふつうの幅は、そのまま使う', () => {
-    expect(scaleOf(150, 170)).toEqual({ base: 150, span: 20 });
+describe('axisFor', () => {
+  it('きりの良い値まで外へ広げる', () => {
+    // 心拍 150〜168 → 140〜170 の間を10ずつ
+    const axis = axisFor(150, 168);
+    expect(axis.ticks[0]).toBeLessThanOrEqual(150);
+    expect(axis.ticks[axis.ticks.length - 1]).toBeGreaterThanOrEqual(168);
+    expect(axis.base + axis.span).toBe(axis.ticks[axis.ticks.length - 1]);
   });
 
-  it('ずっと同じ値なら、真ん中に置く', () => {
-    const { base, span } = scaleOf(132, 132);
-    // 値が中央（0.5）に来る＝線が上端にも下端にも貼りつかない。
-    expect((132 - base) / span).toBe(0.5);
+  it('目盛りを増やしすぎない', () => {
+    for (const [low, high] of [
+      [150, 168],
+      [9.2, 9.6],
+      [226, 238],
+      [0, 592],
+      [130, 134],
+    ]) {
+      expect(axisFor(low, high).ticks.length).toBeLessThanOrEqual(6);
+      expect(axisFor(low, high).ticks.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
-  it('幅を0にしない', () => {
-    expect(scaleOf(9.4, 9.4).span).toBeGreaterThan(0);
+  it('ずっと同じ値でも、軸がつぶれない', () => {
+    const axis = axisFor(132, 132);
+    expect(axis.span).toBeGreaterThan(0);
+    // 値が真ん中に来る＝線が上端にも下端にも貼りつかない。
+    expect((132 - axis.base) / axis.span).toBeCloseTo(0.5, 5);
+  });
+
+  it('ペースは、秒の刻みで区切る', () => {
+    // 4:31〜6:02（271〜362秒）。30秒ごとなら 270・300・330・360。
+    const axis = axisFor(271, 362, [10, 15, 30, 60, 120, 300, 600]);
+    expect(axis.ticks).toEqual([270, 300, 330, 360, 390]);
+  });
+
+  it('データが軸の外へはみ出さない', () => {
+    for (const [low, high] of [
+      [271, 362],
+      [9.2, 9.6],
+      [0, 592],
+      [150.4, 168.9],
+    ]) {
+      const axis = axisFor(low, high);
+      expect(axis.base).toBeLessThanOrEqual(low);
+      expect(axis.base + axis.span).toBeGreaterThanOrEqual(high);
+    }
   });
 });
 
 /**
- * 横軸の目盛り。
- * **きりの良い数にだけ置く。** 端数の目盛りは、読むたびに計算させることになる。
+ * 横軸は等間隔に割る。時計の画面がそうなっているので、同じ形に揃える。
  */
-describe('ticksFor', () => {
-  const DISTANCE = [0.2, 0.5, 1, 2, 5, 10, 20];
-  const TIME = [60, 300, 600, 900, 1800, 3600];
-
-  it('18kmの練習は、5kmごとに刻む', () => {
-    expect(ticksFor(0, 17.7, DISTANCE)).toEqual([0, 5, 10, 15]);
+describe('xTicksFor', () => {
+  it('端から端までを、6つに割る', () => {
+    const ticks = xTicksFor(0, 5120);
+    expect(ticks).toHaveLength(6);
+    expect(ticks[0]).toBe(0);
+    expect(ticks[5]).toBe(5120);
+    expect(ticks[1] - ticks[0]).toBeCloseTo(ticks[2] - ticks[1], 6);
   });
 
-  it('5kmの練習は、もっと細かく刻む', () => {
-    expect(ticksFor(0, 5.2, DISTANCE)).toEqual([0, 2, 4]);
+  it('はじまりが0でなくても、そこから割る', () => {
+    const ticks = xTicksFor(10, 5130);
+    expect(ticks[0]).toBe(10);
+    expect(ticks[5]).toBe(5130);
   });
 
-  it('1kmに満たない練習でも、目盛りが出る', () => {
-    expect(ticksFor(0, 0.8, DISTANCE).length).toBeGreaterThan(1);
-  });
-
-  it('76分の練習は、30分ごとに刻む', () => {
-    expect(ticksFor(0, 4560, TIME)).toEqual([0, 1800, 3600]);
-  });
-
-  it('目盛りを増やしすぎない', () => {
-    for (const max of [0.4, 3, 12, 42.2, 160]) {
-      expect(ticksFor(0, max, DISTANCE).length).toBeLessThanOrEqual(6);
-    }
-  });
-
-  it('端の目盛りが、グラフの外にはみ出さない', () => {
-    for (const max of [0.9, 4.4, 17.7, 42.195]) {
-      const ticks = ticksFor(0, max, DISTANCE);
-      expect(Math.max(...ticks)).toBeLessThanOrEqual(max);
-      expect(Math.min(...ticks)).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it('幅が無い時は、目盛りを置かない', () => {
-    expect(ticksFor(0, 0, DISTANCE)).toEqual([]);
+  it('幅が無い時は、1つだけ返す', () => {
+    expect(xTicksFor(0, 0)).toEqual([0]);
   });
 });
