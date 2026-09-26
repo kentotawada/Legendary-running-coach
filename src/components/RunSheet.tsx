@@ -2,6 +2,7 @@
 
 import type { ActivityLog } from '@/lib/types';
 import { analyze } from '@/lib/analysis';
+import RunCharts from './RunCharts';
 import Sheet from './Sheet';
 
 /**
@@ -32,65 +33,6 @@ function Tile({ label, value, note }: { label: string; value: string; note?: str
       <p className="text-[11px] text-muted">{label}</p>
       <p className="mt-0.5 truncate text-[15px] font-bold tabular-nums">{value}</p>
       {note && <p className="mt-0.5 truncate text-[10px] text-muted">{note}</p>}
-    </div>
-  );
-}
-
-/** 心拍の推移。距離を横軸に取る（時間だと、止まった時間で形が歪む）。 */
-function HeartRateChart({ km, hr }: { km: number[]; hr: (number | null)[] }) {
-  const points = km
-    .map((distance, index) => ({ distance, value: hr[index] }))
-    .filter((point): point is { distance: number; value: number } => point.value !== null);
-  if (points.length < 2) return null;
-
-  const maxKm = Math.max(...points.map((point) => point.distance), 0.1);
-  const values = points.map((point) => point.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(max - min, 1);
-
-  const path = points
-    .map((point, index) => {
-      const x = (point.distance / maxKm) * WIDTH;
-      const y = PLOT_HEIGHT - ((point.value - min) / span) * PLOT_HEIGHT;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  return (
-    <div className="mt-4">
-      <div className="flex items-baseline justify-between">
-        <p className="text-[13px] font-semibold">心拍の推移</p>
-        <p className="text-[11px] text-muted tabular-nums">
-          {min} 〜 {max} bpm
-        </p>
-      </div>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${PLOT_HEIGHT}`}
-        className="mt-1.5 w-full"
-        role="img"
-        aria-label={`心拍の推移。${min}から${max}bpm。`}
-        preserveAspectRatio="none"
-        style={{ height: PLOT_HEIGHT }}
-      >
-        {[0, 0.5, 1].map((ratio) => (
-          <line
-            key={ratio}
-            x1={0}
-            x2={WIDTH}
-            y1={PLOT_HEIGHT * ratio}
-            y2={PLOT_HEIGHT * ratio}
-            stroke="var(--chart-grid)"
-            strokeWidth={1}
-            shapeRendering="crispEdges"
-          />
-        ))}
-        <path d={path} fill="none" stroke="var(--chart-ink)" strokeWidth={1.6} strokeLinejoin="round" />
-      </svg>
-      <div className="flex justify-between text-[10px] text-muted tabular-nums">
-        <span>0km</span>
-        <span>{maxKm.toFixed(1)}km</span>
-      </div>
     </div>
   );
 }
@@ -225,7 +167,7 @@ export default function RunSheet({
         </div>
       )}
 
-      {activity.series && <HeartRateChart km={activity.series.km} hr={activity.series.hr} />}
+      {activity.series && <RunCharts series={activity.series} />}
 
       {laps.length > 1 && (
         <div className="mt-5">

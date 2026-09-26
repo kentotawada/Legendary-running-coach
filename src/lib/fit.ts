@@ -331,6 +331,25 @@ function parseMessages(buffer: ArrayBuffer): Parsed {
   return { records, laps, sport };
 }
 
+/**
+ * その地点のペース(秒/km)。
+ *
+ * 速度が入っていればそこから。**入っていない時計もある**ので、
+ * 無ければ距離と時刻の差から出す。止まっている点はペースを持たせない
+ * （分母が0に近づくと、とんでもない数字になる）。
+ */
+function paceOf(previous: FitRecord | undefined, record: FitRecord): number | undefined {
+  const inRange = (pace: number) => (pace >= 120 && pace <= 1200 ? Math.round(pace) : undefined);
+
+  if (record.speed !== undefined && record.speed > 0.5) return inRange(1000 / record.speed);
+  if (!previous || previous.distanceM === undefined || record.distanceM === undefined) return undefined;
+
+  const meters = record.distanceM - previous.distanceM;
+  const seconds = record.ts - previous.ts;
+  if (meters < 1 || seconds <= 0) return undefined;
+  return inRange(seconds / (meters / 1000));
+}
+
 function mean(values: number[]): number | undefined {
   if (values.length === 0) return undefined;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -409,11 +428,15 @@ export function parseFit(buffer: ArrayBuffer): ImportedWorkout[] {
     });
   }
 
-  const samples: WorkoutSample[] = records.map((record) => ({
+  const samples: WorkoutSample[] = records.map((record, index) => ({
     t: record.ts - first.ts,
     d: record.distanceM,
     hr: record.hr,
     cadence: record.cadence,
+    pace: paceOf(records[index - 1], record),
+    power: record.powerW,
+    vo: record.verticalOscillationCm,
+    gct: record.groundContactMs,
   }));
 
   return [

@@ -32,6 +32,14 @@ export interface WorkoutSample {
   hr?: number;
   /** ピッチの生値。 */
   cadence?: number;
+  /** ペース(秒/km)。 */
+  pace?: number;
+  /** ここから下は FIT からのみ。 */
+  power?: number;
+  /** 上下動(cm)。 */
+  vo?: number;
+  /** 接地時間(ms)。 */
+  gct?: number;
 }
 
 /**
@@ -185,30 +193,46 @@ export function autoSplits(samples: WorkoutSample[], everyM = 1000): WorkoutLap[
 /** 走っている間の推移。点が多すぎると保存も表示も重くなるので、等間隔で間引く。 */
 export const MAX_SERIES_POINTS = 240;
 
+/** 推移として持つ項目。**1つのグラフに1つの軸**なので、項目ごとに別の列で持つ。 */
+const TRACKED = ['hr', 'pace', 'cadence', 'power', 'vo', 'gct'] as const;
+type Tracked = (typeof TRACKED)[number];
+
+/** 小数を残す項目。心拍やパワーは整数で足りる。 */
+const DECIMALS: Partial<Record<Tracked, number>> = { vo: 1 };
+
 export function downsample(samples: WorkoutSample[], max = MAX_SERIES_POINTS): ActivitySeries | undefined {
   const points = samples.filter((point) => point.hr !== undefined || point.d !== undefined);
   if (points.length < 2) return undefined;
 
   const step = Math.max(1, Math.ceil(points.length / max));
-  const t: number[] = [];
-  const km: number[] = [];
-  const hr: (number | null)[] = [];
-
-  for (let i = 0; i < points.length; i += step) {
-    const point = points[i];
-    t.push(point.t);
-    km.push(Math.round(((point.d ?? 0) / 1000) * 1000) / 1000);
-    hr.push(point.hr !== undefined ? Math.round(point.hr) : null);
-  }
+  const kept: WorkoutSample[] = [];
+  for (let i = 0; i < points.length; i += step) kept.push(points[i]);
   // 最後の点は必ず残す。終盤がどうだったかが、いちばん知りたいところ。
   const last = points[points.length - 1];
-  if (t[t.length - 1] !== last.t) {
-    t.push(last.t);
-    km.push(Math.round(((last.d ?? 0) / 1000) * 1000) / 1000);
-    hr.push(last.hr !== undefined ? Math.round(last.hr) : null);
+  if (kept[kept.length - 1]?.t !== last.t) kept.push(last);
+
+  const series: ActivitySeries = {
+    t: kept.map((point) => point.t),
+    km: kept.map((point) => Math.round(((point.d ?? 0) / 1000) * 1000) / 1000),
+    hr: [],
+  };
+
+  for (const key of TRACKED) {
+    const digits = DECIMALS[key] ?? 0;
+    const factor = 10 ** digits;
+    const column = kept.map((point) => {
+      const raw = point[key];
+      if (typeof raw !== 'number') return null;
+      // **ピッチは spm に揃えてから残す。** 片脚の回転数（約90）のまま描くと、
+      // グラフだけが時計の半分の値になり、見比べた人が必ず混乱する。
+      const value = key === 'cadence' ? (normalizeCadence(raw) ?? null) : raw;
+      return value === null ? null : Math.round(value * factor) / factor;
+    });
+    // 1点も測れていない項目は、列ごと持たない。空の列は容量を食うだけ。
+    if (key === 'hr' || column.some((value) => value !== null)) series[key] = column;
   }
 
-  return { t, km, hr };
+  return series;
 }
 
 /** 点を等間隔に間引く。最後の点は必ず残す（終盤がいちばん知りたいところ）。 */

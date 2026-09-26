@@ -116,6 +116,11 @@ function cleanSamples(raw: unknown): WorkoutSample[] | undefined {
         d: positive(point.d, MAX_DISTANCE_M),
         hr: positive(point.hr, 300),
         cadence: positive(point.cadence, 400),
+        // 1分20秒/km より速いペースは、人が走れる速さではない。
+        pace: positive(point.pace, 1200),
+        power: positive(point.power, MAX_DYNAMICS.powerW),
+        vo: positive(point.vo, MAX_DYNAMICS.verticalOscillationCm),
+        gct: positive(point.gct, MAX_DYNAMICS.groundContactMs),
       };
       return clean;
     })
