@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bodyBox, inBox, type Point2 } from '@/lib/pose';
+import { bodyBox, inBox, steadyBoxes, type Point2 } from '@/lib/pose';
 
 /**
  * 見せる1コマの切り出し。
@@ -109,5 +109,51 @@ describe('枠の中を0〜1に読み替える', () => {
   it('確からしさなど、他の値はそのまま残る', () => {
     const out = inBox([{ x: 0.5, y: 0.5, visibility: 0.77 }], { x: 0, y: 0, w: 1, h: 1 });
     expect(out[0].visibility).toBe(0.77);
+  });
+});
+
+describe('コマ送りの枠', () => {
+  /** 人が画面の中を進んでいく、4コマぶん。 */
+  const moving = [0.2, 0.35, 0.5, 0.65].map((x) => person({ x }));
+
+  /**
+   * **ここが本題。** コマごとに枠の大きさを決め直すと、
+   * 送るたびに人が伸び縮みして、動きそのものを見比べられない。
+   */
+  it('どのコマでも、枠の大きさは同じ', () => {
+    const boxes = steadyBoxes(moving, ASPECT);
+    const widths = new Set(boxes.map((box) => box!.w.toFixed(6)));
+    const heights = new Set(boxes.map((box) => box!.h.toFixed(6)));
+    expect(widths.size).toBe(1);
+    expect(heights.size).toBe(1);
+  });
+
+  it('位置は、その人について動く', () => {
+    const boxes = steadyBoxes(moving, ASPECT);
+    const xs = boxes.map((box) => box!.x);
+    for (let i = 1; i < xs.length; i += 1) expect(xs[i]).toBeGreaterThan(xs[i - 1]);
+  });
+
+  it('どのコマでも、その人は枠の中に入っている', () => {
+    const boxes = steadyBoxes(moving, ASPECT);
+    moving.forEach((points, i) => {
+      for (const p of inBox(points, boxes[i]!).filter((_, j) => j >= 11 && j < 31)) {
+        expect(p.x, `コマ${i}`).toBeGreaterThan(0);
+        expect(p.x, `コマ${i}`).toBeLessThan(1);
+      }
+    });
+  });
+
+  /** **1コマの点の飛びで、全部が小さくならないこと。** */
+  it('1コマだけ大きく外れても、他のコマの大きさを巻き込まない', () => {
+    const calm = steadyBoxes(moving, ASPECT)[0]!;
+    const withSpike = steadyBoxes([...moving, person({ x: 0.05, w: 0.9, h: 0.9 })], ASPECT)[0]!;
+    expect(withSpike.w).toBeCloseTo(calm.w, 6);
+  });
+
+  it('見えていないコマは、枠を返さない', () => {
+    const boxes = steadyBoxes([person(), person({ visibility: 0.05 })], ASPECT);
+    expect(boxes[0]).not.toBeNull();
+    expect(boxes[1]).toBeNull();
   });
 });

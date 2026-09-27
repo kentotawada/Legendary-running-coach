@@ -133,43 +133,98 @@ export interface Box {
  *
  * @param aspect 欲しい枠の 幅÷高さ。写す先の形に合わせる。
  */
-export function bodyBox(points: readonly Point2[], aspect: number): Box | null {
+/** ふちどりを付けただけの、まだ形を整えていない枠。 */
+interface Raw {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
+function rawBox(points: readonly Point2[]): Raw | null {
   const seen = points.filter((p) => (p.visibility ?? 0) >= SEEN);
   // 点が数個しか見えていないなら、枠を決める根拠が無い。切らないほうが安全。
   if (seen.length < 8) return null;
 
-  let x0 = Math.min(...seen.map((p) => p.x));
-  let x1 = Math.max(...seen.map((p) => p.x));
-  let y0 = Math.min(...seen.map((p) => p.y));
-  let y1 = Math.max(...seen.map((p) => p.y));
+  const x0 = Math.min(...seen.map((p) => p.x));
+  const x1 = Math.max(...seen.map((p) => p.x));
+  const y0 = Math.min(...seen.map((p) => p.y));
+  const y1 = Math.max(...seen.map((p) => p.y));
 
   // ふちに体が接していると窮屈に見える。頭の上は少し多めに空ける。
   const padX = Math.max((x1 - x0) * 0.2, 0.02);
   const tall = y1 - y0;
-  x0 -= padX;
-  x1 += padX;
-  y0 -= Math.max(tall * 0.14, 0.02);
-  y1 += Math.max(tall * 0.08, 0.02);
+  const top = Math.max(tall * 0.14, 0.02);
+  const bottom = Math.max(tall * 0.08, 0.02);
 
-  let w = x1 - x0;
-  let h = y1 - y0;
-  if (w / h < aspect) {
-    const need = h * aspect;
-    x0 -= (need - w) / 2;
-    w = need;
-  } else {
-    const need = w / aspect;
-    y0 -= (need - h) / 2;
-    h = need;
-  }
+  return {
+    cx: (x0 + x1) / 2,
+    cy: (y0 - top + y1 + bottom) / 2,
+    w: x1 - x0 + padX * 2,
+    h: tall + top + bottom,
+  };
+}
+
+/** 頼まれた形に伸ばして、画面の中に収める。 */
+function fitBox(raw: Raw, aspect: number): Box {
+  let w = raw.w;
+  let h = raw.h;
+  if (w / h < aspect) w = h * aspect;
+  else h = w / aspect;
 
   // 枠の外は撮れていない。画面の中に収める。
   w = Math.min(w, 1);
   h = Math.min(h, 1);
-  x0 = Math.min(Math.max(x0, 0), 1 - w);
-  y0 = Math.min(Math.max(y0, 0), 1 - h);
 
-  return { x: x0, y: y0, w, h };
+  return {
+    x: Math.min(Math.max(raw.cx - w / 2, 0), 1 - w),
+    y: Math.min(Math.max(raw.cy - h / 2, 0), 1 - h),
+    w,
+    h,
+  };
+}
+
+/**
+ * 体が入っているところだけを切り出す枠。
+ *
+ * **画面をそのまま出すと、人が小さすぎて形が読めない。**
+ * 全身を入れようとすると、たいてい引きで撮ることになり、
+ * 人は画面の3分の1ほどにしかならない。そこだけ大きく出す。
+ *
+ * @param aspect 欲しい枠の 幅÷高さ。写す先の形に合わせる。
+ */
+export function bodyBox(points: readonly Point2[], aspect: number): Box | null {
+  const raw = rawBox(points);
+  return raw ? fitBox(raw, aspect) : null;
+}
+
+/**
+ * コマ送り用の枠。人を追いながら、**拡大率は変えない。**
+ *
+ * コマごとに枠の大きさを決め直すと、送るたびに人が伸び縮みして、
+ * 動きそのものを見比べられなくなる。大きさは全コマで揃え、
+ * 位置だけがその人について動く。中継の追いカメラと同じ考え方。
+ *
+ * 大きさは、いちばん大きいコマではなく上位1割のところで決める。
+ * 1コマだけ点が飛んでも、それに引きずられて全部が小さくならないように。
+ */
+export function steadyBoxes(
+  frames: readonly (readonly Point2[])[],
+  aspect: number,
+): (Box | null)[] {
+  const raws = frames.map(rawBox);
+  const seen = raws.filter((raw): raw is Raw => raw !== null);
+  if (seen.length === 0) return raws.map(() => null);
+
+  const high = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    // いちばん上は取らない。1コマだけ点が飛んだ時に、そこへ全部を合わせないため。
+    return sorted[Math.floor((sorted.length - 1) * 0.9)];
+  };
+  const w = high(seen.map((raw) => raw.w));
+  const h = high(seen.map((raw) => raw.h));
+
+  return raws.map((raw) => (raw ? fitBox({ ...raw, w, h }, aspect) : null));
 }
 
 /** 枠の中を0〜1として読み替える。切り出した絵の上に骨格を重ねるため。 */
