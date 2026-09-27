@@ -63,16 +63,6 @@ const TYPE_LABEL: Record<string, string> = {
   rest: '完全休養',
 };
 
-/** 何をした日かが、一目で分かる印。 */
-const TYPE_EMOJI: Record<string, string> = {
-  run: '👟',
-  walk: '🚶',
-  cross: '🚴',
-  strength: '💪',
-  stretch: '🧘',
-  rest: '😴',
-};
-
 /** 日付を「9/24（木）」の形に。年は、今の年と違う時だけ出す。 */
 function shortDate(date: string, now = new Date()): string {
   const [year, month, day] = date.split('-').map(Number);
@@ -104,15 +94,17 @@ function ActivityRow({
     activity.distanceKm !== undefined ? `${activity.distanceKm}km` : null,
     activity.durationMin !== undefined ? `${activity.durationMin}分` : null,
     activity.metrics?.avgPace ?? null,
-    activity.metrics?.avgHr !== undefined ? `♥${activity.metrics.avgHr}` : null,
+    // 「♥」は端末によって赤い絵文字になる。単位で書けば、どこで見ても同じ。
+    activity.metrics?.avgHr !== undefined ? `${activity.metrics.avgHr}bpm` : null,
   ].filter((value): value is string => Boolean(value));
 
   const body = (
     <span className="block rounded-[12px] border border-line bg-bg px-3 py-2">
+      {/*
+        **絵文字を印に使わない。** 端末ごとに絵柄も色も変わるうえ、
+        種目の名前（ラン／補強）はすぐ右に文字で出ている。印は要らなかった。
+      */}
       <span className="flex items-center gap-2">
-        <span aria-hidden="true" className="shrink-0 text-[13px]">
-          {TYPE_EMOJI[activity.type] ?? '👟'}
-        </span>
         <span className="shrink-0 text-[12px] font-semibold tabular-nums">
           {shortDate(activity.date)}
         </span>
@@ -254,30 +246,6 @@ export default function ProfileSheet({
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
             <dl className="divide-y divide-[color:var(--border)]">
-              <Row label="文字の大きさ">
-                <div className="flex gap-2">
-                  {FONT_SIZES.map((size) => (
-                    <button
-                      key={size.id}
-                      type="button"
-                      onClick={() => onChangeFontSize(size.id)}
-                      aria-pressed={fontSize === size.id}
-                      className={[
-                        'rounded-full border px-4 py-2 transition active:scale-[0.97]',
-                        fontSize === size.id
-                          ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
-                          : 'border-line text-fg',
-                      ].join(' ')}
-                      style={{ fontSize: `${Math.round(14 * size.scale)}px` }}
-                    >
-                      {size.label}
-                    </button>
-                  ))}
-                </div>
-                <span className="mt-1 block text-[12px] text-muted">
-                  {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
-                </span>
-              </Row>
               {authAvailable && (
                 <Row label="保存先">
                   {signedInAs ? (
@@ -344,10 +312,10 @@ export default function ProfileSheet({
                 自動連携が使えない時も、この行は出す。
                 書き出したファイルから取り込む道は、設定に関係なく使えるため。
               */}
-              <Row label="ランニングアプリ">
+              <Row label="アプリ連携">
                   {strava ? (
                     <>
-                      <span className="font-medium text-accent">✓ Strava と連携中</span>
+                      <span className="font-semibold text-accent">Strava と連携中</span>
                       {strava.athleteName && (
                         <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
                       )}
@@ -380,7 +348,7 @@ export default function ProfileSheet({
                   <button
                     type="button"
                     onClick={onOpenConnect}
-                    className="mt-2 rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
+                    className="mt-2.5 block w-fit rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
                   >
                     {strava ? '連携の設定を開く' : stravaAvailable ? '時計・アプリとつなぐ' : '記録を取り込む'}
                   </button>
@@ -534,6 +502,34 @@ export default function ProfileSheet({
                   <span className="block text-[12px] text-muted">目標タイムから自動計算される走力指標です</span>
                 </Row>
               )}
+              {/*
+                **表示の設定は、いちばん下でいい。**
+                自分のカルテを開いてまず目に入るのが文字サイズの選択では、
+                本人の目標も状態も、その下に押し下げられてしまう。
+              */}
+              <Row label="文字の大きさ">
+                <div className="flex gap-1.5">
+                  {FONT_SIZES.map((size) => (
+                    <button
+                      key={size.id}
+                      type="button"
+                      onClick={() => onChangeFontSize(size.id)}
+                      aria-pressed={fontSize === size.id}
+                      className={[
+                        'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
+                        fontSize === size.id
+                          ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                          : 'border-line text-fg',
+                      ].join(' ')}
+                    >
+                      {size.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
+                  {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
+                </span>
+              </Row>
               <Row label="心拍">
                 {profile.maxHr || profile.lthr || profile.restingHr ? (
                   <>
