@@ -13,7 +13,36 @@ import type { RunnerProfile } from './types';
 import { daysUntil, targetRace } from './races';
 import { shoeStatuses } from './shoes';
 import { fuelPlanFor } from './gear-spec';
-import { coachDate, coachWeekday } from './day';
+import { coachDate, coachHour, coachWeekday } from './day';
+
+/**
+ * 受け取る時刻を決めていない人に使う値（走る人の地域の朝9時）。
+ * **これまでの動きと同じ時刻にしておく。** すでに使っている人の朝が、
+ * ある日いきなりずれるのは、機能追加ではなく事故。
+ */
+export const DEFAULT_NOTIFY_HOUR = 9;
+
+/** 選べる時刻。1時間刻みで24個並べても選びにくいので、生活の切れ目に寄せる。 */
+export const NOTIFY_HOURS = [5, 6, 7, 8, 9, 10, 12, 15, 18, 19, 20, 21, 22] as const;
+
+/** その人が受け取ると決めた時刻。 */
+export function notifyHourOf(profile: RunnerProfile): number {
+  const hour = profile.notifications?.hour;
+  return typeof hour === 'number' && hour >= 0 && hour <= 23 ? Math.floor(hour) : DEFAULT_NOTIFY_HOUR;
+}
+
+/**
+ * いま送ってよい時刻か。
+ *
+ * **「ちょうどその時刻」ではなく「その時刻を過ぎたか」で見る。**
+ * 定期実行が1時間ごとに回れば、選んだ時刻の1時間以内に届く。
+ * もし実行が1日1回しか回らない設定でも、**選んだ時刻を過ぎている人には届く**ので、
+ * 誰かが黙って通知を受け取れなくなることがない。
+ * 二重送信は alreadySentToday が止める。
+ */
+export function timeToNotify(profile: RunnerProfile, now: Date = new Date()): boolean {
+  return coachHour(now) >= notifyHourOf(profile);
+}
 
 export interface Nudge {
   /** 種類。同じ種類を続けて出さないための鍵。 */
@@ -68,6 +97,8 @@ export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge 
   // ここは全員ぶんを順に回る場所。**1人の欠けた記録で、全員の通知を止めない。**
   // 保存が古くて配列そのものが無いことがあるので、必ず既定値を敷いてから触る。
   if (alreadySentToday(profile, now)) return null;
+  // **本人が決めた時刻より前には送らない。** 朝が全員に良い時間とは限らない。
+  if (!timeToNotify(profile, now)) return null;
 
   const candidates: Nudge[] = [];
   const race = targetRace(profile, now);

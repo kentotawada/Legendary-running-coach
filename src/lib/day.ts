@@ -52,6 +52,25 @@ export function coachDate(now: Date = new Date(), timeZone: string = coachTimeZo
   return ymdIn(new Date(now.getTime() - DAY_START_HOUR * 3_600_000), timeZone);
 }
 
+/**
+ * その地域での「いま何時か」（0〜23）。
+ * **実行環境の時刻で判定しない。** サーバーは UTC で動くので、
+ * そのまま使うと日本の朝9時が0時として扱われる。
+ */
+export function coachHour(now: Date = new Date(), timeZone: string = coachTimeZone()): number {
+  const read = (zone: string) =>
+    Number(
+      new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', hour12: false }).format(now),
+    );
+  try {
+    const hour = read(timeZone);
+    return Number.isFinite(hour) ? hour % 24 : read(DEFAULT_TIME_ZONE) % 24;
+  } catch {
+    // 知らない地域名が入っていても、判定は止めない。
+    return read(DEFAULT_TIME_ZONE) % 24;
+  }
+}
+
 /** その地域での曜日（0=日曜）。週のふりかえりを正しい曜日に出すため。 */
 export function coachWeekday(now: Date = new Date(), timeZone: string = coachTimeZone()): number {
   const [year, month, day] = coachDate(now, timeZone).split('-').map(Number);

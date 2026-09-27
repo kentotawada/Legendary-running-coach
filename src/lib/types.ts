@@ -317,6 +317,13 @@ export interface NotificationState {
   lastTag?: string;
   /** 種類ごとの最終送信日（YYYY-MM-DD）。同じ知らせを続けて出さないため。 */
   sentOn?: Record<string, string>;
+  /**
+   * 何時に受け取るか（0〜23、走る人の地域の時刻）。
+   *
+   * **朝が全員にとって良い時間とは限らない。** 夜に走る人に朝9時の声かけは早すぎるし、
+   * 早朝に出る人には遅い。未設定なら {@link DEFAULT_NOTIFY_HOUR}。
+   */
+  hour?: number;
 }
 
 export type PlanIntensity = 'rest' | 'easy' | 'moderate' | 'hard';

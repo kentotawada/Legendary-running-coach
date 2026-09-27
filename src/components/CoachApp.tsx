@@ -33,6 +33,7 @@ export default function CoachApp() {
     greeting,
     needsCoach,
     chooseCoach,
+    saveNotifyHour,
     streamingText,
     profile,
     busy,
@@ -469,6 +470,7 @@ export default function CoachApp() {
           onChangeFontSize={changeFontSize}
           stravaAvailable={build?.stravaAvailable}
           pushAvailable={build?.pushAvailable}
+          onChangeNotifyHour={(hour) => void saveNotifyHour(hour)}
           onOpenConnect={() => {
             setSheetOpen(false);
             setCameFromCarte(true);

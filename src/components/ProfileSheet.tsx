@@ -20,6 +20,7 @@ import {
   unsubscribeFromPush,
   type PushAvailability,
 } from '@/lib/push-client';
+import { NOTIFY_HOURS, notifyHourOf } from '@/lib/nudge';
 
 interface Props {
   profile: RunnerProfile | null;
@@ -39,6 +40,8 @@ interface Props {
   stravaAvailable?: boolean;
   /** このアプリで通知が使える設定になっているか。 */
   pushAvailable?: boolean;
+  /** 通知を受け取る時刻を決める。 */
+  onChangeNotifyHour?: (hour: number) => void;
   /** 時計・アプリとの連携画面を開く。 */
   onOpenConnect?: () => void;
   /** 1本の練習の中身（区間・心拍の推移）を開く。 */
@@ -164,6 +167,7 @@ export default function ProfileSheet({
   stravaAvailable = false,
   pushAvailable = false,
   onOpenConnect,
+  onChangeNotifyHour,
   onOpenRun,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
@@ -180,6 +184,7 @@ export default function ProfileSheet({
   const [pushState, setPushState] = useState<PushAvailability>('unsupported');
   const [subscribed, setSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const notifyHour = profile ? notifyHourOf(profile) : 9;
   const [pushNote, setPushNote] = useState<string | null>(null);
 
   // 端末側の状態は、描かれた後でないと分からない（サーバーでは判定できない）。
@@ -304,6 +309,38 @@ export default function ProfileSheet({
                         {pushBusy ? '設定中…' : subscribed ? '通知を止める' : '通知を受け取る'}
                       </button>
                       {pushNote && <span className="mt-1.5 block text-[12px] text-accent">{pushNote}</span>}
+
+                      {/*
+                        **朝が全員にとって良い時間とは限らない。**
+                        夜に走る人に朝9時の声かけは早すぎるし、早朝に出る人には遅い。
+                        受け取っている人にだけ出す。切っている人には意味が無い。
+                      */}
+                      {subscribed && onChangeNotifyHour && (
+                        <span className="mt-3 block">
+                          <span className="block text-[12px] text-muted">受け取る時刻</span>
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {NOTIFY_HOURS.map((hour) => {
+                              const active = notifyHour === hour;
+                              return (
+                                <button
+                                  key={hour}
+                                  type="button"
+                                  onClick={() => onChangeNotifyHour(hour)}
+                                  aria-pressed={active}
+                                  className={[
+                                    'min-w-[46px] rounded-[10px] border py-1.5 text-[13px] tabular-nums transition active:scale-[0.97]',
+                                    active
+                                      ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                                      : 'border-line text-fg',
+                                  ].join(' ')}
+                                >
+                                  {hour}時
+                                </button>
+                              );
+                            })}
+                          </span>
+                        </span>
+                      )}
                     </>
                   )}
                 </Row>

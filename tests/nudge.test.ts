@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alreadySentToday, markNotified, nudgeFor } from '@/lib/nudge';
+import { alreadySentToday, markNotified, notifyHourOf, nudgeFor, timeToNotify } from '@/lib/nudge';
 import { addRace, addShoes, applyProfileUpdate, addActivity, upsertPain } from '@/lib/profile';
 import { createDefaultProfile } from '@/lib/types';
 import type { RunnerProfile } from '@/lib/types';
@@ -130,5 +130,59 @@ describe('送りすぎない', () => {
     );
     profile = markNotified(profile, 'shoes', new Date('2026-09-23T09:00:00Z'));
     expect(nudgeFor(profile, NOW)?.tag).toBe('race-soon');
+  });
+});
+
+describe('受け取る時刻', () => {
+  const jst = (hour: number) => new Date(`2026-09-28T${String(hour).padStart(2, '0')}:05:00+09:00`);
+
+  const ready = (over: Partial<RunnerProfile> = {}): RunnerProfile =>
+    ({
+      ...base(),
+      shoes: [
+        { id: 's', name: 'ペガサス 40', role: 'daily', km: 900, updatedAt: '2026-09-01T00:00:00.000Z' },
+      ],
+      ...over,
+    }) as RunnerProfile;
+
+  it('決めていなければ、朝9時', () => {
+    expect(notifyHourOf(ready())).toBe(9);
+  });
+
+  it('決めた時刻を、そのまま使う', () => {
+    expect(notifyHourOf(ready({ notifications: { hour: 20 } }))).toBe(20);
+  });
+
+  it('おかしな値は、既定に落とす', () => {
+    expect(notifyHourOf(ready({ notifications: { hour: 99 } }))).toBe(9);
+    expect(notifyHourOf(ready({ notifications: { hour: -3 } }))).toBe(9);
+  });
+
+  /** **決めた時刻より前には送らない。** 朝が全員に良い時間とは限らない。 */
+  it('決めた時刻より前は、送らない', () => {
+    const night = ready({ notifications: { hour: 20 } });
+    expect(timeToNotify(night, jst(9))).toBe(false);
+    expect(nudgeFor(night, jst(9))).toBeNull();
+  });
+
+  it('決めた時刻になれば、送る', () => {
+    const night = ready({ notifications: { hour: 20 } });
+    expect(timeToNotify(night, jst(20))).toBe(true);
+    expect(nudgeFor(night, jst(20))).not.toBeNull();
+  });
+
+  /**
+   * **過ぎていれば送る。** 定期実行が1日1回しか回らない設定でも、
+   * 時刻を決めた人が黙って受け取れなくなることがないように。
+   */
+  it('時刻を過ぎていても、その日のうちなら送る', () => {
+    expect(timeToNotify(ready({ notifications: { hour: 7 } }), jst(11))).toBe(true);
+  });
+
+  it('時刻を決めていても、今日すでに送っていれば送らない', () => {
+    const sent = ready({
+      notifications: { hour: 7, lastSentAt: jst(7).toISOString() },
+    });
+    expect(nudgeFor(sent, jst(11))).toBeNull();
   });
 });
