@@ -84,7 +84,10 @@ describe('buildSystemInstruction', () => {
       const prompt = buildSystemInstruction(profile, NOW);
       expect(prompt).toContain('決して責めない');
       expect(prompt).toContain('勝手に推測しない');
-      expect(prompt).toContain('一言を添える');
+      // **毎回きれいに締めさせない。** 「次はこうしましょう」で全部の返答が終わると、
+      // 会話ではなく通知になる。ここが「ロボットが書いている」と読まれた原因だった。
+      expect(prompt).toContain('毎回きれいに締めない');
+      expect(prompt).toContain('迎合はしない');
     }
   });
 });

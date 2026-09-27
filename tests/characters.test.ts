@@ -6,8 +6,8 @@ describe('コーチのキャラクター', () => {
   it('選べるコーチが揃っていて、それぞれ選ぶ材料を持つ', () => {
     expect(COACH_CHARACTERS.length).toBeGreaterThanOrEqual(4);
     for (const character of COACH_CHARACTERS) {
-      // 顔写真は必ず用意する。空の丸が並ぶと、誰を選んでいるのか分からない。
-      expect(character.photo).toMatch(/^\/coaches\/.+\.webp$/);
+      // 写真を指すなら、形は揃える。無い人は頭文字で描かれる。
+      if (character.photo) expect(character.photo).toMatch(/^\/coaches\/.+\.webp$/);
       expect(character.initial.length).toBeGreaterThan(0);
       expect(character.name).toContain(' ');
       expect(character.reading.length).toBeGreaterThan(0);
@@ -22,10 +22,45 @@ describe('コーチのキャラクター', () => {
     }
   });
 
-  it('顔写真が実在する。参照だけあって画像が無いと、全員が頭文字になる', () => {
+  it('顔写真を指しているなら、その画像が実在する', () => {
+    // **在りもしないパスを書かない。** 読み込みに失敗してから頭文字に落ちるので、
+    // 一瞬だけ空の丸が出る。無いなら最初から指定しない。
     for (const character of COACH_CHARACTERS) {
+      if (!character.photo) continue;
       expect(existsSync(`public${character.photo}`), character.name).toBe(true);
     }
+  });
+
+  it('話し方が、キャラクターごとに書き分けられている', () => {
+    // **「優しく」「熱く」では、書く側は何も変えられない。**
+    // 一人称・二人称・語尾まで決めて、はじめて別人になる。
+    for (const character of COACH_CHARACTERS) {
+      expect(character.speech.first.length, character.name).toBeGreaterThan(0);
+      expect(character.speech.second.length, character.name).toBeGreaterThan(0);
+      expect(character.speech.habits.length, character.name).toBeGreaterThanOrEqual(3);
+      expect(character.speech.never.length, character.name).toBeGreaterThanOrEqual(2);
+      // 褒める時・良くない時・痛みがある時。この3つは全員ぶん要る。
+      expect(character.lines.length, character.name).toBe(3);
+      for (const line of character.lines) {
+        expect(line.say.length, `${character.name}: ${line.when}`).toBeGreaterThan(10);
+      }
+    }
+  });
+
+  it('一人称が全員同じ、ということが起きていない', () => {
+    // 全員「私」なら、書き分けたことにならない。
+    const firsts = new Set(COACH_CHARACTERS.map((c) => c.speech.first));
+    expect(firsts.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('口調の指示が、プロンプトにそのまま届いている', () => {
+    const character = findCharacter('allure');
+    const text = characterVoice('allure');
+    expect(text).toContain(character.speech.first);
+    expect(text).toContain(character.speech.second);
+    expect(text).toContain(character.lines[0].say);
+    // 中身と安全は、どのキャラクターでも変わらない。
+    expect(text).toContain('安全のルール');
   });
 
   it('id が重複していない', () => {
