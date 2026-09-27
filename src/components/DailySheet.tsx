@@ -11,6 +11,8 @@ interface Props {
   daily: DailyStatus;
   saving: boolean;
   onSaveWeight: (weightKg: number) => void;
+  /** 「動きを見てもらう」へ。渡さなければ出さない。 */
+  onOpenForm?: () => void;
   onClose: () => void;
 }
 
@@ -19,7 +21,7 @@ function nextMilestone(streak: number): number | undefined {
   return MILESTONES.find((value) => value > streak);
 }
 
-export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Props) {
+export default function DailySheet({ daily, saving, onSaveWeight, onOpenForm, onClose }: Props) {
   const [weight, setWeight] = useState(daily.latestWeightKg ? String(daily.latestWeightKg) : '');
   const parsed = Number(weight);
   const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 250;
@@ -76,6 +78,24 @@ export default function DailySheet({ daily, saving, onSaveWeight, onClose }: Pro
               </li>
             ))}
           </ul>
+
+          {onOpenForm && (
+            <button
+              type="button"
+              onClick={onOpenForm}
+              className="mt-3 flex w-full items-center gap-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-3.5 py-3 text-left active:opacity-70"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-semibold text-accent">
+                  動きを見てもらう
+                </span>
+                <span className="block text-[11px] leading-relaxed text-muted">
+                  プランク・カーフレイズ・片脚スクワットを、カメラでその場で見ます
+                </span>
+              </span>
+              <span className="shrink-0 text-[13px] text-accent">›</span>
+            </button>
+          )}
 
           <div className="mt-5 border-t border-line pt-4">
             <p className="text-[13px] font-medium">体重をはかる</p>

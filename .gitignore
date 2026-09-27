@@ -9,3 +9,6 @@ build/
 next-env.d.ts
 .data/
 coverage/
+
+# 姿勢推定の実行ファイル。ビルド時に node_modules からコピーする。
+public/pose/wasm/
