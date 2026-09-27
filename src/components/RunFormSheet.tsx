@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LM } from '@/lib/exercise';
-import { analyzeGait, describeGait, type Frame, type GaitReport } from '@/lib/gait';
-import { BONES, loadPoseForFrames } from '@/lib/pose';
+import { analyzeGait, describeGait, type Contact, type Frame, type GaitReport } from '@/lib/gait';
+import { LEG_BONES, bodyBox, drawSkeleton, inBox, loadPoseForFrames } from '@/lib/pose';
 import Sheet from './Sheet';
 
 /**
@@ -17,6 +17,8 @@ import Sheet from './Sheet';
  *    速度と体の作りで変わる。ここで「良い/悪い」を出すと、
  *    その人にとって正しい動きを直させることになる
  *  - 測れなかった時は、黙って0を出さない。理由を出して撮り直してもらう
+ *  - **絵と数字を一致させる。** 「接地位置 4%」と出すなら、その4%が絵の上に
+ *    幅として引かれていないと、何を言われているのか分からない
  */
 
 /** 何秒ぶん見るか。長く撮られても、この長さだけ使う。 */
@@ -31,6 +33,18 @@ const SAMPLE_FPS = 20;
 
 /** 読むコマ数の上限。端末が古いと、ここが時間に直結する。 */
 const MAX_FRAMES = CLIP_SECONDS * SAMPLE_FPS;
+
+/**
+ * 見せる絵の大きさ。
+ * **画面の全部は出さない。** 体のまわりだけを切り出して、この大きさに伸ばす。
+ * 引きで撮った動画をそのまま出すと、人が小指の先ほどになって何も読めない。
+ */
+const SHOT_W = 720;
+const SHOT_H = 800;
+
+/** ふつうの骨の色と、着いている脚・測った幅の色。映像の上でも読める明るさにする。 */
+const LINE = '#ffffff';
+const MARK = '#ffb02e';
 
 function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve) => {
@@ -69,6 +83,134 @@ function painted(video: HTMLVideoElement): Promise<void> {
   });
 }
 
+/** 黒地に白抜きの札。映像の上に文字を置くと、地の色に負けて読めない。 */
+function pill(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  cy: number,
+  unit: number,
+  color = MARK,
+): void {
+  const size = unit * 3.4;
+  ctx.save();
+  ctx.font = `700 ${size}px system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const w = ctx.measureText(text).width + size;
+  const h = size * 1.8;
+  // 札がはみ出すと、数字が切れて読めなくなる。必ず絵の中に収める。
+  const x = Math.min(Math.max(cx - w / 2, unit), Math.max(ctx.canvas.width - w - unit, unit));
+  const y = Math.min(Math.max(cy - h / 2, unit), Math.max(ctx.canvas.height - h - unit, unit));
+
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  const round = (ctx as { roundRect?: (x: number, y: number, w: number, h: number, r: number) => void })
+    .roundRect;
+  if (typeof round === 'function') {
+    ctx.beginPath();
+    round.call(ctx, x, y, w, h, h / 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y, w, h);
+  }
+
+  ctx.fillStyle = color;
+  ctx.fillText(text, x + w / 2, y + h / 2);
+  ctx.restore();
+}
+
+/**
+ * 測ったところを、絵の上に引く。
+ *
+ * **数字だけ出しても、どこを測ったのかは伝わらない。**
+ * 地面の線と、腰の真下の線と、その間の幅。この3本が揃って、
+ * はじめて「接地位置◯%」が絵として読める。
+ */
+function drawGap(
+  ctx: CanvasRenderingContext2D,
+  { hipX, hipY, footX, groundY, ahead, unit }: {
+    hipX: number;
+    hipY: number;
+    footX: number;
+    groundY: number;
+    ahead: number;
+    unit: number;
+  },
+): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const barY = Math.min(groundY + unit * 7, h - unit * 12);
+
+  ctx.save();
+  ctx.lineCap = 'round';
+
+  const twice = (draw: () => void, thick: number, thin: number, paint: string) => {
+    ctx.setLineDash([unit * 2.4, unit * 2]);
+    ctx.lineWidth = thick;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    draw();
+    ctx.lineWidth = thin;
+    ctx.strokeStyle = paint;
+    draw();
+    ctx.setLineDash([]);
+  };
+
+  // 地面。足が着いている高さ。
+  twice(
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(0, groundY);
+      ctx.lineTo(w, groundY);
+      ctx.stroke();
+    },
+    unit * 1.7,
+    unit * 0.75,
+    'rgba(255,255,255,0.8)',
+  );
+
+  // 腰の真下。**腰から下だけ引く。** 画面の上まで伸ばすと、体を横切ってうるさい。
+  twice(
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(hipX, barY + unit * 2);
+      ctx.stroke();
+    },
+    unit * 1.7,
+    unit * 0.75,
+    'rgba(255,255,255,0.8)',
+  );
+
+  // 幅そのもの。両端に爪を立てて、どこからどこまでかを見せる。
+  const bar = () => {
+    ctx.beginPath();
+    ctx.moveTo(hipX, barY);
+    ctx.lineTo(footX, barY);
+    ctx.moveTo(hipX, barY - unit * 1.7);
+    ctx.lineTo(hipX, barY + unit * 1.7);
+    ctx.moveTo(footX, barY - unit * 1.7);
+    ctx.lineTo(footX, barY + unit * 1.7);
+    ctx.stroke();
+  };
+  ctx.lineWidth = unit * 2.6;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  bar();
+  ctx.lineWidth = unit * 1.2;
+  ctx.strokeStyle = MARK;
+  bar();
+  ctx.restore();
+
+  const percent = Math.round(ahead * 100);
+  pill(
+    ctx,
+    `${percent >= 0 ? '前へ' : '後ろへ'} ${Math.abs(percent)}%`,
+    (hipX + footX) / 2,
+    barY + unit * 6,
+    unit,
+  );
+}
+
 /** 数字を1つ。単位は小さく添える。 */
 function Stat({ label, value, unit, note }: { label: string; value: string; unit?: string; note?: string }) {
   return (
@@ -81,6 +223,14 @@ function Stat({ label, value, unit, note }: { label: string; value: string; unit
       {note && <p className="mt-0.5 text-[10px] leading-relaxed text-muted">{note}</p>}
     </div>
   );
+}
+
+/** 見せる1コマと、その時に測った接地。**どちら側の足で着いたかが要る。** */
+interface Shot {
+  frame: Frame;
+  contact: Contact;
+  /** 進む向き。+1 なら画面の右へ。「前」がどっちかは、これが無いと分からない。 */
+  facing: 1 | -1;
 }
 
 export default function RunFormSheet({
@@ -96,7 +246,7 @@ export default function RunFormSheet({
   const [report, setReport] = useState<GaitReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [keyFrame, setKeyFrame] = useState<Frame | null>(null);
+  const [shot, setShot] = useState<Shot | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -112,12 +262,12 @@ export default function RunFormSheet({
   );
 
   /**
-   * いちばん体の真下で着いていたコマに、骨格を描いて見せる。
+   * 測った瞬間を1枚の絵にする。
    *
    * **結果が画面に出てから呼ぶ。** canvas は結果が出て初めて描かれるので、
    * 測り終わった直後に触ると、まだ存在しない（参照が null のまま黒い箱が残る）。
    */
-  const drawKeyFrame = useCallback(async (frame: Frame) => {
+  const drawShot = useCallback(async ({ frame, contact, facing }: Shot) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -125,103 +275,124 @@ export default function RunFormSheet({
 
     await seekTo(video, frame.t);
     await painted(video);
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const points = frame.points;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = Math.max(2, canvas.width / 200);
-    ctx.lineCap = 'round';
-    for (const [from, to] of BONES) {
-      const a = points[from];
-      const b = points[to];
-      if (!a || !b) continue;
-      ctx.beginPath();
-      ctx.moveTo(a.x * canvas.width, a.y * canvas.height);
-      ctx.lineTo(b.x * canvas.width, b.y * canvas.height);
-      ctx.stroke();
+    canvas.width = SHOT_W;
+    canvas.height = SHOT_H;
+
+    // 体のまわりだけを切り出して、大きく出す。切れなければ、全部出す。
+    const box = bodyBox(frame.points, SHOT_W / SHOT_H) ?? { x: 0, y: 0, w: 1, h: 1 };
+    ctx.drawImage(
+      video,
+      box.x * video.videoWidth,
+      box.y * video.videoHeight,
+      box.w * video.videoWidth,
+      box.h * video.videoHeight,
+      0,
+      0,
+      SHOT_W,
+      SHOT_H,
+    );
+
+    // 背景を少し落とす。**明るい路面の上では、白い線がそのままだと消える。**
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(0, 0, SHOT_W, SHOT_H);
+
+    const points = inBox(frame.points, box);
+    const unit = SHOT_W / 130;
+    drawSkeleton(ctx, points, {
+      width: unit,
+      color: LINE,
+      highlight: { bones: LEG_BONES[contact.side], color: MARK },
+    });
+
+    // 測ったのは、着いた足と、その側の腰。**平均を出した時と同じ側で描く。**
+    const hip = points[contact.side === 'left' ? LM.leftHip : LM.rightHip];
+    const ankle = points[contact.side === 'left' ? LM.leftAnkle : LM.rightAnkle];
+    const toe = points[contact.side === 'left' ? LM.leftToe : LM.rightToe];
+    if (hip && ankle) {
+      drawGap(ctx, {
+        hipX: hip.x * SHOT_W,
+        hipY: hip.y * SHOT_H,
+        footX: ankle.x * SHOT_W,
+        groundY: Math.max(ankle.y, toe?.y ?? ankle.y) * SHOT_H,
+        ahead: contact.ahead,
+        unit,
+      });
     }
 
-    // 腰の真下を示す線。**足との距離が「接地位置」。**
-    const hip = points[LM.leftHip];
-    if (hip) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-      ctx.lineWidth = Math.max(1, canvas.width / 400);
-      ctx.setLineDash([8, 6]);
-      ctx.beginPath();
-      ctx.moveTo(hip.x * canvas.width, 0);
-      ctx.lineTo(hip.x * canvas.width, canvas.height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
+    // **「前」がどっちかを書く。** 進む向きが分からないと、前後の話が読めない。
+    pill(ctx, facing === 1 ? '進む向き →' : '← 進む向き', unit * 13, unit * 4, unit, LINE);
   }, []);
 
   // canvas は結果が出てから描かれる。そのあとで描き込む。
   useEffect(() => {
-    if (keyFrame) void drawKeyFrame(keyFrame);
-  }, [keyFrame, drawKeyFrame]);
+    if (shot) void drawShot(shot);
+  }, [shot, drawShot]);
 
-  const read = useCallback(
-    async (file: File) => {
-      setBusy(true);
-      setError(null);
-      setReport(null);
-      setKeyFrame(null);
-      setSent(false);
-      setProgress(0);
+  const read = useCallback(async (file: File) => {
+    setBusy(true);
+    setError(null);
+    setReport(null);
+    setShot(null);
+    setSent(false);
+    setProgress(0);
 
-      try {
-        const landmarker = await loadPoseForFrames();
+    try {
+      const landmarker = await loadPoseForFrames();
 
-        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-        const url = URL.createObjectURL(file);
-        urlRef.current = url;
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      const url = URL.createObjectURL(file);
+      urlRef.current = url;
 
-        const video = videoRef.current;
-        if (!video) return;
-        video.src = url;
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => reject(new Error('動画を開けませんでした'));
-        });
+      const video = videoRef.current;
+      if (!video) return;
+      video.src = url;
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('動画を開けませんでした'));
+      });
 
-        const duration = video.duration;
-        if (!Number.isFinite(duration) || duration <= 0) {
-          throw new Error('動画の長さが読めませんでした');
-        }
-
-        // 長く撮られていたら、真ん中を使う。撮り始めと撮り終わりは、たいてい走っていない。
-        const span = Math.min(CLIP_SECONDS, duration);
-        const from = Math.max(0, (duration - span) / 2);
-        const count = Math.max(8, Math.min(MAX_FRAMES, Math.round(span * SAMPLE_FPS)));
-
-        const frames: Frame[] = [];
-        for (let i = 0; i < count; i += 1) {
-          const t = from + (span * i) / (count - 1);
-          await seekTo(video, t);
-          const found = landmarker.detect(video);
-          const points = found.landmarks?.[0];
-          if (points) frames.push({ t, points });
-          setProgress(Math.round(((i + 1) / count) * 100));
-        }
-
-        const result = analyzeGait(frames);
-        setReport(result);
-
-        if (result.measured && result.contacts.length > 0) {
-          // いちばん真下に近いところで着いたコマを見せる。描くのは画面に出てから。
-          const best = result.contacts.reduce((a, b) => (Math.abs(a.ahead) <= Math.abs(b.ahead) ? a : b));
-          setKeyFrame(frames[best.index]);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : '動画を読めませんでした');
-      } finally {
-        setBusy(false);
+      const duration = video.duration;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        throw new Error('動画の長さが読めませんでした');
       }
-    },
-    [drawKeyFrame],
-  );
+
+      // 長く撮られていたら、真ん中を使う。撮り始めと撮り終わりは、たいてい走っていない。
+      const span = Math.min(CLIP_SECONDS, duration);
+      const from = Math.max(0, (duration - span) / 2);
+      const count = Math.max(8, Math.min(MAX_FRAMES, Math.round(span * SAMPLE_FPS)));
+
+      const frames: Frame[] = [];
+      for (let i = 0; i < count; i += 1) {
+        const t = from + (span * i) / (count - 1);
+        await seekTo(video, t);
+        const found = landmarker.detect(video);
+        const points = found.landmarks?.[0];
+        if (points) frames.push({ t, points });
+        setProgress(Math.round(((i + 1) / count) * 100));
+      }
+
+      const result = analyzeGait(frames);
+      setReport(result);
+
+      if (result.measured && result.contacts.length > 0 && result.ahead !== undefined) {
+        /**
+         * **平均にいちばん近いコマを見せる。**
+         * いちばん極端なコマを見せると、絵の上の数字と下に並べた平均が食い違って、
+         * どちらを信じればいいのか分からなくなる。
+         */
+        const mean = result.ahead;
+        const best = result.contacts.reduce((a, b) =>
+          Math.abs(a.ahead - mean) <= Math.abs(b.ahead - mean) ? a : b,
+        );
+        setShot({ frame: frames[best.index], contact: best, facing: result.facing });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '動画を読めませんでした');
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const percent = (value: number | undefined) =>
     value === undefined ? '—' : `${Math.round(value * 100)}`;
@@ -288,9 +459,30 @@ export default function RunFormSheet({
 
       {report?.measured && (
         <div className="mt-5">
-          <canvas ref={canvasRef} className="block w-full rounded-[16px] bg-black" />
+          <canvas
+            ref={canvasRef}
+            className="block w-full rounded-[16px] bg-black"
+            aria-label="測った瞬間の姿勢"
+            role="img"
+          />
+
+          {/* **絵の読み方を書く。** 色が何を指しているか分からないと、線はただの落書き。 */}
+          <dl className="mt-2 space-y-1 text-[11px] leading-relaxed text-muted">
+            <div className="flex gap-2">
+              <dt className="shrink-0 font-semibold" style={{ color: MARK }}>
+                オレンジの脚
+              </dt>
+              <dd className="min-w-0">この瞬間に着いている足。横の幅が、腰の真下からのずれ。</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="shrink-0 font-semibold text-fg">白い点線</dt>
+              <dd className="min-w-0">縦は腰の真下、横は足が着いている高さ。</dd>
+            </div>
+          </dl>
           <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-            いちばん体の真下で着いていた瞬間。縦の点線が腰の位置です。
+            測った{report.contacts.length}回のうち、平均にいちばん近い1回です。
+            絵の中の数字は<strong className="font-semibold text-fg">この瞬間の値</strong>、
+            下の「接地位置」は{report.contacts.length}回の平均です。
           </p>
 
           <div className="mt-4 flex gap-3">
