@@ -38,14 +38,35 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+/**
+ * 顔が画面いっぱいに来るように切る。
+ *
+ * **正方形の写真をそのまま縮めない。** 生成した写真は胸から上が写っているので、
+ * そのまま 176px に縮めると、40pxの丸に描かれた時に顔が小さすぎて誰か分からない。
+ * 上寄りの正方形を切り出して、頭と肩だけにする。
+ */
+function headAndShoulders(width, height) {
+  const side = Math.round(Math.min(width, height) * 0.78);
+  return {
+    left: Math.max(0, Math.round((width - side) / 2)),
+    // 頭の上に少しだけ余白を残す。詰めすぎると窮屈に見える。
+    top: Math.max(0, Math.round(height * 0.07)),
+    width: side,
+    height: Math.min(side, height - Math.round(height * 0.07)),
+  };
+}
+
 let done = 0;
 for (const name of files) {
   const id = basename(name, extname(name));
   const target = join(OUT, `${id}.webp`);
 
-  await sharp(join(from, name))
-    // 顔の位置に合わせて切る。真ん中で切ると、頭が切れることがある。
-    .resize(SIZE, SIZE, { fit: 'cover', position: sharp.strategy.attention })
+  const image = sharp(join(from, name));
+  const { width, height } = await image.metadata();
+
+  await image
+    .extract(headAndShoulders(width, height))
+    .resize(SIZE, SIZE, { fit: 'cover' })
     .webp({ quality: 72 })
     .toFile(target);
 
