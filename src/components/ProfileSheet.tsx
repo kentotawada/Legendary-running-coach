@@ -585,7 +585,12 @@ export default function ProfileSheet({
                     ))}
                   </ul>
                 ) : (
-                  <span className="text-muted">まだありません</span>
+                  <span className="text-muted">
+                    まだありません。
+                    <span className="mt-0.5 block text-[11px]">
+                      上の「記録を取り込む」から、時計のファイルを入れられます。
+                    </span>
+                  </span>
                 )}
               </Row>
               {profile.phaseHistory.length > 0 && (
