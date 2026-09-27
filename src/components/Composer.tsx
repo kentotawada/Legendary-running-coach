@@ -319,8 +319,13 @@ export default function Composer({
             disabled={disabled || preparing}
             aria-label="追加する"
             aria-expanded={menuOpen}
-            className={`flex h-[46px] w-[46px] items-center justify-center rounded-full border border-line transition active:scale-95 disabled:opacity-40 ${
-              menuOpen ? 'bg-accent-soft text-accent' : 'bg-elevated text-fg'
+            /*
+              **枠で囲わない。** 入力欄の両脇に丸い枠を並べると、
+              3つの輪が横に並んで、どれが主なのか分からなくなる。
+              押せるものは、触れる大きさだけ確保して、絵だけ置けばいい。
+            */
+            className={`flex h-[46px] w-[42px] shrink-0 items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40 ${
+              menuOpen ? 'text-accent' : 'text-muted'
             }`}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -399,10 +404,11 @@ export default function Composer({
             aria-label={voice.listening ? '音声入力を止める' : '音声で入力する'}
             aria-pressed={voice.listening}
             className={[
-              'flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border transition active:scale-95 disabled:opacity-40',
+              'flex h-[46px] w-[42px] shrink-0 items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40',
+              // 録っている時だけ、はっきり分かる形にする。
               voice.listening
-                ? 'animate-blink border-[color:var(--accent)] bg-accent text-[var(--accent-fg)]'
-                : 'border-line bg-elevated text-fg',
+                ? 'animate-blink bg-accent text-[var(--accent-fg)]'
+                : 'text-muted',
             ].join(' ')}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -426,7 +432,12 @@ export default function Composer({
               submit();
             }
           }}
-          placeholder="今日の練習と体の状態を"
+          /*
+            **1行に収まる長さにする。** 入力欄は1行ぶんの高さしか無いので、
+            長い案内文を入れると2行目が切れて、下半分が欠けた文字が見える。
+            何を書くかはコーチが挨拶で聞いているので、ここは短くてよい。
+          */
+          placeholder="今日の調子は"
           aria-label="コーチへのメッセージ"
           className="scroll-area chat-input max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
         />
@@ -436,7 +447,15 @@ export default function Composer({
           onClick={submit}
           disabled={!canSend}
           aria-label="送信"
-          className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-accent text-[var(--accent-fg)] transition active:scale-95 disabled:opacity-35"
+          /*
+            **送れない時に、薄いオレンジにしない。**
+            同じ色をそのまま薄くすると、色が抜けて壊れているように見える。
+            送れない時は地の色、送れる時だけ色が点く。
+          */
+          className={[
+            'flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full transition active:scale-95',
+            canSend ? 'bg-accent text-[var(--accent-fg)]' : 'bg-sunken text-muted',
+          ].join(' ')}
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 19V5" />

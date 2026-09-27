@@ -40,9 +40,18 @@ export default function DailySheet({
     <Sheet label="今日のスタンプ" title="今日のスタンプ" onClose={onClose}>
 
           {daily.milestone && (
-            <div className="mb-3 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
-              🎉 <strong className="font-bold">{daily.milestone}日連続です。</strong>{' '}
-              続けられていること自体が、いちばん再現しにくい才能です。
+            /*
+              **絵文字で祝わない。** 端末ごとに絵柄が変わるうえ、
+              ここに 🎉 を置くと、文章のほうが軽く見える。
+              数字を大きく出すだけで、祝いにはじゅうぶん足りる。
+            */
+            <div className="mb-4 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3.5">
+              <p className="text-[13px] font-bold text-accent">
+                {daily.milestone}日連続です。
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-accent opacity-90">
+                続けられていること自体が、いちばん再現しにくい才能です。
+              </p>
             </div>
           )}
 

@@ -17,8 +17,14 @@
   --accent-fg: #ffffff;
   --user-bubble: #f2f2f0;
   --user-bubble-fg: #16161a;
-  --warn: #b3541e;
-  --warn-soft: #fdf1e6;
+  /*
+    警告。**達成の色と同じにしない。**
+    橙は「今日のぶんが埋まった」に使っている色で、そこに痛みの知らせを同じ色で出すと、
+    褒められているのか止められているのか、色では区別がつかなくなる。
+    走るのを止める話なので、赤に寄せる。
+  */
+  --warn: #b3261e;
+  --warn-soft: #fdecea;
   --good: #2f7d52;
   --good-soft: #e9f3ed;
   /*
@@ -75,8 +81,8 @@
     --accent-fg: #14120f;
     --user-bubble: #1d1d21;
     --user-bubble-fg: #f4f4f5;
-    --warn: #f0a36c;
-    --warn-soft: #33210f;
+    --warn: #f0938a;
+    --warn-soft: #34191a;
     --good: #7cc79b;
     --good-soft: #162c1e;
     --chart-ink: #e4652f;
@@ -123,9 +129,15 @@ body {
   background: var(--bg);
   letter-spacing: 0.01em;
   color: var(--fg);
+  /*
+    欧文を先に置く。日本語の字はこの書体に無いので、後ろのヒラギノへ落ちる。
+    これで「数字と英字だけ差し替える」が、1行で成立する。
+  */
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
-    'Yu Gothic', Meiryo, system-ui, sans-serif;
+    var(--font-latin), -apple-system, BlinkMacSystemFont, 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', Meiryo, system-ui, sans-serif;
+  /* 数字の幅を揃える。**桁が動く数字は、それだけで落ち着かない。** */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   /* iOS でスクロールが body に伝播してアドレスバーが跳ねるのを防ぐ。 */
   overscroll-behavior-y: none;

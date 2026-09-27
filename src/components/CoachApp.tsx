@@ -198,24 +198,24 @@ export default function CoachApp() {
           type="button"
           onClick={() => setReviewOpen(true)}
           aria-label="ふりかえりを開く"
-          className="shrink-0 rounded-full border border-line px-3 py-1.5 text-center"
+          className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full border border-line px-3"
         >
           {built && built.km > 0 ? (
             <>
-              <span className="block text-[13px] font-bold leading-tight tabular-nums">
+              <span className="text-[13px] font-bold leading-none tabular-nums">
                 {built.km.toLocaleString()}
                 <span className="ml-0.5 text-[9px] font-medium text-muted">km</span>
               </span>
-              <span className="block text-[9px] leading-tight text-muted">ふりかえり</span>
+              <span className="mt-[3px] text-[9px] leading-none text-muted">ふりかえり</span>
             </>
           ) : (
-            <span className="block py-0.5 text-[12px] font-medium">ふりかえり</span>
+            <span className="text-[12px] font-medium leading-none">ふりかえり</span>
           )}
         </button>
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
+          className="flex h-[38px] shrink-0 items-center rounded-full border border-line px-3.5 text-[12px] font-medium"
         >
           カルテ
         </button>
