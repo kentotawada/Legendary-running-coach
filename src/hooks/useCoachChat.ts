@@ -63,6 +63,10 @@ export interface CoachChat {
   messages: ChatMessage[];
   /** 開いた時にコーチのほうから言う一言。無い日は null。 */
   greeting: string | null;
+  /** まだ誰に見てもらうかを選んでいない。**選ぶところから始める。** */
+  needsCoach: boolean;
+  /** コーチを決めて、会話を始める。 */
+  chooseCoach: (characterId: string) => Promise<void>;
   streamingText: string | null;
   profile: RunnerProfile | null;
   busy: boolean;
@@ -122,6 +126,12 @@ export function useCoachChat(): CoachChat {
    * **保存しない。** 毎朝その日のデータから作り直すので、置いておく意味が無い。
    */
   const [greeting, setGreeting] = useState<string | null>(null);
+  /**
+   * まだ誰にも見てもらっていない人。
+   * **いちばん最初にすることは、相手を決めること。**
+   * 空のチャットに放り出すより、8人の顔を見せたほうが、次の一手が分かる。
+   */
+  const [needsCoach, setNeedsCoach] = useState(false);
   /**
    * その挨拶が、まだ会話に入っていないこと。
    * **入れずに返事だけ送ると、コーチは自分がした質問を知らないまま答えることになる。**
@@ -588,8 +598,17 @@ export function useCoachChat(): CoachChat {
          *
          * 1日の最初の一度だけ。開くたびに繰り返すと、ただの飾りになる。
          */
-        const letModelOpen = data.messages.length === 0 && data.hasApiKey;
-        if (!letModelOpen && data.profile && firstOpenToday()) {
+        /**
+         * まだ一度も話しておらず、コーチも選んでいない人。
+         * **ここで勝手に会話を始めない。** 選んでいない人の口調で話し出すことになる。
+         */
+        const firstRun = data.messages.length === 0 && !data.profile?.characterId;
+        setNeedsCoach(firstRun);
+
+        const letModelOpen = data.messages.length === 0 && data.hasApiKey && !firstRun;
+        // **まだコーチを選んでいない人には出さない。** 選ぶ前の既定の口調で
+        // 挨拶してしまい、選んだ直後に別人の言葉が残ることになる。
+        if (!letModelOpen && !firstRun && data.profile && firstOpenToday()) {
           setGreeting(greetingFor(data.profile).text);
           greetingPending.current = true;
         }
@@ -647,6 +666,19 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  /**
+   * コーチを決めて、その人に最初の一言を書いてもらう。
+   * **選んだ直後に黙られると、何が起きたのか分からない。**
+   */
+  const chooseCoach = useCallback(
+    async (characterId: string) => {
+      await updateProfile({ characterId });
+      setNeedsCoach(false);
+      await turn('');
+    },
+    [updateProfile, turn],
+  );
+
   const saveWeight = useCallback(async (weightKg: number) => {
     setSavingWeight(true);
     try {
@@ -677,6 +709,8 @@ export function useCoachChat(): CoachChat {
   return {
     messages,
     greeting,
+    needsCoach,
+    chooseCoach,
     streamingText,
     profile,
     busy,
