@@ -4,6 +4,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { dailyStatus, type DailyStatus } from '@/lib/daily';
+import { coachDate } from '@/lib/day';
+import { greetingFor } from '@/lib/greeting';
+
+/** その日もう挨拶したか。端末ごとの控えなので、消えても実害は「もう一度言う」だけ。 */
+const GREETED_KEY = 'rc_greeted_on';
+
+/**
+ * 今日まだ挨拶していなければ、控えを今日に進めて true を返す。
+ * **読み書きできない端末がある。** そこで黙るより、毎回挨拶するほうがまし。
+ */
+function firstOpenToday(): boolean {
+  const today = coachDate();
+  try {
+    if (localStorage.getItem(GREETED_KEY) === today) return false;
+    localStorage.setItem(GREETED_KEY, today);
+  } catch {
+    // 読めない・書けない。挨拶はする。
+  }
+  return true;
+}
 import type { ResolvedGear } from '@/lib/gear';
 import type { AuthState } from '@/components/AuthSheet';
 import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
@@ -41,6 +61,8 @@ type StreamEvent =
 
 export interface CoachChat {
   messages: ChatMessage[];
+  /** 開いた時にコーチのほうから言う一言。無い日は null。 */
+  greeting: string | null;
   streamingText: string | null;
   profile: RunnerProfile | null;
   busy: boolean;
@@ -95,6 +117,16 @@ export interface CoachChat {
 
 export function useCoachChat(): CoachChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  /**
+   * 開いた時にコーチのほうから言う一言。
+   * **保存しない。** 毎朝その日のデータから作り直すので、置いておく意味が無い。
+   */
+  const [greeting, setGreeting] = useState<string | null>(null);
+  /**
+   * その挨拶が、まだ会話に入っていないこと。
+   * **入れずに返事だけ送ると、コーチは自分がした質問を知らないまま答えることになる。**
+   */
+  const greetingPending = useRef(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [profile, setProfile] = useState<RunnerProfile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -211,6 +243,12 @@ export function useCoachChat(): CoachChat {
             replaceLast: mode === 'replace',
             // preview は画面表示用なので送らない。thumbnail は後から見返すために保存される。
             images: images.map(({ mimeType, data, thumbnail }) => ({ mimeType, data, thumbnail })),
+            /**
+             * 画面でコーチが先に言った一言を、会話に入れてもらう。
+             * **文章そのものは送らない。** 送ると、ブラウザ側から「コーチの発言」を
+             * 好きに差し込めることになる。同じ計算をサーバー側でやり直してもらう。
+             */
+            greeted: greetingPending.current && mode === 'send',
           }),
         });
 
@@ -226,6 +264,7 @@ export function useCoachChat(): CoachChat {
           return;
         }
 
+        if (mode === 'send') greetingPending.current = false;
         await consume(response);
       } catch (e) {
         const failure = describeStreamFailure(e);
@@ -538,6 +577,23 @@ export function useCoachChat(): CoachChat {
         setGear(data.gear ?? []);
         if (data.auth) setAuth(data.auth);
         setReady(true);
+
+        /**
+         * こちらから先に一言。**ここが無いと、開いた画面は白紙のまま。**
+         *
+         * まだ一度も話していない人には、コーチ自身に書かせる（下の turn('')）。
+         * それ以外は、カルテから組み立てた一言を出す。
+         * **こちらはモデルを呼ばない。** 向こうが落ちている日でも、コーチは黙らない。
+         * まだ話していない人でも、モデルを呼べない時はこちらを出す。
+         *
+         * 1日の最初の一度だけ。開くたびに繰り返すと、ただの飾りになる。
+         */
+        const letModelOpen = data.messages.length === 0 && data.hasApiKey;
+        if (!letModelOpen && data.profile && firstOpenToday()) {
+          setGreeting(greetingFor(data.profile).text);
+          greetingPending.current = true;
+        }
+
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
           return;
@@ -546,7 +602,8 @@ export function useCoachChat(): CoachChat {
         // 形式は提供側の都合で変わるため、動いているのに警告が出ると、
         // 本当の問題があるかのように見えてしまう。
         // 実際に無効なら、最初の対話で Gemini 側の理由が表示される。
-        if (data.messages.length === 0) await turn('');
+        // まだ一度も話していない人には、コーチ自身に最初の一言を書かせる。
+        if (letModelOpen) await turn('');
       } catch (e) {
         setReady(true);
         setError(
@@ -619,6 +676,7 @@ export function useCoachChat(): CoachChat {
 
   return {
     messages,
+    greeting,
     streamingText,
     profile,
     busy,

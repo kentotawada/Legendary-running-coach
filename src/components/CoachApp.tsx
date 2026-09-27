@@ -28,6 +28,7 @@ import type { ActivityLog } from '@/lib/types';
 export default function CoachApp() {
   const {
     messages,
+    greeting,
     streamingText,
     profile,
     busy,
@@ -227,6 +228,14 @@ export default function CoachApp() {
             failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
           />
         ))}
+
+        {/*
+          コーチのほうから言う一言。**顔だけ出して黙っているのは、コーチではない。**
+          操作の並びは付けない。作り直しも評価も要らない、ただの挨拶。
+        */}
+        {ready && greeting && (
+          <MessageItem message={{ id: 'greeting', role: 'coach', text: greeting }} coach={coach} />
+        )}
 
         {streamingText !== null && (
           <MessageItem

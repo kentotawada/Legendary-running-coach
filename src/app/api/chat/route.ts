@@ -10,6 +10,7 @@ import { affiliateConfigFromEnv, resolveGearCatalog } from '@/lib/gear';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { StorageError, storageErrorResponse } from '@/lib/storage-error';
 import { dropLastUserTurn, rewindToLastUserTurn } from '@/lib/history';
+import { greetingFor } from '@/lib/greeting';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,8 @@ interface ChatRequestBody {
   images?: unknown;
   /** 直前の返答を作り直す。同じ問いかけをもう一度投げ直す。 */
   regenerate?: unknown;
+  /** 画面でコーチが先に挨拶していたか。文章そのものは受け取らない。 */
+  greeted?: unknown;
   /** 直前のやり取りを取り消してから送る。本文を書き直して送り直す時に使う。 */
   replaceLast?: unknown;
 }
@@ -136,6 +139,23 @@ export async function POST(request: NextRequest) {
         message ||
         (images.length > 0 ? DEFAULT_IMAGE_MESSAGE : '') ||
         (state.history.length === 0 ? FIRST_TURN_PROMPT : '');
+
+      /**
+       * 画面でコーチが先に言った一言を、会話に入れる。
+       *
+       * **入れないと、コーチは自分がした質問を知らないまま返事を読むことになる。**
+       * 「脚は大丈夫です」とだけ来ても、何に答えているのか分からない。
+       *
+       * **文章はブラウザから受け取らない。** 受け取る作りにすると、
+       * 「コーチの発言」を外から好きに差し込めることになる。
+       * 同じ計算をここでやり直す。元が同じカルテなので、同じ文になる。
+       */
+      if (body.greeted === true && body.regenerate !== true && body.replaceLast !== true) {
+        const opening = greetingFor(state.profile).text;
+        if (opening) {
+          state = { ...state, history: [...state.history, { role: 'model', parts: [{ text: opening }] }] };
+        }
+      }
 
       // 作り直しは、直前の返答を無かったことにして同じ問いかけを投げ直す。
       if (body.regenerate === true) {
