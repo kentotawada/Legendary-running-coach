@@ -196,6 +196,22 @@ export function totals(profile: RunnerProfile, now: Date = new Date()): Totals {
   };
 }
 
+/**
+ * ふりかえるものが在るか。
+ *
+ * **「開いた」は、ふりかえる中身ではない。** アプリを開いた日も記録の日数に入るので、
+ * それを条件にすると、初めて開いた人にいきなり 0km・0回・0時間と
+ * 空の棒グラフを見せることになる。いちばん効く画面の、いちばん最悪の初対面。
+ */
+export function hasHistory(profile: RunnerProfile | null | undefined): boolean {
+  if (!profile) return false;
+  return (
+    (profile.activities?.length ?? 0) > 0 ||
+    (profile.dailyLog ?? []).some((record) => record.weightKg !== undefined) ||
+    (profile.pains?.length ?? 0) > 0
+  );
+}
+
 export interface Comparison {
   label: string;
   /** 直近4週。 */

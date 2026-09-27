@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   fourWeekComparison,
+  hasHistory,
   monthlyVolume,
   paceLabel,
   paceTrend,
@@ -211,5 +212,57 @@ describe('表示', () => {
       painHistory(empty, NOW);
       totals(empty, NOW);
     }).not.toThrow();
+  });
+});
+
+describe('ふりかえるものが在るか', () => {
+  const bare = (over: Partial<RunnerProfile> = {}): RunnerProfile =>
+    ({
+      id: 'u',
+      phase: 'building',
+      phaseHistory: [],
+      pains: [],
+      conditionLogs: [],
+      activities: [],
+      plans: [],
+      createdAt: '2026-09-27T00:00:00.000Z',
+      updatedAt: '2026-09-27T00:00:00.000Z',
+      ...over,
+    }) as RunnerProfile;
+
+  /**
+   * **ここを取り違えると、初めて開いた人に 0km・0回・0時間を見せることになる。**
+   * このアプリでいちばん効く画面の、いちばん最悪の初対面。
+   */
+  it('開いただけの日は、ふりかえる中身にならない', () => {
+    expect(hasHistory(bare({ dailyLog: [{ date: '2026-09-27', opened: true }] }))).toBe(false);
+  });
+
+  it('走った記録が1つでもあれば、ふりかえれる', () => {
+    expect(
+      hasHistory(bare({ activities: [{ id: 'a', date: '2026-09-20', type: 'run', createdAt: '' }] })),
+    ).toBe(true);
+  });
+
+  it('体重だけでも、ふりかえれる', () => {
+    expect(
+      hasHistory(bare({ dailyLog: [{ date: '2026-09-27', opened: true, weightKg: 61.8 }] })),
+    ).toBe(true);
+  });
+
+  it('痛みの記録も、ふりかえるうち', () => {
+    expect(
+      hasHistory(
+        bare({
+          pains: [
+            { id: 'p', site: '左ひざ', severity: 2, status: 'active', updatedAt: '2026-09-27' },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('カルテが無ければ false', () => {
+    expect(hasHistory(null)).toBe(false);
   });
 });

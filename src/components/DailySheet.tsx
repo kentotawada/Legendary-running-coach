@@ -50,7 +50,13 @@ export default function DailySheet({
             <span className="text-[32px] font-bold leading-none text-accent tabular-nums">
               {daily.streakDays}
             </span>
-            <span className="text-[13px] text-muted">日連続</span>
+            {/*
+              **1日目を「1日連続」と言わない。** まだ何も続いていない。
+              「1日目」なら嘘にならず、始まったことは伝わる。
+            */}
+            <span className="text-[13px] text-muted">
+              {daily.streakDays >= 2 ? '日連続' : '日目'}
+            </span>
             {next && (
               <span className="ml-auto text-[12px] text-muted">
                 次の節目まで あと{next - daily.streakDays}日
@@ -88,12 +94,26 @@ export default function DailySheet({
             ))}
           </ul>
 
-          {/* 走りが主。ストレッチ・筋トレはその次。並び順でそう見せる。 */}
+          {/*
+            **スタンプと道具を混ぜない。** 上の3つは「押すと埋まるもの」、
+            ここから下は「開くと始まるもの」。同じ見た目で続けて並べると、
+            押しても埋まらないスタンプがあるように見える。
+            走りが主。ストレッチ・筋トレはその次。並び順でそう見せる。
+          */}
+          {(onOpenRunForm || onOpenForm) && (
+            <div className="mt-5 border-t border-line pt-4">
+              <p className="text-[13px] font-medium">コーチに見てもらう</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                スタンプとは別に、いつでも使えます
+              </p>
+            </div>
+          )}
+
           {onOpenRunForm && (
             <button
               type="button"
               onClick={onOpenRunForm}
-              className="mt-3 flex w-full items-center gap-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-3.5 py-3 text-left active:opacity-70"
+              className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-3.5 py-3 text-left active:opacity-70"
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-semibold text-accent">走りを見てもらう</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCoachChat } from '@/hooks/useCoachChat';
 import MessageItem from './MessageItem';
 import type { Feedback } from './MessageActions';
@@ -21,6 +21,7 @@ import CoachAvatar from './CoachAvatar';
 import Welcome from './Welcome';
 import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
+import { totals } from '@/lib/review';
 import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
@@ -154,6 +155,13 @@ export default function CoachApp() {
     return () => clearTimeout(timer);
   }, [celebration]);
 
+  /**
+   * これまでの積み上げ。**ふりかえりは、このアプリでいちばん効く画面なのに、
+   * 隅の小さなボタンの向こうに隠れていた。** 数字を表に出して、毎日見えるようにする。
+   * 場所は増やさない。もともと在ったボタンが、数字を持つだけ。
+   */
+  const built = useMemo(() => (profile ? totals(profile) : null), [profile]);
+
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
   const coach = findCharacter(profile?.characterId);
   const lastCoachId = [...messages].reverse().find((m) => m.role === 'coach')?.id;
@@ -189,9 +197,20 @@ export default function CoachApp() {
         <button
           type="button"
           onClick={() => setReviewOpen(true)}
-          className="shrink-0 rounded-full border border-line px-3 py-2 text-[12px] font-medium"
+          aria-label="ふりかえりを開く"
+          className="shrink-0 rounded-full border border-line px-3 py-1.5 text-center"
         >
-          ふりかえり
+          {built && built.km > 0 ? (
+            <>
+              <span className="block text-[13px] font-bold leading-tight tabular-nums">
+                {built.km.toLocaleString()}
+                <span className="ml-0.5 text-[9px] font-medium text-muted">km</span>
+              </span>
+              <span className="block text-[9px] leading-tight text-muted">ふりかえり</span>
+            </>
+          ) : (
+            <span className="block py-0.5 text-[12px] font-medium">ふりかえり</span>
+          )}
         </button>
         <button
           type="button"
@@ -343,7 +362,16 @@ export default function CoachApp() {
         />
       )}
 
-      {reviewOpen && <ReviewSheet profile={profile} onClose={() => setReviewOpen(false)} />}
+      {reviewOpen && (
+        <ReviewSheet
+          profile={profile}
+          onImport={() => {
+            setReviewOpen(false);
+            setConnectOpen(true);
+          }}
+          onClose={() => setReviewOpen(false)}
+        />
+      )}
 
       {openRun && (
         <RunSheet

@@ -5,6 +5,7 @@ import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
 import {
   fourWeekComparison,
+  hasHistory,
   monthlyVolume,
   paceLabel,
   painHistory,
@@ -17,6 +18,8 @@ import { describeRace, pastRaces } from '@/lib/races';
 
 interface Props {
   profile: RunnerProfile | null;
+  /** 記録がまだ無い時に出す、取り込みへの入口。 */
+  onImport?: () => void;
   onClose: () => void;
 }
 
@@ -51,7 +54,7 @@ function paceDelta(recent: number, previous: number): string | null {
   return diff > 0 ? `${diff}秒/km 速くなった` : `${-diff}秒/km 遅くなった`;
 }
 
-export default function ReviewSheet({ profile, onClose }: Props) {
+export default function ReviewSheet({ profile, onImport, onClose }: Props) {
   const now = new Date();
   const summary = profile ? totals(profile, now) : null;
   const months = profile ? monthlyVolume(profile, 6, now) : [];
@@ -61,16 +64,36 @@ export default function ReviewSheet({ profile, onClose }: Props) {
   const pains = profile ? painHistory(profile, now) : [];
   const races = profile ? pastRaces(profile, now) : [];
   const shoes = profile?.shoes ?? [];
-  const hasAnything = Boolean(summary && (summary.runs > 0 || summary.loggedDays > 0));
+  const hasAnything = hasHistory(profile);
 
   return (
     <Sheet label="ふりかえり" title="ふりかえり" onClose={onClose}>
       {!hasAnything ? (
-        <p className="py-8 text-center text-[13px] leading-relaxed text-muted">
-          まだ記録がありません。
-          <br />
-          走った日のことを教えてもらえれば、ここに積み上がっていきます。
-        </p>
+        /*
+          **空の画面を、空のまま出さない。** 何も無いことだけ伝えても、
+          次に何をすればここが埋まるのかが分からない。進む先を置く。
+        */
+        <div className="py-8 text-center">
+          <p className="text-[13px] leading-relaxed text-muted">
+            まだ記録がありません。
+            <br />
+            走った日のことを教えてもらえれば、ここに積み上がっていきます。
+          </p>
+          {onImport && (
+            <>
+              <button
+                type="button"
+                onClick={onImport}
+                className="mt-4 rounded-full bg-accent px-5 py-2.5 text-[14px] font-bold text-[var(--accent-fg)]"
+              >
+                時計の記録を取り込む
+              </button>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                過去の練習をまとめて入れると、いきなりここが埋まります。
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <div className="pb-2">
           <Section

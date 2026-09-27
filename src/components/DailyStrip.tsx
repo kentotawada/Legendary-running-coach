@@ -8,6 +8,19 @@ import StampIcon from './StampIcon';
  * 走れなかった日も、開いた・はかっただけでスタンプが付く。
  */
 export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOpen: () => void }) {
+  /**
+   * 残りを、数ではなく**名前で**言う。
+   * 「あと1つ」では、何をすれば1つ埋まるのかが分からない。
+   * 1つなら名前を出す。2つ以上は、並べると帯に入らないので数で言う。
+   */
+  const left = daily.stamps.filter((stamp) => !stamp.done);
+  const remaining =
+    left.length === 0
+      ? '今日は全部そろいました'
+      : left.length === 1
+        ? `あと1つ・${left[0].label}`
+        : `あと${left.length}つ`;
+
   return (
     <button
       type="button"
@@ -33,16 +46,16 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
       </span>
 
       <span className="min-w-0 flex-1 text-[12px] leading-tight">
-        {daily.streakDays > 0 ? (
+        {/*
+          **1日目を「1日連続」と言わない。** まだ何も続いていないのに
+          続いていることにすると、この数字そのものが信用されなくなる。
+        */}
+        {daily.streakDays >= 2 ? (
           <span className="font-bold text-accent">{daily.streakDays}日連続</span>
         ) : (
           <span className="font-bold">今日のスタンプ</span>
         )}
-        <span className="block text-muted">
-          {daily.earned === daily.stamps.length
-            ? '今日は全部そろいました'
-            : `あと${daily.stamps.length - daily.earned}つ`}
-        </span>
+        <span className="block truncate text-muted">{remaining}</span>
       </span>
 
       <span aria-hidden="true" className="text-[13px] text-muted">
