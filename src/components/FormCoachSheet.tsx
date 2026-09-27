@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EXERCISES, type Evaluation, type ExerciseSpec } from '@/lib/exercise';
-import { BONES, loadPose } from '@/lib/pose';
+import { drawSkeleton, loadPose } from '@/lib/pose';
 import { FIGURE_VIEWBOX, figureArt } from './FigureArt';
 import Sheet from './Sheet';
 
@@ -129,19 +129,9 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           if (!points) return;
 
-          // 骨格。うっすらでよい。映像の邪魔をしない。
-          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-          ctx.lineWidth = Math.max(2, canvas.width / 220);
-          ctx.lineCap = 'round';
-          for (const [from, to] of BONES) {
-            const a = points[from];
-            const b = points[to];
-            if (!a || !b) continue;
-            ctx.beginPath();
-            ctx.moveTo(a.x * canvas.width, a.y * canvas.height);
-            ctx.lineTo(b.x * canvas.width, b.y * canvas.height);
-            ctx.stroke();
-          }
+          // 骨格。**細い線1本では、実際の映像の上では読めない。**
+          // 暗い縁取りの上に明るい線を重ねて、どんな背景でも形が立つようにする。
+          drawSkeleton(ctx, points, { width: Math.max(2.5, canvas.width / 200) });
 
           const judged: Evaluation = spec.evaluate(points);
 
