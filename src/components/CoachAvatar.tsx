@@ -29,7 +29,7 @@ export default function CoachAvatar({
         boxShadow: ring ? `0 0 0 2px var(--bg), 0 0 0 4px ${character.color}` : undefined,
       }}
     >
-      {failed ? (
+      {failed || !character.photo ? (
         <span
           aria-hidden="true"
           className="font-semibold"
