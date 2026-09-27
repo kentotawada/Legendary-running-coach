@@ -40,6 +40,35 @@ export function loadPose(): Promise<PoseLandmarker> {
   return loading;
 }
 
+let frameLoading: Promise<PoseLandmarker> | null = null;
+
+/**
+ * 1コマずつ見るほうの読み込み。
+ *
+ * **動画用とは別に持つ。** 動画用は時刻が前へ進むことを前提にしているので、
+ * 好きな時刻へ飛ばしながら読ませると結果が壊れる。
+ */
+export function loadPoseForFrames(): Promise<PoseLandmarker> {
+  frameLoading ??= (async () => {
+    const { FilesetResolver, PoseLandmarker: Landmarker } = await import('@mediapipe/tasks-vision');
+    const fileset = await FilesetResolver.forVisionTasks(WASM);
+
+    const options = (delegate: 'GPU' | 'CPU') => ({
+      baseOptions: { modelAssetPath: MODEL, delegate },
+      runningMode: 'IMAGE' as const,
+      numPoses: 1,
+    });
+
+    try {
+      return await Landmarker.createFromOptions(fileset, options('GPU'));
+    } catch {
+      return await Landmarker.createFromOptions(fileset, options('CPU'));
+    }
+  })();
+
+  return frameLoading;
+}
+
 /** 骨格を描くための、つなぐ点の組。 */
 export const BONES: readonly (readonly [number, number])[] = [
   [11, 12], // 肩

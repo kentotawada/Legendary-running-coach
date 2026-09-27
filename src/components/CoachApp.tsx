@@ -11,6 +11,7 @@ import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
+import RunFormSheet from './RunFormSheet';
 import ReviewSheet from './ReviewSheet';
 import ConnectSheet from './ConnectSheet';
 import ConnectBanner from './ConnectBanner';
@@ -62,6 +63,7 @@ export default function CoachApp() {
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [runFormOpen, setRunFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   /** 中身を開いている練習。区間と心拍の推移を見せる。 */
@@ -363,6 +365,10 @@ export default function CoachApp() {
           daily={daily}
           saving={savingWeight}
           onSaveWeight={(kg) => void saveWeight(kg)}
+          onOpenRunForm={() => {
+            setDailyOpen(false);
+            setRunFormOpen(true);
+          }}
           onOpenForm={() => {
             setDailyOpen(false);
             setFormOpen(true);
@@ -372,6 +378,13 @@ export default function CoachApp() {
       )}
 
       {formOpen && <FormCoachSheet onClose={() => setFormOpen(false)} />}
+
+      {runFormOpen && (
+        <RunFormSheet
+          onSend={(text) => void send(text)}
+          onClose={() => setRunFormOpen(false)}
+        />
+      )}
 
       {authOpen && (
         <AuthSheet
