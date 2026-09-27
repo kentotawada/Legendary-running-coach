@@ -413,7 +413,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     tagline: '甘い言葉で、その気にさせる',
     gender: 'female',
     age: '30代',
-    // 顔写真はまだ用意できていない。頭文字で描かれる。
+    photo: '/coaches/allure.webp',
     initial: '綾',
     color: '#a83a5c',
     description:
