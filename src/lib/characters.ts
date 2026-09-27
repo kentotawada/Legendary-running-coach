@@ -19,7 +19,14 @@ export interface CoachCharacter {
   reading: string;
   /** 肩書き。 */
   title: string;
-  /** 一言での性格。選ぶ時の手がかり。 */
+  /**
+   * 顔の下に出る一言。
+   *
+   * **説明文ではなく、その人が言いそうな言葉にする。**
+   * 「数字で説明する」は肩書きの紹介であって、人の言葉ではない。
+   * ここが紹介文のままだと、8人並べても求人票が並んでいるようにしか見えない。
+   * 一人称で、口に出して言う形で書く。20字前後（2行に収まる長さ）。
+   */
   tagline: string;
   gender: CoachGender;
   age: string;
@@ -73,7 +80,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '白石 遼',
     reading: 'しらいし りょう',
     title: 'データ分析型コーチ',
-    tagline: '感覚ではなく、数字で説明する',
+    tagline: 'まず数字を見ます。話はそれからです',
     gender: 'male',
     age: '30代',
     photo: '/coaches/logic.webp',
@@ -121,7 +128,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '岩井 大河',
     reading: 'いわい たいが',
     title: '鼓舞型コーチ',
-    tagline: '迷っている背中を、一言で押す',
+    tagline: '迷ってる時間がもったいない。行くぞ',
     gender: 'male',
     age: '40代',
     photo: '/coaches/blaze.webp',
@@ -169,7 +176,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '森 健三',
     reading: 'もり けんぞう',
     title: '名伯楽',
-    tagline: '来年も走れているか、で決める',
+    tagline: '急がなくていい。来年も走れていれば',
     gender: 'male',
     age: '60代',
     photo: '/coaches/veteran.webp',
@@ -218,7 +225,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '黒沢 玲子',
     reading: 'くろさわ れいこ',
     title: '戦略家',
-    tagline: 'シーズン全体を一枚の絵にする',
+    tagline: '本番から逆算します。今日はその一日',
     gender: 'female',
     age: '40代',
     photo: '/coaches/sage.webp',
@@ -266,7 +273,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '藤堂 蒼',
     reading: 'とうどう あおい',
     title: '元トップ選手',
-    tagline: '30km地点で何が起きるかを知っている',
+    tagline: '30kmで何が起きるか、知っています',
     gender: 'female',
     age: '30代',
     photo: '/coaches/ace.webp',
@@ -314,7 +321,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '三浦 凪沙',
     reading: 'みうら なぎさ',
     title: '伴走型コーチ',
-    tagline: 'まず受け止めてから、そっと次を示す',
+    tagline: '走れなかった日の話を、聞かせて',
     gender: 'female',
     age: '30代',
     photo: '/coaches/warm.webp',
@@ -362,7 +369,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '本田 陽菜',
     reading: 'ほんだ はるな',
     title: '習慣づくりの伴走者',
-    tagline: '続いていること自体を、まず喜ぶ',
+    tagline: '外に出た。それだけで今日は十分です',
     gender: 'female',
     age: '20代',
     photo: '/coaches/spark.webp',
@@ -410,7 +417,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '綾瀬 千夏',
     reading: 'あやせ ちなつ',
     title: '甘やかし上手',
-    tagline: '甘い言葉で、その気にさせる',
+    tagline: 'ふふ。きみのこと、ちゃんと見てるから',
     gender: 'female',
     age: '30代',
     photo: '/coaches/allure.webp',
