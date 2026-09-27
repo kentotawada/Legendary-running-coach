@@ -602,17 +602,32 @@ export default function ProfileSheet({
             </dl>
           )}
 
+          {/*
+            記録がどこにあるか。**これは使う人の話なので、いつでも出す。**
+            消えては困るものが、どこに置かれているのかを知る権利がある。
+          */}
           {!editing && build && (
-            <div className="mt-6 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
-              <p className="font-medium">このアプリの状態</p>
+            <p className="mt-6 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+              記録の保存先:{' '}
+              {build.storage === 'supabase'
+                ? 'サーバー。ログインしていれば、機種を変えても残ります。'
+                : 'この端末のみ。ブラウザの記録を消すと、一緒に消えます。'}
+            </p>
+          )}
+
+          {/*
+            ビルド番号・モデル名・APIキーの有無は、**作っている側の情報。**
+            使う人には意味が無く、不安にしかならないし、こちらの中身を晒す必要もない。
+            本番では出さない。切り分けが要る場所では、これまで通り見える。
+          */}
+          {!editing && build && build.environment !== 'production' && (
+            <div className="mt-2 rounded-xl border border-dashed border-line px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+              <p className="font-medium">開発用の表示</p>
               <p>
                 ビルド {build.commit} / {build.environment} / モデル {build.model}（思考 {build.thinkingLevel}）
               </p>
               <p>
                 APIキー: {build.hasApiKey ? (build.apiKeyLooksValid ? '設定済み' : '設定済み（形式が怪しい）') : '未設定'}
-              </p>
-              <p>
-                保存先: {build.storage === 'supabase' ? 'Supabase（永続）' : 'この端末・インスタンス限り'}
               </p>
             </div>
           )}

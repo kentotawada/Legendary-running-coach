@@ -4,6 +4,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { dailyStatus, type DailyStatus } from '@/lib/daily';
+import { coachDate } from '@/lib/day';
+import { greetingFor } from '@/lib/greeting';
+
+/** その日もう挨拶したか。端末ごとの控えなので、消えても実害は「もう一度言う」だけ。 */
+const GREETED_KEY = 'rc_greeted_on';
+
+/**
+ * 今日まだ挨拶していなければ、控えを今日に進めて true を返す。
+ * **読み書きできない端末がある。** そこで黙るより、毎回挨拶するほうがまし。
+ */
+function firstOpenToday(): boolean {
+  const today = coachDate();
+  try {
+    if (localStorage.getItem(GREETED_KEY) === today) return false;
+    localStorage.setItem(GREETED_KEY, today);
+  } catch {
+    // 読めない・書けない。挨拶はする。
+  }
+  return true;
+}
 import type { ResolvedGear } from '@/lib/gear';
 import type { AuthState } from '@/components/AuthSheet';
 import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
@@ -41,6 +61,12 @@ type StreamEvent =
 
 export interface CoachChat {
   messages: ChatMessage[];
+  /** 開いた時にコーチのほうから言う一言。無い日は null。 */
+  greeting: string | null;
+  /** まだ誰に見てもらうかを選んでいない。**選ぶところから始める。** */
+  needsCoach: boolean;
+  /** コーチを決めて、会話を始める。 */
+  chooseCoach: (characterId: string) => Promise<void>;
   streamingText: string | null;
   profile: RunnerProfile | null;
   busy: boolean;
@@ -95,6 +121,22 @@ export interface CoachChat {
 
 export function useCoachChat(): CoachChat {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  /**
+   * 開いた時にコーチのほうから言う一言。
+   * **保存しない。** 毎朝その日のデータから作り直すので、置いておく意味が無い。
+   */
+  const [greeting, setGreeting] = useState<string | null>(null);
+  /**
+   * まだ誰にも見てもらっていない人。
+   * **いちばん最初にすることは、相手を決めること。**
+   * 空のチャットに放り出すより、8人の顔を見せたほうが、次の一手が分かる。
+   */
+  const [needsCoach, setNeedsCoach] = useState(false);
+  /**
+   * その挨拶が、まだ会話に入っていないこと。
+   * **入れずに返事だけ送ると、コーチは自分がした質問を知らないまま答えることになる。**
+   */
+  const greetingPending = useRef(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [profile, setProfile] = useState<RunnerProfile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -211,6 +253,12 @@ export function useCoachChat(): CoachChat {
             replaceLast: mode === 'replace',
             // preview は画面表示用なので送らない。thumbnail は後から見返すために保存される。
             images: images.map(({ mimeType, data, thumbnail }) => ({ mimeType, data, thumbnail })),
+            /**
+             * 画面でコーチが先に言った一言を、会話に入れてもらう。
+             * **文章そのものは送らない。** 送ると、ブラウザ側から「コーチの発言」を
+             * 好きに差し込めることになる。同じ計算をサーバー側でやり直してもらう。
+             */
+            greeted: greetingPending.current && mode === 'send',
           }),
         });
 
@@ -226,6 +274,7 @@ export function useCoachChat(): CoachChat {
           return;
         }
 
+        if (mode === 'send') greetingPending.current = false;
         await consume(response);
       } catch (e) {
         const failure = describeStreamFailure(e);
@@ -538,6 +587,32 @@ export function useCoachChat(): CoachChat {
         setGear(data.gear ?? []);
         if (data.auth) setAuth(data.auth);
         setReady(true);
+
+        /**
+         * こちらから先に一言。**ここが無いと、開いた画面は白紙のまま。**
+         *
+         * まだ一度も話していない人には、コーチ自身に書かせる（下の turn('')）。
+         * それ以外は、カルテから組み立てた一言を出す。
+         * **こちらはモデルを呼ばない。** 向こうが落ちている日でも、コーチは黙らない。
+         * まだ話していない人でも、モデルを呼べない時はこちらを出す。
+         *
+         * 1日の最初の一度だけ。開くたびに繰り返すと、ただの飾りになる。
+         */
+        /**
+         * まだ一度も話しておらず、コーチも選んでいない人。
+         * **ここで勝手に会話を始めない。** 選んでいない人の口調で話し出すことになる。
+         */
+        const firstRun = data.messages.length === 0 && !data.profile?.characterId;
+        setNeedsCoach(firstRun);
+
+        const letModelOpen = data.messages.length === 0 && data.hasApiKey && !firstRun;
+        // **まだコーチを選んでいない人には出さない。** 選ぶ前の既定の口調で
+        // 挨拶してしまい、選んだ直後に別人の言葉が残ることになる。
+        if (!letModelOpen && !firstRun && data.profile && firstOpenToday()) {
+          setGreeting(greetingFor(data.profile).text);
+          greetingPending.current = true;
+        }
+
         if (!data.hasApiKey) {
           setError('GEMINI_API_KEY が設定されていません。.env.local に Gemini API キーを入れてください。');
           return;
@@ -546,7 +621,8 @@ export function useCoachChat(): CoachChat {
         // 形式は提供側の都合で変わるため、動いているのに警告が出ると、
         // 本当の問題があるかのように見えてしまう。
         // 実際に無効なら、最初の対話で Gemini 側の理由が表示される。
-        if (data.messages.length === 0) await turn('');
+        // まだ一度も話していない人には、コーチ自身に最初の一言を書かせる。
+        if (letModelOpen) await turn('');
       } catch (e) {
         setReady(true);
         setError(
@@ -590,6 +666,19 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  /**
+   * コーチを決めて、その人に最初の一言を書いてもらう。
+   * **選んだ直後に黙られると、何が起きたのか分からない。**
+   */
+  const chooseCoach = useCallback(
+    async (characterId: string) => {
+      await updateProfile({ characterId });
+      setNeedsCoach(false);
+      await turn('');
+    },
+    [updateProfile, turn],
+  );
+
   const saveWeight = useCallback(async (weightKg: number) => {
     setSavingWeight(true);
     try {
@@ -619,6 +708,9 @@ export function useCoachChat(): CoachChat {
 
   return {
     messages,
+    greeting,
+    needsCoach,
+    chooseCoach,
     streamingText,
     profile,
     busy,

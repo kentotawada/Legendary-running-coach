@@ -18,6 +18,7 @@ import ConnectBanner from './ConnectBanner';
 import RunSheet from './RunSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
+import Welcome from './Welcome';
 import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
 import { useReadAloud } from '@/hooks/useSpeech';
@@ -28,6 +29,9 @@ import type { ActivityLog } from '@/lib/types';
 export default function CoachApp() {
   const {
     messages,
+    greeting,
+    needsCoach,
+    chooseCoach,
     streamingText,
     profile,
     busy,
@@ -156,6 +160,14 @@ export default function CoachApp() {
   // 書き直せるのは直前の発言だけ。それより前を書き換えると、後の会話と噛み合わなくなる。
   const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
 
+  /**
+   * まだ誰にも見てもらっていない人には、コーチ選びから。
+   * **空のチャットに放り出さない。** 白紙の入力欄の前で止まった人は、たいてい戻ってこない。
+   */
+  if (ready && needsCoach) {
+    return <Welcome onPick={(id) => void chooseCoach(id)} busy={busy || savingProfile} />;
+  }
+
   return (
     <div className="app-shell flex flex-col overflow-hidden bg-bg text-fg">
       <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-bg px-4 pb-3">
@@ -227,6 +239,14 @@ export default function CoachApp() {
             failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
           />
         ))}
+
+        {/*
+          コーチのほうから言う一言。**顔だけ出して黙っているのは、コーチではない。**
+          操作の並びは付けない。作り直しも評価も要らない、ただの挨拶。
+        */}
+        {ready && greeting && (
+          <MessageItem message={{ id: 'greeting', role: 'coach', text: greeting }} coach={coach} />
+        )}
 
         {streamingText !== null && (
           <MessageItem
