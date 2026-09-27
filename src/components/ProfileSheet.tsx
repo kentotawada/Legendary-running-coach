@@ -603,12 +603,19 @@ export default function ProfileSheet({
             </dl>
           )}
 
+          {/* 名前は、ここに静かに置く。ヘッダーはコーチのための場所。 */}
+          {!editing && (
+            <p className="mt-6 text-center text-[11px] font-bold tracking-[0.18em] text-muted">
+              RUNCOACH
+            </p>
+          )}
+
           {/*
             記録がどこにあるか。**これは使う人の話なので、いつでも出す。**
             消えては困るものが、どこに置かれているのかを知る権利がある。
           */}
           {!editing && build && (
-            <p className="mt-6 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            <p className="mt-2 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
               記録の保存先:{' '}
               {build.storage === 'supabase'
                 ? 'サーバー。ログインしていれば、機種を変えても残ります。'

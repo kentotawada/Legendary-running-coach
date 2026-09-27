@@ -21,14 +21,14 @@ const latin = Inter({
 import { FONT_SIZE_BOOT_SCRIPT } from '@/lib/display';
 
 export const metadata: Metadata = {
-  title: '伝説のランニングコーチ',
+  title: 'RUNCOACH',
   description:
-    'あなたの目的・体調・生活の変化を学び続け、その瞬間に最適な一手を出し続ける、あなただけのパーソナルコーチ。',
+    '走るあなたに、専属のコーチを。練習の記録を見て、その日その日で言葉をかけます。痛みがある日は、絶対に走らせません。',
   manifest: '/manifest.webmanifest',
   // iOS はホーム画面の追加に PNG を求める。置けないと通知も使えない。
   icons: {
     icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: '伝説のコーチ',
+    title: 'RUNCOACH',
   },
 };
 
