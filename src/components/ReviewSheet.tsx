@@ -111,7 +111,7 @@ export default function ReviewSheet({ profile, onImport, onClose }: Props) {
             </p>
           </Section>
 
-          <Section title="月ごとの走行距離" note="棒に触れると、その月の距離が出ます">
+          <Section title="月ごとの走行距離">
             <BarChart
               bars={months.map((month) => ({ label: month.label, value: month.km }))}
               unit="km"
@@ -162,7 +162,7 @@ export default function ReviewSheet({ profile, onImport, onClose }: Props) {
           {pace.length >= 2 && (
             <Section
               title="ペースの移り変わり"
-              note="5km以上の練習を、週ごとにならした平均です（1本ずつだと、ポイント練習とイージーで線が暴れます）"
+              note="5km以上の練習を、週ごとにならした平均"
             >
               <LineChart
                 points={pace.map((point) => ({

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { DailyStatus } from '@/lib/daily';
 import { MILESTONES } from '@/lib/daily';
-import { DAY_BOUNDARY_NOTE } from '@/lib/day';
 import Sheet from './Sheet';
 import StampIcon from './StampIcon';
 
@@ -72,8 +71,6 @@ export default function DailySheet({
               </span>
             )}
           </div>
-
-          <p className="mb-2.5 text-[11px] leading-relaxed text-muted">{DAY_BOUNDARY_NOTE}</p>
 
           <ul className="space-y-2">
             {daily.stamps.map((stamp) => (
@@ -151,11 +148,12 @@ export default function DailySheet({
           )}
 
           <div className="mt-5 border-t border-line pt-4">
+            {/*
+              **同じことを2回言わない。** 上のスタンプの行に
+              「増えた減ったは気にしない。乗ることが習慣です」と既に出ている。
+              ここでもう一度、長く言い直す必要は無い。
+            */}
             <p className="text-[13px] font-medium">体重をはかる</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-              増えた減ったは気にしなくて大丈夫です。日々1〜2kgは水分で動きます。
-              毎日乗ること自体が、体の変化に早く気づく力になります。
-            </p>
             <div className="mt-2 flex gap-2">
               <input
                 className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
