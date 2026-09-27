@@ -50,6 +50,8 @@ interface ProfilePatchBody {
   } | null;
   races?: unknown;
   characterId?: unknown;
+  /** 通知を受け取る時刻（0〜23）。 */
+  notifyHour?: unknown;
   injuryHistory?: unknown;
   maxHr?: unknown;
   restingHr?: unknown;
@@ -173,6 +175,20 @@ export async function PATCH(request: NextRequest) {
       body.injuryHistory.filter((item): item is string => typeof item === 'string'),
       now,
     );
+  }
+
+  /**
+   * 通知を受け取る時刻。
+   * **カルテの他の項目と混ぜない。** ここだけは端末の設定に近い性質で、
+   * 対話の中でコーチが書き換えるものではない。
+   */
+  if (typeof body.notifyHour === 'number' && Number.isFinite(body.notifyHour)) {
+    const hour = Math.min(23, Math.max(0, Math.floor(body.notifyHour)));
+    profile = {
+      ...profile,
+      notifications: { ...(profile.notifications ?? {}), hour },
+      updatedAt: now.toISOString(),
+    };
   }
 
   profile = applyProfileUpdate(

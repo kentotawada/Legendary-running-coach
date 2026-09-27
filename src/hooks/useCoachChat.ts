@@ -67,6 +67,8 @@ export interface CoachChat {
   needsCoach: boolean;
   /** コーチを決めて、会話を始める。 */
   chooseCoach: (characterId: string) => Promise<void>;
+  /** 通知を受け取る時刻を決める（0〜23、走る人の地域の時刻）。 */
+  saveNotifyHour: (hour: number) => Promise<void>;
   streamingText: string | null;
   profile: RunnerProfile | null;
   busy: boolean;
@@ -679,6 +681,26 @@ export function useCoachChat(): CoachChat {
     [updateProfile, turn],
   );
 
+  /**
+   * 通知を受け取る時刻。
+   * **カルテの保存とは別に、その場で送る。** ここは設定であって、
+   * 「編集して保存」の流れに入れると、変えたつもりで変わっていない事故が起きる。
+   */
+  const saveNotifyHour = useCallback(async (hour: number) => {
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifyHour: hour }),
+      });
+      const data = (await response.json()) as { profile?: RunnerProfile; error?: string };
+      if (!response.ok || !data.profile) throw new Error(data.error ?? '通知の時刻を保存できませんでした。');
+      setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '通知の時刻を保存できませんでした。');
+    }
+  }, []);
+
   const saveWeight = useCallback(async (weightKg: number) => {
     setSavingWeight(true);
     try {
@@ -711,6 +733,7 @@ export function useCoachChat(): CoachChat {
     greeting,
     needsCoach,
     chooseCoach,
+    saveNotifyHour,
     streamingText,
     profile,
     busy,
