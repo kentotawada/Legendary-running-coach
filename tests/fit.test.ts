@@ -100,6 +100,10 @@ interface LapSpec {
   gct: number;
   /** 左の割合(%) */
   balance: number;
+  /** 上下動比(%) */
+  ratio?: number;
+  /** 歩幅(cm) */
+  step?: number;
 }
 
 const START = '2026-09-24T00:30:00.000Z';
@@ -128,8 +132,8 @@ function buildFit(laps: LapSpec[], sport = 1): ArrayBuffer {
         { num: 39, type: UINT16, value: Math.round(lap.vo * 100) },
         { num: 41, type: UINT16, value: Math.round(lap.gct * 10) },
         { num: 84, type: UINT16, value: Math.round(lap.balance * 100) },
-        { num: 83, type: UINT16, value: 720 },
-        { num: 85, type: UINT16, value: 12000 },
+        { num: 83, type: UINT16, value: Math.round((lap.ratio ?? 7.2) * 100) },
+        { num: 85, type: UINT16, value: Math.round((lap.step ?? 120) * 100) },
         { num: 78, type: UINT32, value: (10 + 500) * 5 },
       ]);
     }
@@ -281,5 +285,69 @@ describe('読めなかった時に、何が足りなかったかを言う', () =
     // 時刻が動かない＝経過時間0。距離の項目も入っていない。
     const base = fitTime('2026-09-24T00:30:00.000Z');
     expect(() => parseFit(onlyTimestamps([base, base, base]))).toThrow(/距離も時間も/);
+  });
+});
+
+
+/**
+ * 時計が出している数字と、こちらが読んだ数字が合うか。
+ *
+ * **ここがずれると、コーチが嘘の数字で話す。** しかも見た目は正常なので、
+ * 誰も気づかない。規格の倍率を1桁取り違えるのが、いちばんありがちな壊れ方。
+ */
+describe('時計の画面と、同じ数字になる', () => {
+  /** 実機の表示: 上下動 9.7cm ／ 接地時間 226ms ／ 歩幅 1.32m ／ 上下動比 7.3% */
+  const WATCH = { vo: 9.7, gct: 226, step: 132, ratio: 7.3 };
+
+  const [workout] = parseFit(
+    buildFit([
+      {
+        seconds: 600,
+        // 歩幅1.32m × 170spm で10分走ると、ちょうどこの距離になる。
+        meters: 2244,
+        hrFrom: 150,
+        hrTo: 160,
+        // 規格では片脚の回転数。170spm は 85rpm。
+        cadence: 85,
+        power: 280,
+        vo: WATCH.vo,
+        gct: WATCH.gct,
+        balance: 50,
+        ratio: WATCH.ratio,
+        step: WATCH.step,
+      },
+    ]),
+  );
+
+  it('上下動・接地時間・歩幅・上下動比が、表示どおりに出る', () => {
+    expect(workout.dynamics?.verticalOscillationCm).toBe(WATCH.vo);
+    expect(workout.dynamics?.groundContactMs).toBe(WATCH.gct);
+    expect(workout.dynamics?.stepLengthCm).toBe(WATCH.step);
+    expect(workout.dynamics?.verticalRatio).toBe(WATCH.ratio);
+  });
+
+  /**
+   * **3つは独立していない。** 上下動比 = 上下動 ÷ 歩幅。
+   * どれか1つでも倍率を取り違えていれば、この関係が10倍・100倍ずれて崩れる。
+   * 実機の値を1つずつ見比べなくても、ここで捕まる。
+   */
+  it('上下動 ÷ 歩幅 が、上下動比と合う', () => {
+    const vo = workout.dynamics!.verticalOscillationCm!;
+    const step = workout.dynamics!.stepLengthCm!;
+    const ratio = workout.dynamics!.verticalRatio!;
+    expect((vo / step) * 100).toBeCloseTo(ratio, 0);
+  });
+
+  /**
+   * **歩幅とピッチと速度も、独立していない。** 速度 = 歩幅 × ピッチ。
+   * 歩幅の倍率を間違えれば、ここで10倍ずれる。
+   * ついでに、ピッチを「片脚の回転数」のまま使っていないかも見る。
+   */
+  it('歩幅とピッチから出した速度が、走った距離と合う', () => {
+    const step = workout.dynamics!.stepLengthCm! / 100;
+    const spm = workout.cadence! * 2;
+    const fromForm = (step * spm) / 60;
+    const actual = workout.distanceM! / workout.durationSec!;
+    expect(fromForm).toBeCloseTo(actual, 1);
   });
 });
