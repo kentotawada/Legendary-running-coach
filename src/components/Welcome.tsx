@@ -32,6 +32,16 @@ export default function Welcome({
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
       <div className="scroll-area flex-1 overflow-y-auto px-4 pb-4 pt-8">
+        {/*
+          **名前を出す。** これまで、開いてもコーチの名前しか無く、
+          いま自分が何を触っているのかを示すものが画面のどこにも無かった。
+        */}
+        <div className="mb-6 flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-192.png" alt="" width={32} height={32} className="rounded-[9px]" />
+          <span className="text-[15px] font-bold tracking-[0.12em]">RUNCOACH</span>
+        </div>
+
         <h1 className="text-[22px] font-bold leading-snug">
           走るあなたに、
           <br />
