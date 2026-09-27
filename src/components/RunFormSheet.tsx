@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LM } from '@/lib/exercise';
 import { analyzeGait, describeGait, type Contact, type Frame, type GaitReport } from '@/lib/gait';
-import { LEG_BONES, bodyBox, drawSkeleton, inBox, loadPoseForFrames } from '@/lib/pose';
+import { LEG_BONES, drawSkeleton, inBox, loadPoseForFrames, steadyBoxes, type Box } from '@/lib/pose';
 import Sheet from './Sheet';
 
 /**
@@ -19,6 +19,8 @@ import Sheet from './Sheet';
  *  - 測れなかった時は、黙って0を出さない。理由を出して撮り直してもらう
  *  - **絵と数字を一致させる。** 「接地位置 4%」と出すなら、その4%が絵の上に
  *    幅として引かれていないと、何を言われているのか分からない
+ *  - **1コマずつ送れるようにする。** 平均の1枚だけでは、
+ *    「どこで何が起きているか」は分からない。走りは動きなので、動かして見せる
  */
 
 /** 何秒ぶん見るか。長く撮られても、この長さだけ使う。 */
@@ -57,11 +59,19 @@ function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
   });
 }
 
+/** 次のコマが来たという知らせが無い端末のために、ここで打ち切る。 */
+const PAINT_WAIT_MS = 150;
+
 /**
- * そのコマが本当に描かれるまで待つ。
+ * そのコマが本当に来るまで待つ。
  *
  * **seeked だけでは足りない。** 位置が変わっただけで、絵はまだ来ていないことがある。
- * そのまま canvas へ写すと、真っ黒な画像が残る。
+ * そのまま読むと、ひとつ前のコマを写したり、真っ黒な画像が残ったりする。
+ *
+ * **requestAnimationFrame と競走させてはいけない。** これは画面の描き替えの合図で、
+ * 新しいコマが来たかどうかとは関係が無い。たいてい先に上がるので、
+ * 混ぜると「待っているつもりで待っていない」ことになり、
+ * 隣り合う2コマがまったく同じ絵になる。
  */
 function painted(video: HTMLVideoElement): Promise<void> {
   // 端末によっては持っていない。型の上では必ずあることになっているので、実体で見る。
@@ -76,14 +86,12 @@ function painted(video: HTMLVideoElement): Promise<void> {
     };
 
     if (typeof ask === 'function') ask.call(video, done);
-    requestAnimationFrame(done);
-    // **必ず起きる保証が無い。** 画面に出ていない動画では、
-    // 次のコマが来たという知らせが来ないことがある。待ち続けないよう、時間で打ち切る。
-    setTimeout(done, 150);
+    else requestAnimationFrame(done);
+    setTimeout(done, PAINT_WAIT_MS);
   });
 }
 
-/** 黒地に白抜きの札。映像の上に文字を置くと、地の色に負けて読めない。 */
+/** 黒地に色文字の札。映像の上に文字を置くと、地の色に負けて読めない。 */
 function pill(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -121,68 +129,49 @@ function pill(
 }
 
 /**
- * 測ったところを、絵の上に引く。
+ * 点線を二度引く。
+ * **一度だけでは、映像の上で消える。** 黒を太く敷いてから白を重ねると、
+ * 明るい路面でも夜でも線が残る。
+ */
+function dashed(ctx: CanvasRenderingContext2D, draw: () => void, unit: number): void {
+  ctx.save();
+  ctx.setLineDash([unit * 2.4, unit * 2]);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = unit * 1.7;
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  draw();
+  ctx.lineWidth = unit * 0.75;
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  draw();
+  ctx.restore();
+}
+
+function line(ctx: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number): void {
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.stroke();
+}
+
+/**
+ * 測った幅を、絵の上に引く。
  *
  * **数字だけ出しても、どこを測ったのかは伝わらない。**
- * 地面の線と、腰の真下の線と、その間の幅。この3本が揃って、
+ * 地面の線と、腰の真下の線と、そのあいだの幅。この3本が揃って、
  * はじめて「接地位置◯%」が絵として読める。
  */
 function drawGap(
   ctx: CanvasRenderingContext2D,
-  { hipX, hipY, footX, groundY, ahead, unit }: {
+  { hipX, footX, barY, ahead, unit }: {
     hipX: number;
-    hipY: number;
     footX: number;
-    groundY: number;
+    barY: number;
     ahead: number;
     unit: number;
   },
 ): void {
-  const w = ctx.canvas.width;
-  const h = ctx.canvas.height;
-  const barY = Math.min(groundY + unit * 7, h - unit * 12);
-
   ctx.save();
   ctx.lineCap = 'round';
-
-  const twice = (draw: () => void, thick: number, thin: number, paint: string) => {
-    ctx.setLineDash([unit * 2.4, unit * 2]);
-    ctx.lineWidth = thick;
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    draw();
-    ctx.lineWidth = thin;
-    ctx.strokeStyle = paint;
-    draw();
-    ctx.setLineDash([]);
-  };
-
-  // 地面。足が着いている高さ。
-  twice(
-    () => {
-      ctx.beginPath();
-      ctx.moveTo(0, groundY);
-      ctx.lineTo(w, groundY);
-      ctx.stroke();
-    },
-    unit * 1.7,
-    unit * 0.75,
-    'rgba(255,255,255,0.8)',
-  );
-
-  // 腰の真下。**腰から下だけ引く。** 画面の上まで伸ばすと、体を横切ってうるさい。
-  twice(
-    () => {
-      ctx.beginPath();
-      ctx.moveTo(hipX, hipY);
-      ctx.lineTo(hipX, barY + unit * 2);
-      ctx.stroke();
-    },
-    unit * 1.7,
-    unit * 0.75,
-    'rgba(255,255,255,0.8)',
-  );
-
-  // 幅そのもの。両端に爪を立てて、どこからどこまでかを見せる。
   const bar = () => {
     ctx.beginPath();
     ctx.moveTo(hipX, barY);
@@ -225,12 +214,22 @@ function Stat({ label, value, unit, note }: { label: string; value: string; unit
   );
 }
 
-/** 見せる1コマと、その時に測った接地。**どちら側の足で着いたかが要る。** */
-interface Shot {
-  frame: Frame;
-  contact: Contact;
+/** コマ送りのための一式。読み終わった時点で全部そろえておく。 */
+interface Film {
+  frames: Frame[];
+  /** コマごとの切り出し枠。大きさは全コマで同じ。 */
+  boxes: (Box | null)[];
+  /** そのコマが接地なら、その中身。 */
+  contacts: Map<number, Contact>;
   /** 進む向き。+1 なら画面の右へ。「前」がどっちかは、これが無いと分からない。 */
   facing: 1 | -1;
+  /** 地面の高さ（動画の中での0〜1）。接地したコマの足から決める。 */
+  ground: number;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }
 
 export default function RunFormSheet({
@@ -246,7 +245,8 @@ export default function RunFormSheet({
   const [report, setReport] = useState<GaitReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [shot, setShot] = useState<Shot | null>(null);
+  const [film, setFilm] = useState<Film | null>(null);
+  const [at, setAt] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -261,17 +261,13 @@ export default function RunFormSheet({
     [],
   );
 
-  /**
-   * 測った瞬間を1枚の絵にする。
-   *
-   * **結果が画面に出てから呼ぶ。** canvas は結果が出て初めて描かれるので、
-   * 測り終わった直後に触ると、まだ存在しない（参照が null のまま黒い箱が残る）。
-   */
-  const drawShot = useCallback(async ({ frame, contact, facing }: Shot) => {
+  /** その1コマを絵にする。 */
+  const drawFrame = useCallback(async (reel: Film, index: number) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!video || !canvas || !ctx) return;
+    const frame = reel.frames[index];
+    if (!video || !canvas || !ctx || !frame) return;
 
     await seekTo(video, frame.t);
     await painted(video);
@@ -280,7 +276,7 @@ export default function RunFormSheet({
     canvas.height = SHOT_H;
 
     // 体のまわりだけを切り出して、大きく出す。切れなければ、全部出す。
-    const box = bodyBox(frame.points, SHOT_W / SHOT_H) ?? { x: 0, y: 0, w: 1, h: 1 };
+    const box = reel.boxes[index] ?? { x: 0, y: 0, w: 1, h: 1 };
     ctx.drawImage(
       video,
       box.x * video.videoWidth,
@@ -299,41 +295,84 @@ export default function RunFormSheet({
 
     const points = inBox(frame.points, box);
     const unit = SHOT_W / 130;
+    const contact = reel.contacts.get(index);
+
     drawSkeleton(ctx, points, {
       width: unit,
       color: LINE,
-      highlight: { bones: LEG_BONES[contact.side], color: MARK },
+      highlight: contact ? { bones: LEG_BONES[contact.side], color: MARK } : undefined,
     });
 
-    // 測ったのは、着いた足と、その側の腰。**平均を出した時と同じ側で描く。**
-    const hip = points[contact.side === 'left' ? LM.leftHip : LM.rightHip];
-    const ankle = points[contact.side === 'left' ? LM.leftAnkle : LM.rightAnkle];
-    const toe = points[contact.side === 'left' ? LM.leftToe : LM.rightToe];
-    if (hip && ankle) {
-      drawGap(ctx, {
-        hipX: hip.x * SHOT_W,
-        hipY: hip.y * SHOT_H,
-        footX: ankle.x * SHOT_W,
-        groundY: Math.max(ankle.y, toe?.y ?? ankle.y) * SHOT_H,
-        ahead: contact.ahead,
-        unit,
-      });
+    // 地面。**コマを送っても動かさない。** 足がどこで着いたかを見比べる基準になる。
+    const groundY = ((reel.ground - box.y) / box.h) * SHOT_H;
+    const barY = Math.min(groundY + unit * 7, SHOT_H - unit * 12);
+    dashed(ctx, () => line(ctx, 0, groundY, SHOT_W, groundY), unit);
+
+    /**
+     * 腰の真下の線。
+     * **接地しているコマでは、測った側の腰から引く。** 数字を出した時と同じ側でないと、
+     * 絵の上の幅と札の数字が合わなくなる。接地していないコマは、腰の真ん中でよい。
+     */
+    const left = points[LM.leftHip];
+    const right = points[LM.rightHip];
+    const mid = left && right ? { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 } : left ?? right;
+    const hip = contact ? points[contact.side === 'left' ? LM.leftHip : LM.rightHip] ?? mid : mid;
+    const hipX = (hip?.x ?? 0.5) * SHOT_W;
+    const hipY = (hip?.y ?? 0.5) * SHOT_H;
+    dashed(ctx, () => line(ctx, hipX, hipY, hipX, barY + unit * 2), unit);
+
+    if (contact) {
+      const ankle = points[contact.side === 'left' ? LM.leftAnkle : LM.rightAnkle];
+      if (ankle) {
+        drawGap(ctx, {
+          hipX,
+          footX: ankle.x * SHOT_W,
+          barY,
+          ahead: contact.ahead,
+          unit,
+        });
+      }
     }
 
     // **「前」がどっちかを書く。** 進む向きが分からないと、前後の話が読めない。
-    pill(ctx, facing === 1 ? '進む向き →' : '← 進む向き', unit * 13, unit * 4, unit, LINE);
+    pill(ctx, reel.facing === 1 ? '進む向き →' : '← 進む向き', unit * 13, unit * 4, unit, LINE);
   }, []);
+
+  /**
+   * 描き直しの順番待ち。
+   * **早送りされた時に、全部のコマを順番に描いてはいけない。**
+   * 動画の頭出しは1コマごとに時間がかかるので、指が離れた先のコマだけ描く。
+   */
+  const drawing = useRef(false);
+  const wanted = useRef<number | null>(null);
+
+  const show = useCallback(
+    (reel: Film, index: number) => {
+      wanted.current = index;
+      if (drawing.current) return;
+      void (async () => {
+        drawing.current = true;
+        while (wanted.current !== null) {
+          const next = wanted.current;
+          wanted.current = null;
+          await drawFrame(reel, next);
+        }
+        drawing.current = false;
+      })();
+    },
+    [drawFrame],
+  );
 
   // canvas は結果が出てから描かれる。そのあとで描き込む。
   useEffect(() => {
-    if (shot) void drawShot(shot);
-  }, [shot, drawShot]);
+    if (film) show(film, Math.min(at, film.frames.length - 1));
+  }, [film, at, show]);
 
   const read = useCallback(async (file: File) => {
     setBusy(true);
     setError(null);
     setReport(null);
-    setShot(null);
+    setFilm(null);
     setSent(false);
     setProgress(0);
 
@@ -366,6 +405,8 @@ export default function RunFormSheet({
       for (let i = 0; i < count; i += 1) {
         const t = from + (span * i) / (count - 1);
         await seekTo(video, t);
+        // **ここで待たないと、ひとつ前のコマを測ることになる。**
+        await painted(video);
         const found = landmarker.detect(video);
         const points = found.landmarks?.[0];
         if (points) frames.push({ t, points });
@@ -376,8 +417,29 @@ export default function RunFormSheet({
       setReport(result);
 
       if (result.measured && result.contacts.length > 0 && result.ahead !== undefined) {
+        const contacts = new Map(result.contacts.map((contact) => [contact.index, contact]));
+        const ground = median(
+          result.contacts.map((contact) => {
+            const points = frames[contact.index].points;
+            const ankle = points[contact.side === 'left' ? LM.leftAnkle : LM.rightAnkle];
+            const toe = points[contact.side === 'left' ? LM.leftToe : LM.rightToe];
+            return Math.max(ankle?.y ?? 0, toe?.y ?? 0);
+          }),
+        );
+
+        setFilm({
+          frames,
+          boxes: steadyBoxes(
+            frames.map((frame) => frame.points),
+            SHOT_W / SHOT_H,
+          ),
+          contacts,
+          facing: result.facing,
+          ground,
+        });
+
         /**
-         * **平均にいちばん近いコマを見せる。**
+         * 最初に見せるのは、**平均にいちばん近い接地**。
          * いちばん極端なコマを見せると、絵の上の数字と下に並べた平均が食い違って、
          * どちらを信じればいいのか分からなくなる。
          */
@@ -385,7 +447,7 @@ export default function RunFormSheet({
         const best = result.contacts.reduce((a, b) =>
           Math.abs(a.ahead - mean) <= Math.abs(b.ahead - mean) ? a : b,
         );
-        setShot({ frame: frames[best.index], contact: best, facing: result.facing });
+        setAt(best.index);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : '動画を読めませんでした');
@@ -396,6 +458,24 @@ export default function RunFormSheet({
 
   const percent = (value: number | undefined) =>
     value === undefined ? '—' : `${Math.round(value * 100)}`;
+
+  /** 接地したコマの番号。前後へ飛ぶのに使う。 */
+  const beats = useMemo(
+    () => (film ? [...film.contacts.keys()].sort((a, b) => a - b) : []),
+    [film],
+  );
+  const last = film ? film.frames.length - 1 : 0;
+  /**
+   * **前の動画のコマ番号を、新しい動画に持ち込ませない。**
+   * 短い動画を続けて読ませると、範囲の外を見にいって画面が落ちる。
+   */
+  const now = Math.min(at, last);
+  const here = film?.contacts.get(now);
+  const step = (by: number) => setAt(Math.min(Math.max(now + by, 0), last));
+  const jump = (by: number) => {
+    const next = by > 0 ? beats.find((i) => i > now) : [...beats].reverse().find((i) => i < now);
+    if (next !== undefined) setAt(next);
+  };
 
   return (
     <Sheet label="走りを見てもらう" title="走りを見てもらう" onClose={onClose}>
@@ -457,7 +537,7 @@ export default function RunFormSheet({
         </p>
       )}
 
-      {report?.measured && (
+      {report?.measured && film && (
         <div className="mt-5">
           <canvas
             ref={canvasRef}
@@ -466,22 +546,94 @@ export default function RunFormSheet({
             role="img"
           />
 
+          {/* コマ送り。**走りは動きなので、1枚では分からない。** */}
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => step(-1)}
+                disabled={now <= 0}
+                aria-label="1コマ戻る"
+                className="h-11 w-14 shrink-0 rounded-[12px] border border-line text-[17px] font-bold disabled:opacity-30"
+              >
+                ◀
+              </button>
+              <p className="min-w-0 flex-1 text-center text-[12px] leading-tight text-muted">
+                <span className="block text-[15px] font-bold tabular-nums text-fg">
+                  {(film.frames[now].t - film.frames[0].t).toFixed(2)}
+                  <span className="ml-0.5 text-[11px] font-medium text-muted">秒</span>
+                </span>
+                {now + 1} / {film.frames.length} コマ
+                {here && <span className="ml-1.5 font-bold" style={{ color: MARK }}>接地</span>}
+              </p>
+              <button
+                type="button"
+                onClick={() => step(1)}
+                disabled={now >= last}
+                aria-label="1コマ進む"
+                className="h-11 w-14 shrink-0 rounded-[12px] border border-line text-[17px] font-bold disabled:opacity-30"
+              >
+                ▶
+              </button>
+            </div>
+
+            <div className="relative mt-2">
+              <input
+                type="range"
+                min={0}
+                max={last}
+                value={now}
+                aria-label="コマを選ぶ"
+                onChange={(event) => setAt(Number(event.target.value))}
+                className="w-full accent-[var(--accent)]"
+              />
+              {/* 接地したコマの位置。**どこが一歩なのかが、目盛りで分かる。** */}
+              <div className="pointer-events-none relative mt-0.5 h-2">
+                {beats.map((index) => (
+                  <span
+                    key={index}
+                    className="absolute top-0 h-2 w-[2px] -translate-x-1/2 rounded-full"
+                    style={{ left: `${last > 0 ? (index / last) * 100 : 0}%`, background: MARK }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => jump(-1)}
+                disabled={beats.every((i) => i >= now)}
+                className="h-10 flex-1 rounded-[12px] border border-line text-[12px] font-semibold disabled:opacity-30"
+              >
+                ◀ 前の接地
+              </button>
+              <button
+                type="button"
+                onClick={() => jump(1)}
+                disabled={beats.every((i) => i <= now)}
+                className="h-10 flex-1 rounded-[12px] border border-line text-[12px] font-semibold disabled:opacity-30"
+              >
+                次の接地 ▶
+              </button>
+            </div>
+          </div>
+
           {/* **絵の読み方を書く。** 色が何を指しているか分からないと、線はただの落書き。 */}
-          <dl className="mt-2 space-y-1 text-[11px] leading-relaxed text-muted">
+          <dl className="mt-3 space-y-1 text-[11px] leading-relaxed text-muted">
             <div className="flex gap-2">
               <dt className="shrink-0 font-semibold" style={{ color: MARK }}>
                 オレンジの脚
               </dt>
-              <dd className="min-w-0">この瞬間に着いている足。横の幅が、腰の真下からのずれ。</dd>
+              <dd className="min-w-0">着いている足。横の幅が、腰の真下からのずれ。</dd>
             </div>
             <div className="flex gap-2">
               <dt className="shrink-0 font-semibold text-fg">白い点線</dt>
-              <dd className="min-w-0">縦は腰の真下、横は足が着いている高さ。</dd>
+              <dd className="min-w-0">縦は腰の真下、横は地面。地面はコマを送っても動きません。</dd>
             </div>
           </dl>
           <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-            測った{report.contacts.length}回のうち、平均にいちばん近い1回です。
-            絵の中の数字は<strong className="font-semibold text-fg">この瞬間の値</strong>、
+            絵の中の数字は<strong className="font-semibold text-fg">そのコマの値</strong>、
             下の「接地位置」は{report.contacts.length}回の平均です。
           </p>
 

@@ -45,6 +45,7 @@ function Flesh({
   from,
   to,
   far = false,
+  color = 'currentColor',
 }: {
   points: readonly P[];
   /** 付け根の太さ。 */
@@ -52,6 +53,8 @@ function Flesh({
   /** 先の太さ。 */
   to: number;
   far?: boolean;
+  /** 塗りの色。ふちどりを描く時だけ、背景色を渡す。 */
+  color?: string;
 }) {
   // 付け根からの道のりで太さを配る。節の長さが違っても、先細りが自然に見える。
   const run = [0];
@@ -64,7 +67,7 @@ function Flesh({
   const widths = run.map((length) => from + (to - from) * (length / total));
 
   return (
-    <g fill="currentColor" opacity={far ? FAR_OPACITY : 1}>
+    <g fill={color} opacity={far ? FAR_OPACITY : 1}>
       {points.slice(1).map((point, index) => {
         const [ax, ay] = points[index];
         const [bx, by] = point;
@@ -88,18 +91,36 @@ function Flesh({
   );
 }
 
-/** 手足。付け根を太く、先を細く。 */
+/**
+ * 手前の体の部品につける、背景色のふちどりの太さ。
+ *
+ * **これが無いと、腕は胴に溶けて消える。** 同じ色の塊が重なっているだけなので、
+ * 人の形ではなく「黒い固まり」に見える。細く背景色を回すだけで、腕が腕として立つ。
+ */
+const HALO = 4;
+
+/** 手足。付け根を太く、先を細く。手前側には背景色のふちどりを回す。 */
 function Limb({
   points,
   far = false,
   width = 13,
+  halo = true,
 }: {
   points: readonly P[];
   far?: boolean;
   width?: number;
+  halo?: boolean;
 }) {
   // 先細りは控えめに。落としすぎると、腕が糸のように見える。
-  return <Flesh points={points} from={width} to={width * 0.72} far={far} />;
+  const tip = width * 0.72;
+  return (
+    <>
+      {!far && halo && (
+        <Flesh points={points} from={width + HALO} to={tip + HALO} color="var(--bg-sunken)" />
+      )}
+      <Flesh points={points} from={width} to={tip} far={far} />
+    </>
+  );
 }
 
 /**
@@ -179,7 +200,12 @@ function FrontHead({ at, r = 13 }: { at: P; r?: number }) {
 /** 足。地面に着いていることを示す。足が無いと、立っているのか浮いているのか分からない。 */
 function Foot({ from, to, far = false }: { from: P; to: P; far?: boolean }) {
   // かかとが太く、つま先が細い。靴の形に近づけると、地面に着いているのが分かる。
-  return <Flesh points={[from, to]} from={10} to={6} far={far} />;
+  return (
+    <>
+      {!far && <Flesh points={[from, to]} from={10 + HALO} to={6 + HALO} color="var(--bg-sunken)" />}
+      <Flesh points={[from, to]} from={10} to={6} far={far} />
+    </>
+  );
 }
 
 /** 伸びている場所・効いている場所。線ではなく面で示す。 */
@@ -278,6 +304,25 @@ function Note({
       <text x={x} y={y} fontSize={12} fontWeight={700} fill={color} textAnchor={anchor}>
         {text}
       </text>
+    </g>
+  );
+}
+
+/**
+ * 測った幅。
+ *
+ * **解析の絵と同じ描き方にする。** 自分の走りを見た時に出てくるのが
+ * 「腰の真下の線と、そこから足までの幅」なので、説明図も同じ形にしておく。
+ * 図で見た形と、自分の映像で見る形が別物だと、結びつかない。
+ */
+function Gap({ from, to, y, tone = 'warn' }: { from: number; to: number; y: number; tone?: Tone }) {
+  const color = TONE_COLOR[tone];
+  const claw = 5;
+  return (
+    <g stroke={color} strokeWidth={2.5} strokeLinecap="round" fill="none">
+      <path d={`M${from} ${y} L${to} ${y}`} />
+      <path d={`M${from} ${y - claw} L${from} ${y + claw}`} />
+      <path d={`M${to} ${y - claw} L${to} ${y + claw}`} />
     </g>
   );
 }
@@ -476,33 +521,42 @@ export function figureArt(id: string): React.ReactNode {
       );
 
     // --- 走り方 ---
+    /**
+     * **違いを、形で出す。** 足の位置だけを少しずらした2体は、並べても同じ絵に見える。
+     * 体の傾き・膝の角度・すねの向きまで変える。どれも実際に変わるところ。
+     *  ✕ 体が起きている／膝が伸びきっている／すねが前へ倒れている／かかとから着く
+     *  ✓ 体が前へ傾いている／膝が曲がっている／すねが垂直／足は腰の真下
+     */
     case 'form-overstride':
       return (
         <g>
           <Ground />
           <Cross at={[18, 22]} />
-          {/* 悪い例：足が体の前に着く */}
-          <Limb points={[[54, 98], [40, 128], [34, 156]]} far />
-          <Foot from={[30, 164]} to={[48, 166]} far />
-          <Torso neck={[58, 62]} hip={[54, 98]} />
-          <Limb points={[[54, 98], [82, 122], [100, 160]]} />
-          <Foot from={[98, 163]} to={[114, 158]} />
-          <Limb points={[[58, 66], [40, 88], [46, 108]]} width={8} />
-          <Head at={[60, 44]} />
-          <Guide from={[54, 98]} to={[54, 166]} tone="warn" />
-          <Note at={[64, 182]} text="足が 前すぎる" tone="warn" anchor="middle" />
+          {/* 悪い例：体が起きたまま、伸びた脚で前に着く */}
+          <Limb points={[[56, 100], [38, 126], [30, 152]]} far />
+          <Foot from={[26, 164]} to={[44, 166]} far />
+          <Torso neck={[50, 62]} hip={[56, 100]} />
+          <Limb points={[[56, 100], [88, 126], [112, 158]]} />
+          {/* つま先が上を向く＝かかとから着いている */}
+          <Foot from={[110, 163]} to={[128, 153]} />
+          <Limb points={[[50, 66], [32, 86], [40, 104]]} width={8} />
+          <Head at={[48, 42]} />
+          <Guide from={[56, 100]} to={[56, 172]} tone="warn" />
+          <Gap from={56} to={112} y={176} tone="warn" />
+          <Note at={[84, 188]} text="足が 前すぎる" tone="warn" anchor="middle" />
 
           <Check at={[160, 22]} />
-          {/* 良い例：足は体の真下 */}
-          <Limb points={[[196, 98], [180, 126], [176, 154]]} far />
-          <Foot from={[172, 164]} to={[190, 166]} far />
-          <Torso neck={[200, 62]} hip={[196, 98]} />
-          <Limb points={[[196, 98], [206, 128], [200, 158]]} />
-          <Foot from={[198, 163]} to={[214, 160]} />
-          <Limb points={[[200, 66], [182, 88], [188, 108]]} width={8} />
-          <Head at={[202, 44]} />
-          <Guide from={[196, 98]} to={[196, 166]} tone="good" />
-          <Note at={[206, 182]} text="からだの 下" tone="good" anchor="middle" />
+          {/* 良い例：体が前へ傾き、曲がった脚が体の真下で着く */}
+          <Limb points={[[196, 100], [178, 124], [172, 150]]} far />
+          <Foot from={[168, 164]} to={[186, 166]} far />
+          <Torso neck={[204, 60]} hip={[196, 100]} />
+          <Limb points={[[196, 100], [208, 130], [200, 158]]} />
+          <Foot from={[196, 164]} to={[214, 164]} />
+          <Limb points={[[204, 64], [186, 84], [194, 102]]} width={8} />
+          <Head at={[206, 40]} />
+          <Guide from={[196, 100]} to={[196, 172]} tone="good" />
+          <Gap from={196} to={202} y={176} tone="good" />
+          <Note at={[199, 188]} text="からだの 下" tone="good" anchor="middle" />
         </g>
       );
 
