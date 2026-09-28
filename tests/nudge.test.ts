@@ -255,3 +255,35 @@ describe('なぜ今日は送らないのか', () => {
     }
   });
 });
+
+/**
+ * 「1日に1通」は、日付で数える。
+ *
+ * 以前は「24時間以内に送ったか」で見ていた。定期実行の時刻は毎回少しずれるので、
+ * 昨日 9:45 に送って今日 9:10 に回ると23時間25分しか空いておらず、今日の1通が止まった。
+ */
+describe('1日1通の数え方', () => {
+  const at = (iso: string) => new Date(iso);
+  const sentAt = (iso: string) => markNotified(active(base()), 'quiet', at(iso));
+
+  it('昨日の遅い時刻に送っていても、今朝は送れる', () => {
+    const profile = sentAt('2026-09-23T09:45:00+09:00');
+    expect(alreadySentToday(profile, at('2026-09-24T09:10:00+09:00'))).toBe(false);
+  });
+
+  it('昨夜送っていても、今朝は送れる', () => {
+    const profile = sentAt('2026-09-23T21:30:00+09:00');
+    expect(alreadySentToday(profile, at('2026-09-24T09:05:00+09:00'))).toBe(false);
+  });
+
+  it('今朝送ったなら、今日の昼にはもう送らない', () => {
+    const profile = sentAt('2026-09-24T05:10:00+09:00');
+    expect(alreadySentToday(profile, at('2026-09-24T12:00:00+09:00'))).toBe(true);
+  });
+
+  it('記録が壊れていても、止めずに送れる側に倒す', () => {
+    const base0 = active(base());
+    const broken = { ...base0, notifications: { lastSentAt: 'not-a-date' } };
+    expect(alreadySentToday(broken, NOW)).toBe(false);
+  });
+});

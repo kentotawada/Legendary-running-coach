@@ -36,9 +36,8 @@ export function notifyHourOf(profile: RunnerProfile): number {
  * いま送ってよい時刻か。
  *
  * **「ちょうどその時刻」ではなく「その時刻を過ぎたか」で見る。**
- * 定期実行が1時間ごとに回れば、選んだ時刻の1時間以内に届く。
- * もし実行が1日1回しか回らない設定でも、**選んだ時刻を過ぎている人には届く**ので、
- * 誰かが黙って通知を受け取れなくなることがない。
+ * 定期実行は、選べる時刻ごとに1日1回ずつ置いてある（vercel.json）。
+ * 無料プランでは実行がその1時間のどこかにずれるが、「過ぎたか」で見ていれば取りこぼさない。
  * 二重送信は alreadySentToday が止める。
  */
 export function timeToNotify(profile: RunnerProfile, now: Date = new Date()): boolean {
@@ -77,11 +76,20 @@ function quietDays(profile: RunnerProfile, now: Date): number | undefined {
   return daysSince(latest, now);
 }
 
-/** 今日すでに送っているか。 */
+/**
+ * 今日すでに送っているか。
+ *
+ * **「24時間以内」ではなく「同じ日か」で見る。**
+ * 以前は24時間以内かどうかで見ていた。無料プランの定期実行はその1時間のどこかにずれるので、
+ * 昨日 9:45 に送って今日 9:10 に回ると、23時間25分しか空いておらず、今日の1通が止まっていた。
+ * 夜に送った翌朝も同じことが起きる。「1日に1通」は、日付で数える。
+ */
 export function alreadySentToday(profile: RunnerProfile, now: Date): boolean {
   const last = profile.notifications?.lastSentAt;
   if (!last) return false;
-  return daysSince(last, now) === 0;
+  const sent = new Date(last);
+  if (Number.isNaN(sent.getTime())) return false;
+  return coachDate(sent) === coachDate(now);
 }
 
 function onCooldown(profile: RunnerProfile, tag: string, cooldownDays: number, now: Date): boolean {
