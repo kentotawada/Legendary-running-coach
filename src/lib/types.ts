@@ -438,12 +438,27 @@ export interface RunnerProfile {
 }
 
 /**
- * ユーザー1人分の状態。会話履歴は Gemini の Content[] をそのまま保持する。
+ * 保存する会話のひとこま。Gemini の Content に、やり取りした時刻を足したもの。
+ *
+ * **Content のまま保存していたので、いつの発言かが残っていなかった。**
+ * 時刻を別の配列で持つと、会話を詰めた時にずれて、別の発言の時刻を出すことになる。
+ * 発言そのものに付けておけば、切っても並べ替えても一緒についてくる。
+ *
+ * **モデルへ送る時は外すこと**（gemini.ts の streamOnce）。Content に無い項目なので、
+ * そのまま送ると API に弾かれる。
+ */
+export interface TimedContent extends Content {
+  /** いつのやり取りか（ISO 8601）。この仕組みより前の記録には無い。 */
+  at?: string;
+}
+
+/**
+ * ユーザー1人分の状態。会話履歴は Gemini の Content をそのまま保持する。
  * functionCall / thoughtSignature を落とさないための意図的な設計。
  */
 export interface CoachState {
   profile: RunnerProfile;
-  history: Content[];
+  history: TimedContent[];
 }
 
 /** チャットに添付された画像。data は base64（接頭辞なし）。 */
@@ -472,6 +487,8 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'coach';
   text: string;
+  /** いつのやり取りか（ISO 8601）。古い記録には無いので、その時は時刻を出さない。 */
+  at?: string;
   /** 送信直後の表示用。保存はされないので、再読み込み後は消える。 */
   imagePreviews?: string[];
   /** 保存済みの履歴で、画像が添付されていたことを示す枚数。 */

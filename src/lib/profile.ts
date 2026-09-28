@@ -14,8 +14,8 @@ import type {
   RunnerProfile,
   ShoeEntry,
   ShoeRole,
+  TimedContent,
 } from './types';
-import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
@@ -857,7 +857,7 @@ export function publicProfile(profile: RunnerProfile): RunnerProfile {
 
 /** 保存している Gemini の Content[] から、画面に出す発言だけを取り出す。 */
 export function toDisplayMessages(
-  history: Content[],
+  history: TimedContent[],
   attachments: AttachmentGroup[] = [],
 ): ChatMessage[] {
   const messages: ChatMessage[] = [];
@@ -890,6 +890,7 @@ export function toDisplayMessages(
       id: `${index}`,
       role: content.role === 'user' ? 'user' : 'coach',
       text,
+      ...(content.at ? { at: content.at } : {}),
       ...(attachmentCount > 0 ? { attachmentCount } : {}),
       ...(previews && previews.length > 0 ? { imagePreviews: previews } : {}),
     });
