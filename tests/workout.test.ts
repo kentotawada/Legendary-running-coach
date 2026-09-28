@@ -12,7 +12,7 @@ import {
   type ImportedWorkout,
 } from '@/lib/workout';
 import { analyze } from '@/lib/analysis';
-import { addActivity, addShoes, applyProfileUpdate, dedupeActivities } from '@/lib/profile';
+import { addActivity, addShoes, dedupeActivities } from '@/lib/profile';
 import { activeShoes } from '@/lib/shoes';
 import { createDefaultProfile } from '@/lib/types';
 

@@ -21,7 +21,7 @@ import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
 import { addressFor } from './characters';
 import { coachDate } from './day';
-import { SHOE_ROLE_LABEL, activeShoes, findShoe } from './shoes';
+import { activeShoes, findShoe } from './shoes';
 
 /** 直近の記録だけを文脈に載せる。古い記録は要約としてのみ残す。 */
 const MAX_CONDITION_LOGS = 120;

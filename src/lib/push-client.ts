@@ -109,3 +109,71 @@ export async function unsubscribeFromPush(): Promise<boolean> {
     return false;
   }
 }
+
+/** 試し送りの結果。**そのまま画面に出す文章にする。** */
+export interface PushTestResult {
+  ok: boolean;
+  /** 人が読む一行。何が起きたか、次に何をすればいいか。 */
+  message: string;
+}
+
+const SKIP_TEXT: Record<string, string> = {
+  'sent-today': '今日のぶんは、もう送り終わっています。',
+  'nothing-to-say': '今日は知らせる用事がありません。用事が無い日は送りません。',
+  'on-cooldown': '用事はありますが、最近同じことを送ったばかりです。',
+};
+
+/**
+ * いま自分の端末へ1通送ってみる。
+ *
+ * **「来ない」の中身を切り分けるためのもの。** 端末に届くかどうかと、
+ * 今日そもそも送る用事があったかどうかを、1回で両方返す。
+ */
+export async function sendTestPush(): Promise<PushTestResult> {
+  let data: {
+    devices?: number;
+    sent?: number;
+    gone?: number;
+    failed?: number;
+    plan?: { hour?: number; notifyHour?: number; skip?: string | null; title?: string | null };
+    error?: string;
+  };
+  try {
+    const response = await fetch('/api/push/test', { method: 'POST' });
+    data = await response.json();
+    if (!response.ok) return { ok: false, message: data.error ?? '試し送りができませんでした。' };
+  } catch {
+    return { ok: false, message: '通信に失敗しました。電波の入る場所でもう一度お試しください。' };
+  }
+
+  const devices = data.devices ?? 0;
+  const sent = data.sent ?? 0;
+  const gone = data.gone ?? 0;
+  const plan = data.plan ?? {};
+
+  if (devices === 0) {
+    return {
+      ok: false,
+      message:
+        'この端末がまだ登録されていません。いちど「通知を止める」を押してから、もう一度「通知を受け取る」を押してください。',
+    };
+  }
+  if (sent === 0) {
+    return {
+      ok: false,
+      message:
+        gone > 0
+          ? '登録が切れていました。古い宛先は消したので、もう一度「通知を受け取る」を押してください。'
+          : '送信に失敗しました。端末の設定で、このアプリの通知が許可されているか確かめてください。',
+    };
+  }
+
+  // ここまで来たら、配る仕組みは動いている。あとは「今日は何を送るはずだったか」。
+  const today = plan.skip
+    ? plan.skip === 'too-early'
+      ? `毎朝の一言は${plan.notifyHour}時からです（いま${plan.hour}時）。`
+      : (SKIP_TEXT[plan.skip] ?? '')
+    : `今日はこれを送ります:「${plan.title}」`;
+
+  return { ok: true, message: `届いたはずです。${today}` };
+}

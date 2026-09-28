@@ -18,9 +18,6 @@ import ZoneBars from './ZoneBars';
  * 軸は1本、線は細く、値はグラフの外からも読めるようにする。
  */
 
-const WIDTH = 320;
-const PLOT_HEIGHT = 96;
-
 const SHAPE_LABEL: Record<string, string> = {
   steady: '一定ペース',
   intervals: 'インターバル',

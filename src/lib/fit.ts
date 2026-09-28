@@ -29,9 +29,6 @@ import type { ImportedWorkout, WorkoutLap, WorkoutSample } from './workout';
 /** FIT の時刻は 1989-12-31 00:00:00 UTC からの秒数。 */
 const FIT_EPOCH_MS = 631_065_600_000;
 
-/** 規格で決まっている項目の種類と、その大きさ（バイト）。 */
-const BASE_SIZE = [1, 1, 1, 2, 2, 4, 4, 1, 4, 8, 1, 2, 4, 1, 8, 8, 8];
-
 /** 「測れなかった」を表す値。そのまま数値として扱うと、とんでもない記録になる。 */
 const INVALID: Record<number, number> = {
   0: 0xff,

@@ -16,6 +16,7 @@ import { SHOE_ROLE_LABEL, shoeStatuses } from '@/lib/shoes';
 import {
   currentSubscription,
   pushAvailability,
+  sendTestPush,
   subscribeToPush,
   unsubscribeFromPush,
   type PushAvailability,
@@ -214,6 +215,7 @@ export default function ProfileSheet({
   const [pushState, setPushState] = useState<PushAvailability>('unsupported');
   const [subscribed, setSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
   const notifyHour = profile ? notifyHourOf(profile) : 9;
   const [pushNote, setPushNote] = useState<string | null>(null);
 
@@ -632,6 +634,31 @@ export default function ProfileSheet({
                                   </button>
                                 );
                               })}
+                            </span>
+
+                            {/*
+                              **「来ない」には5つの原因があって、外からは全部同じに見える。**
+                              端末に届くかどうかと、今日そもそも送る用事があったかを、
+                              ここで1回で確かめられるようにする。
+                            */}
+                            <span className="mt-3 block">
+                              <button
+                                type="button"
+                                disabled={testing}
+                                onClick={() => {
+                                  setTesting(true);
+                                  setPushNote(null);
+                                  void sendTestPush()
+                                    .then((result) => setPushNote(result.message))
+                                    .finally(() => setTesting(false));
+                                }}
+                                className="rounded-full border border-line px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40"
+                              >
+                                {testing ? '送っています…' : 'いま1通送ってみる'}
+                              </button>
+                              <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+                                届かない時に、どこで止まっているかを確かめられます
+                              </span>
                             </span>
                           </span>
                         )}

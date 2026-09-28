@@ -24,8 +24,8 @@ self.addEventListener('push', (event) => {
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
-  } catch (error) {
-    payload = { title: '伝説のコーチ', body: event.data ? event.data.text() : '' };
+  } catch {
+    payload = { title: 'RUNCOACH', body: event.data ? event.data.text() : '' };
   }
 
   const title = payload.title || '伝説のコーチ';

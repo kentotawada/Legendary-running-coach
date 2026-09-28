@@ -23,7 +23,6 @@ import {
   shoeRoleOf,
   sourceOf,
   toActivityLog,
-  type StravaActivity,
 } from './strava';
 import { findSource, mergeSources, type SourceId } from './connections';
 
