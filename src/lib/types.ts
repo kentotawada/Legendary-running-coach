@@ -356,6 +356,11 @@ export interface DailyRecord {
 export interface RunnerProfile {
   id: string;
   displayName?: string;
+  /**
+   * 規約とプライバシーポリシーへの同意。**どの版に、いつ同意したか。**
+   * 版が変わったら、もう一度同意してもらう（legal.ts の CONSENT_VERSION）。
+   */
+  consent?: { version: string; at: string };
   /** 選んでいるコーチのキャラクター。話し方だけが変わる。 */
   characterId?: string;
   phase: CoachingPhase;

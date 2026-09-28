@@ -12,6 +12,7 @@ import { StorageError, storageErrorResponse } from '@/lib/storage-error';
 import { dropLastUserTurn, rewindToLastUserTurn } from '@/lib/history';
 import { greetingFor } from '@/lib/greeting';
 import { clientAddress, planFor, recordUsage, takeQuota } from '@/lib/quota';
+import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -154,6 +155,13 @@ export async function POST(request: NextRequest) {
         state = await loadForSession(session);
       } catch (error) {
         sendStorageFailure(error, 'これまでの記録を読み込めませんでした');
+        finish();
+        return;
+      }
+
+      // 体の情報を預かる前に、同意を確かめる。**会話の中で痛みや体重が記録されるため。**
+      if (!hasConsent(state.profile)) {
+        send({ type: 'error', message: CONSENT_REQUIRED_MESSAGE });
         finish();
         return;
       }

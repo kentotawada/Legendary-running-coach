@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { POST } from '@/app/api/import/route';
 import { setStore, type CoachStore } from '@/lib/store';
 import { createDefaultProfile, type CoachState } from '@/lib/types';
+import { withConsent } from '@/lib/legal';
 import type { ImportedWorkout } from '@/lib/workout';
 
 /**
@@ -18,7 +19,9 @@ import type { ImportedWorkout } from '@/lib/workout';
 const USER = '11111111-2222-3333-4444-555555555555';
 
 function memoryStore(state?: CoachState) {
-  let row = state ?? { profile: createDefaultProfile(USER), history: [] };
+  const base = state ?? { profile: createDefaultProfile(USER), history: [] };
+  // 取り込みは、規約に同意した人だけが使える。ここでは同意済みの人で見る。
+  let row: CoachState = { ...base, profile: withConsent(base.profile) };
   const store: CoachStore = {
     load: async () => row,
     save: async (_userId, next) => {
@@ -172,5 +175,26 @@ describe('POST /api/import', () => {
 
     expect(JSON.stringify(body.profile)).not.toContain('accessToken');
     expect(JSON.stringify(body.profile)).not.toContain('refreshToken');
+  });
+});
+
+describe('同意していない人', () => {
+  /** **体の情報を、同意なしに預からない。** 画面を通らずに直接叩かれても同じ。 */
+  it('取り込まずに断り、何も保存しない', async () => {
+    const plain = { profile: createDefaultProfile(USER), history: [] };
+    let saved = false;
+    const store: CoachStore = {
+      load: async () => plain,
+      save: async () => {
+        saved = true;
+      },
+      reset: async () => undefined,
+      adopt: async () => false,
+    };
+    setStore(store);
+    const response = await POST(post([run()]));
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toContain('同意');
+    expect(saved).toBe(false);
   });
 });

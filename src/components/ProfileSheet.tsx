@@ -731,6 +731,21 @@ export default function ProfileSheet({
             </p>
           )}
 
+          {/* 同意した中身は、いつでも読み返せる場所に置く。 */}
+          {!editing && (
+            <nav className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
+              <a href="/terms" target="_blank" rel="noopener" className="underline underline-offset-2">
+                利用規約
+              </a>
+              <a href="/privacy" target="_blank" rel="noopener" className="underline underline-offset-2">
+                プライバシーポリシー
+              </a>
+              <a href="/disclaimer" target="_blank" rel="noopener" className="underline underline-offset-2">
+                免責事項
+              </a>
+            </nav>
+          )}
+
           {/*
             記録がどこにあるか。**これは使う人の話なので、いつでも出す。**
             消えては困るものが、どこに置かれているのかを知る権利がある。
