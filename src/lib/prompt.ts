@@ -230,7 +230,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
 
   const sections = [
     IDENTITY.replace('{{characterName}}', character.name),
-    characterVoice(profile.characterId),
+    characterVoice(profile.characterId, profile.displayName),
     `今日の日付: ${today(now)}（${DAY_BOUNDARY_NOTE}）`,
     ABSOLUTE_RULES,
     DOCTRINE,

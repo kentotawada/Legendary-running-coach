@@ -44,10 +44,11 @@ describe('コーチのキャラクター', () => {
 
   it('話し方が、キャラクターごとに書き分けられている', () => {
     // **「優しく」「熱く」では、書く側は何も変えられない。**
-    // 一人称・二人称・語尾まで決めて、はじめて別人になる。
+    // 一人称・敬称・語尾まで決めて、はじめて別人になる。
     for (const character of COACH_CHARACTERS) {
       expect(character.speech.first.length, character.name).toBeGreaterThan(0);
-      expect(character.speech.second.length, character.name).toBeGreaterThan(0);
+      // 敬称は呼び捨て（空文字）もありなので、長さは問わない。型としてあることだけ確かめる。
+      expect(typeof character.speech.honorific, character.name).toBe('string');
       expect(character.speech.habits.length, character.name).toBeGreaterThanOrEqual(3);
       expect(character.speech.never.length, character.name).toBeGreaterThanOrEqual(2);
       // 褒める時・良くない時・痛みがある時。この3つは全員ぶん要る。
@@ -68,7 +69,6 @@ describe('コーチのキャラクター', () => {
     const character = findCharacter('allure');
     const text = characterVoice('allure');
     expect(text).toContain(character.speech.first);
-    expect(text).toContain(character.speech.second);
     expect(text).toContain(character.lines[0].say);
     // 中身と安全は、どのキャラクターでも変わらない。
     expect(text).toContain('安全のルール');

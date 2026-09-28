@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { GoalKind, RacePriority, RunnerProfile } from '@/lib/types';
 import { RACE_PRIORITY_HINT, RACE_PRIORITY_LABEL, daysUntil, racesOf } from '@/lib/races';
-import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID, GENDER_LABEL } from '@/lib/characters';
+import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID, GENDER_LABEL, findCharacter } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import {
   formatDuration,
@@ -27,6 +27,8 @@ export interface RaceEdit {
 
 export interface ProfileEdit {
   characterId: string;
+  /** 呼んでほしい名前。空文字は「消す」。 */
+  displayName: string;
   goal: {
     kind: GoalKind;
     summary: string;
@@ -333,6 +335,11 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
     })),
   );
   const [characterId, setCharacterId] = useState(profile?.characterId ?? DEFAULT_CHARACTER_ID);
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
+
+  // 選んだコーチの敬称。呼び捨てで話す人は空文字なので、例文の出し方を変える。
+  const chosen = findCharacter(characterId);
+  const honorific = chosen.speech.honorific;
   const [injuries, setInjuries] = useState((profile?.injuryHistory ?? []).join('\n'));
   const [maxHr, setMaxHr] = useState(profile?.maxHr ? String(profile.maxHr) : '');
   const [lthr, setLthr] = useState(profile?.lthr ? String(profile.lthr) : '');
@@ -391,6 +398,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
     if (!timeIsValid || !racesAreValid) return;
     onSave({
       characterId,
+      displayName: displayName.trim(),
       goal: {
         kind,
         summary: summary.trim() || '目標',
@@ -445,9 +453,30 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          {COACH_CHARACTERS.find((c) => c.id === characterId)?.description}
-        </p>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">{chosen.description}</p>
+      </Field>
+
+      {/*
+        呼び方。**コーチの隣に置く。** 誰に見てもらうかと、何と呼ばれたいかは
+        ひと続きの話で、目標や心拍とは別の種類のもの。
+      */}
+      <Field
+        label="呼んでほしい名前"
+        required={false}
+        hint={
+          honorific
+            ? `コーチはこの名前で呼びかけます。例:「${(displayName.trim() || '名前')}${honorific}、今日はどうでしたか」`
+            : `${chosen.name}さんは呼び捨てで話します。例:「${displayName.trim() || '名前'}、今日はどうだった」`
+        }
+      >
+        <input
+          type="text"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+          placeholder="ニックネームでも構いません"
+          maxLength={20}
+          className={inputClass}
+        />
       </Field>
 
       <Field label="何を目指しますか" required hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">

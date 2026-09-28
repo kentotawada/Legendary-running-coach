@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { COACH_CHARACTERS } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 
@@ -23,11 +23,25 @@ export default function Welcome({
   onPick,
   busy = false,
 }: {
-  onPick: (characterId: string) => void;
+  onPick: (characterId: string, displayName: string) => void;
   busy?: boolean;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
+  const [name, setName] = useState('');
   const chosen = COACH_CHARACTERS.find((character) => character.id === picked);
+
+  /**
+   * 選んだら、その下に出たものまで送り届ける。
+   *
+   * **顔を選んだ時点で、紹介文も名前の欄も画面の外にある。**
+   * 上のほうの顔を選んだ人には、下に何か出たことすら見えないまま
+   * 決定ボタンに届いてしまい、名前を聞く機会がそこで消える。
+   */
+  const afterPick = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!picked) return;
+    afterPick.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [picked]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
@@ -86,9 +100,34 @@ export default function Welcome({
         </ul>
 
         {chosen && (
-          <p className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3 text-[12px] leading-relaxed text-muted">
-            {chosen.description}
-          </p>
+          <div ref={afterPick}>
+            <p className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3 text-[12px] leading-relaxed text-muted">
+              {chosen.description}
+            </p>
+
+            {/*
+              名前は、**選んだあとにだけ出す。**
+              最初の画面に入力欄が見えていると、選ぶ前に「書かされる」画面になる。
+              任意にしてあるが、ここで入れてもらえると初回の一言から名前で呼べる。
+            */}
+            <label className="mt-5 block">
+              <span className="text-[14px] font-bold">何と呼べばいいですか</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+                {chosen.speech.honorific
+                  ? `${chosen.name}さんは「なまえ${chosen.speech.honorific}」と呼びかけます。`
+                  : `${chosen.name}さんは呼び捨てで話します。`}
+                あとから変えられます。
+              </span>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="ニックネームでも構いません"
+                maxLength={20}
+                className="mt-2 w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+              />
+            </label>
+          </div>
         )}
       </div>
 
@@ -97,7 +136,7 @@ export default function Welcome({
         <button
           type="button"
           disabled={!picked || busy}
-          onClick={() => picked && onPick(picked)}
+          onClick={() => picked && onPick(picked, name.trim())}
           className="w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy
