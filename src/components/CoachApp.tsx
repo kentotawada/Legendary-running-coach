@@ -25,15 +25,19 @@ import { totals } from '@/lib/review';
 import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
-import type { ActivityLog } from '@/lib/types';
+import type { ActivityLog, ChatMessage } from '@/lib/types';
 import { hasConsent } from '@/lib/legal';
 import { sendFeedback } from '@/lib/feedback-client';
 import ConsentGate from './ConsentGate';
+
+/** 挨拶の吹き出しにだけ付ける id。保存された会話には無い。 */
+const GREETING_ID = 'greeting';
 
 export default function CoachApp() {
   const {
     messages,
     greeting,
+    greetingAt,
     needsCoach,
     chooseCoach,
     giveConsent,
@@ -170,6 +174,17 @@ export default function CoachApp() {
   const activePains = profile?.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1) ?? [];
   const coach = findCharacter(profile?.characterId);
   const lastCoachId = [...messages].reverse().find((m) => m.role === 'coach')?.id;
+
+  /**
+   * 画面に並べるもの。挨拶を、開いた時点の位置に差し込む。
+   * 挨拶は保存された会話ではないので、ここでだけ混ぜる。
+   */
+  const shown = useMemo(() => {
+    if (!ready || !greeting) return messages;
+    const at = greetingAt ?? messages.length;
+    const line: ChatMessage = { id: GREETING_ID, role: 'coach', text: greeting };
+    return [...messages.slice(0, at), line, ...messages.slice(at)];
+  }, [ready, greeting, greetingAt, messages]);
   // 書き直せるのは直前の発言だけ。それより前を書き換えると、後の会話と噛み合わなくなる。
   const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
 
@@ -257,38 +272,40 @@ export default function CoachApp() {
       <main className="scroll-area flex-1 space-y-6 overflow-y-auto px-4 py-5">
         {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
 
-        {messages.map((message) => (
-          <MessageItem
-            key={message.id}
-            message={message}
-            coach={coach}
-            gear={gear}
-            busy={busy}
-            canSpeak={readAloud.supported}
-            speaking={readAloud.speakingId === message.id}
-            onToggleSpeak={() => readAloud.toggle(message.id, message.text)}
-            feedback={feedback[message.id] ?? null}
-            onFeedback={(value, reason) => {
-              setFeedback((prev) => ({ ...prev, [message.id]: value }));
-              // 取り消し（押し直して外す）は送らない。残っている評価はそのまま読む。
-              if (value) sendFeedback({ rating: value, reason, reply: message.text });
-            }}
-            onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
-            canEdit={message.id === lastUserId && !busy}
-            onEdit={(text) => void editLast(text, message.imagePreviews ?? [])}
-            onReuseImages={(previews) => composerRef.current?.attachAgain(previews)}
-            onOpenImage={(index) => setLightbox({ images: message.imagePreviews ?? [], index })}
-            failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
-          />
-        ))}
-
         {/*
-          コーチのほうから言う一言。**顔だけ出して黙っているのは、コーチではない。**
-          操作の並びは付けない。作り直しも評価も要らない、ただの挨拶。
+          コーチのほうから言う一言を、**開いた時点の位置**に差し込む。
+          末尾に固定で描くと、送った発言への返事の後ろに出てしまう。
         */}
-        {ready && greeting && (
-          <MessageItem message={{ id: 'greeting', role: 'coach', text: greeting }} coach={coach} />
-        )}
+        {shown.map((message) => {
+          // 挨拶には操作の並びを付けない。作り直しも評価も要らない、ただの挨拶。
+          if (message.id === GREETING_ID) {
+            return <MessageItem key={message.id} message={message} coach={coach} />;
+          }
+          return (
+            <MessageItem
+              key={message.id}
+              message={message}
+              coach={coach}
+              gear={gear}
+              busy={busy}
+              canSpeak={readAloud.supported}
+              speaking={readAloud.speakingId === message.id}
+              onToggleSpeak={() => readAloud.toggle(message.id, message.text)}
+              feedback={feedback[message.id] ?? null}
+              onFeedback={(value, reason) => {
+                setFeedback((prev) => ({ ...prev, [message.id]: value }));
+                // 取り消し（押し直して外す）は送らない。残っている評価はそのまま読む。
+                if (value) sendFeedback({ rating: value, reason, reply: message.text });
+              }}
+              onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
+              canEdit={message.id === lastUserId && !busy}
+              onEdit={(text) => void editLast(text, message.imagePreviews ?? [])}
+              onReuseImages={(previews) => composerRef.current?.attachAgain(previews)}
+              onOpenImage={(index) => setLightbox({ images: message.imagePreviews ?? [], index })}
+              failed={Boolean(error) && canResend && message === messages[messages.length - 1]}
+            />
+          );
+        })}
 
         {streamingText !== null && (
           <MessageItem

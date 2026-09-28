@@ -5,6 +5,8 @@
  * この設定はその端末の見え方の話なので、サーバーには送らず端末に残す。
  */
 
+import { DEFAULT_TIME_ZONE } from './day';
+
 export type FontSizeId = 'small' | 'medium' | 'large';
 
 export interface FontSizeOption {
@@ -78,3 +80,35 @@ export function saveFontSize(id: FontSizeId): void {
 export const FONT_SIZE_BOOT_SCRIPT = `(function(){try{var m=${JSON.stringify(
   Object.fromEntries(FONT_SIZES.map((size) => [size.id, size.scale])),
 )};var v=m[localStorage.getItem(${JSON.stringify(FONT_SIZE_STORAGE_KEY)})];if(v)document.documentElement.style.setProperty('--chat-font-scale',String(v));}catch(e){}})()`;
+
+/**
+ * 吹き出しに出す時刻。
+ *
+ * **いつの話なのかが分からないと、会話を読み返せない。**
+ * 今日のものは時刻だけ（8:13）、それより前は日付も添える（9/28 22:39）。
+ * **端末の時計ではなく、アプリの地域の時刻で出す。**
+ * スタンプも連続日数も通知も同じ地域で数えているので、ここだけ端末に合わせると、
+ * 「今日」の範囲が表示とずれる。
+ *
+ * この仕組みより前の記録には時刻が無い。その時は null を返し、**何も出さない。**
+ * 分からないものを、それらしい時刻で埋めない。
+ */
+export function formatTime(
+  iso: string | undefined,
+  now: Date = new Date(),
+  timeZone: string = DEFAULT_TIME_ZONE,
+): string | null {
+  if (!iso) return null;
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+
+  const dayOf = (date: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+
+  return new Intl.DateTimeFormat('ja-JP', {
+    timeZone,
+    ...(dayOf(at) === dayOf(now) ? {} : { month: 'numeric', day: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(at);
+}

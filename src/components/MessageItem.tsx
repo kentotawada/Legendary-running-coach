@@ -8,6 +8,7 @@ import type { CoachCharacter } from '@/lib/characters';
 import RichText from './RichText';
 import CoachAvatar from './CoachAvatar';
 import MessageActions, { type Feedback } from './MessageActions';
+import { formatTime } from '@/lib/display';
 
 interface Props {
   message: ChatMessage;
@@ -119,6 +120,8 @@ export default function MessageItem({
   onReuseImages,
 }: Props) {
   const isUser = message.role === 'user';
+  // 時刻。この仕組みより前の記録には無いので、その時は何も出さない。
+  const at = formatTime(message.at);
   const hasImages = Boolean(message.imagePreviews && message.imagePreviews.length > 0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.text);
@@ -200,6 +203,7 @@ export default function MessageItem({
               </div>
             )}
             <div className="chat-body mt-1 flex flex-wrap items-center justify-end gap-0.5">
+              {at && <time className="mr-auto text-[11px] tabular-nums text-muted">{at}</time>}
               {message.text && (
                 <UserAction
                   label={copied ? 'コピーしました' : 'コピー'}
@@ -240,6 +244,7 @@ export default function MessageItem({
       <div className="mb-1.5 flex items-center gap-2">
         <CoachAvatar character={coach} size={24} />
         <span className="text-[12px] font-semibold text-muted">{coach.name}</span>
+        {at && <time className="text-[11px] tabular-nums text-muted">{at}</time>}
       </div>
 
       <div className="chat-body w-full break-words leading-[1.8]">

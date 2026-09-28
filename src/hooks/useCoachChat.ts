@@ -70,6 +70,8 @@ export interface CoachChat {
   messages: ChatMessage[];
   /** 開いた時にコーチのほうから言う一言。無い日は null。 */
   greeting: string | null;
+  /** 挨拶を差し込む位置（開いた時点の会話の数）。 */
+  greetingAt: number | null;
   /** まだ誰に見てもらうかを選んでいない。**選ぶところから始める。** */
   needsCoach: boolean;
   /** コーチを決めて、会話を始める。 */
@@ -137,6 +139,13 @@ export function useCoachChat(): CoachChat {
    * **保存しない。** 毎朝その日のデータから作り直すので、置いておく意味が無い。
    */
   const [greeting, setGreeting] = useState<string | null>(null);
+  /**
+   * 挨拶を差し込む位置（開いた時点の会話の数）。
+   *
+   * **一覧の末尾に固定で描いていたので、送った発言より後ろに出ていた。**
+   * 「また来てくれましたね」が、自分の発言への返事の下に出る状態になっていた。
+   */
+  const [greetingAt, setGreetingAt] = useState<number | null>(null);
   /**
    * まだ誰にも見てもらっていない人。
    * **いちばん最初にすることは、相手を決めること。**
@@ -233,7 +242,10 @@ export function useCoachChat(): CoachChat {
 
     setStreamingText(null);
     if (text.trim()) {
-      setMessages((prev) => [...prev, { id: nextId(), role: 'coach', text: text.trim() }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: 'coach', text: text.trim(), at: new Date().toISOString() },
+      ]);
     }
   }, []);
 
@@ -312,6 +324,7 @@ export function useCoachChat(): CoachChat {
           id: nextId(),
           role: 'user',
           text: trimmed,
+          at: new Date().toISOString(),
           ...(images.length > 0 ? { imagePreviews: images.map((image) => image.preview) } : {}),
         },
       ]);
@@ -359,7 +372,10 @@ export function useCoachChat(): CoachChat {
         const lastUserIndex = prev.map((m) => m.role).lastIndexOf('user');
         if (lastUserIndex < 0) return prev;
         const original = prev[lastUserIndex];
-        return [...prev.slice(0, lastUserIndex), { ...original, id: nextId(), text: trimmed }];
+        return [
+          ...prev.slice(0, lastUserIndex),
+          { ...original, id: nextId(), text: trimmed, at: new Date().toISOString() },
+        ];
       });
 
       await turn(trimmed, images, 'replace');
@@ -623,6 +639,7 @@ export function useCoachChat(): CoachChat {
         // 挨拶してしまい、選んだ直後に別人の言葉が残ることになる。
         if (!letModelOpen && !firstRun && data.profile && firstOpenToday()) {
           setGreeting(greetingFor(data.profile).text);
+          setGreetingAt(data.messages.length);
           greetingPending.current = true;
         }
 
@@ -761,6 +778,7 @@ export function useCoachChat(): CoachChat {
   return {
     messages,
     greeting,
+    greetingAt,
     needsCoach,
     giveConsent,
     chooseCoach,

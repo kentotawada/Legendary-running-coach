@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentConfig, Part } from '@google/genai';
-import type { CoachState, ImageAttachment, RunnerProfile } from './types';
+import type { CoachState, ImageAttachment, RunnerProfile, TimedContent } from './types';
 import { coachTools, executeTool } from './tools';
 import { FIND_GEAR, runFindGear } from './gear-tool';
 import { emptyBasket, resolveProductBlocks } from './products';
@@ -164,7 +164,8 @@ async function streamOnce(
 ): Promise<StepResult> {
   const stream = await getClient().models.generateContentStream({
     model,
-    contents,
+    // 時刻はこちらの都合で足したもの。**Content に無い項目なので、送る前に外す。**
+    contents: contents.map(({ role, parts }) => ({ role, parts })),
     config: baseConfig(systemInstruction, model),
   });
 
@@ -318,7 +319,8 @@ export async function runCoachTurn({
     { text: userText },
   ];
 
-  const history: Content[] = [...state.history, { role: 'user', parts: userParts }];
+  const stamp = now.toISOString();
+  const history: TimedContent[] = [...state.history, { role: 'user', parts: userParts, at: stamp }];
 
   const usedTools: string[] = [];
   const usage: Usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
@@ -378,8 +380,8 @@ export async function runCoachTurn({
         });
       }
       // 名札を埋めるのは、検索が終わってから。順番を逆にすると何も埋まらない。
-      history.push({ role: 'model', parts: resolveParts(result.parts) });
-      history.push({ role: 'user', parts: responseParts });
+      history.push({ role: 'model', parts: resolveParts(result.parts), at: stamp });
+      history.push({ role: 'user', parts: responseParts, at: stamp });
       finalText += resolve(result.text);
       retryDirective = null;
       continue;
@@ -420,7 +422,7 @@ export async function runCoachTurn({
     const guarded = turnFlag ? guardRedFlagReply(candidate, turnFlag) : candidate;
     const prefix = guarded.endsWith(candidate) ? guarded.slice(0, guarded.length - candidate.length) : '';
 
-    history.push({ role: 'model', parts: cleanParts(result.parts, prefix + stepText) });
+    history.push({ role: 'model', parts: cleanParts(result.parts, prefix + stepText), at: new Date().toISOString() });
     finalText = guarded;
 
     // 慎重モードでは、ここまで一切流していない。検査を通った本文をまとめて届ける。
@@ -440,14 +442,14 @@ export async function runCoachTurn({
     if (guarded !== finalText) {
       finalText = guarded;
       // 画面に出したものを、履歴にも残す。次のターンで、自分が何を言ったか分かるように。
-      history.push({ role: 'model', parts: [{ text: redFlagNotice(turnFlag) }] });
+      history.push({ role: 'model', parts: [{ text: redFlagNotice(turnFlag) }], at: new Date().toISOString() });
     }
   }
 
   if (!finalText.trim()) {
     finalText =
       'うまく言葉が出てきませんでした。もう一度、今の状態を聞かせてもらえますか？ どんな些細なことでも大丈夫です。';
-    history.push({ role: 'model', parts: [{ text: finalText }] });
+    history.push({ role: 'model', parts: [{ text: finalText }], at: new Date().toISOString() });
     if (cautious) onDelta?.(finalText);
   }
 
