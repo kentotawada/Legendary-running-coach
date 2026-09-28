@@ -12,7 +12,7 @@ import {
   type ImportedWorkout,
 } from '@/lib/workout';
 import { analyze } from '@/lib/analysis';
-import { addActivity, addShoes, applyProfileUpdate } from '@/lib/profile';
+import { addActivity, addShoes, applyProfileUpdate, dedupeActivities } from '@/lib/profile';
 import { activeShoes } from '@/lib/shoes';
 import { createDefaultProfile } from '@/lib/types';
 
@@ -721,5 +721,88 @@ describe('歩幅の推移', () => {
   it('歩幅が1点も無ければ、列ごと持たない', () => {
     const series = downsample(samples.map(({ step: _step, ...rest }) => rest))!;
     expect(series.step).toBeUndefined();
+  });
+});
+
+describe('同じ練習を、二度入れない', () => {
+  const day = '2026-09-26';
+  /** ファイルから来たほう。区間も心拍の推移も持っている。 */
+  const fromFile = {
+    date: day,
+    type: 'run' as const,
+    distanceKm: 21.12,
+    durationMin: 85,
+    externalId: 'file:abc',
+    metrics: { avgPace: '4:02/km', avgHr: 171 },
+    laps: Array.from({ length: 22 }, (_, i) => ({ index: i + 1, distanceKm: 1, durationSec: 242 })),
+  };
+  /** 本人が話したほう。数字は粗いが、**どう感じたかを持っている。** */
+  const fromChat = {
+    date: day,
+    type: 'run' as const,
+    distanceKm: 21.1,
+    durationMin: 85,
+    session: 'ハーフ試走',
+    felt: '序盤抑え、肘引き早め。膝の痛みなし。',
+  };
+
+  /** **これが今回の穴だった。** 取り込みの側にだけ照合があった。 */
+  it('ファイルの後にチャットで話しても、2件にならない', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    p = addActivity(p, fromFile, NOW);
+    p = addActivity(p, fromChat, NOW);
+    expect(p.activities.length).toBe(1);
+  });
+
+  it('逆の順でも、2件にならない', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    p = addActivity(p, fromChat, NOW);
+    p = addActivity(p, fromFile, NOW);
+    expect(p.activities.length).toBe(1);
+  });
+
+  /** **どちらを捨てても、必ず何かが失われる。** 測った数字と本人の言葉、両方残す。 */
+  it('区間も、本人の言葉も、両方残る', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    p = addActivity(p, fromFile, NOW);
+    p = addActivity(p, fromChat, NOW);
+    const [only] = p.activities;
+    expect(only.laps?.length).toBe(22);
+    expect(only.metrics?.avgHr).toBe(171);
+    expect(only.session).toBe('ハーフ試走');
+    expect(only.felt).toContain('膝の痛みなし');
+    expect(only.externalId).toBe('file:abc');
+  });
+
+  /** **幅を広げすぎない。** 午前と午後に同じ距離を走った日の片方が消えては困る。 */
+  it('同じ日でも、距離が違えば別の練習', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    p = addActivity(p, { ...fromFile, externalId: 'a' }, NOW);
+    p = addActivity(p, { ...fromFile, distanceKm: 10, durationMin: 45, externalId: 'b' }, NOW);
+    expect(p.activities.length).toBe(2);
+  });
+
+  it('日が違えば、別の練習', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    p = addActivity(p, { ...fromFile, externalId: 'a' }, NOW);
+    p = addActivity(p, { ...fromFile, date: '2026-09-27', externalId: 'b' }, NOW);
+    expect(p.activities.length).toBe(2);
+  });
+
+  /** すでに二重になっている記録も、取り込みを通せば直る。 */
+  it('もう入ってしまった重複を、まとめ直せる', () => {
+    let p = createDefaultProfile('u', NOW.toISOString());
+    // 照合を通さずに、直接2件持たせる（過去のデータの再現）
+    p = {
+      ...p,
+      activities: [
+        { ...fromFile, id: 'a1', createdAt: NOW.toISOString() },
+        { ...fromChat, id: 'a2', createdAt: NOW.toISOString() },
+      ],
+    };
+    const fixed = dedupeActivities(p, NOW);
+    expect(fixed.activities.length).toBe(1);
+    expect(fixed.activities[0].laps?.length).toBe(22);
+    expect(fixed.activities[0].felt).toContain('膝の痛みなし');
   });
 });
