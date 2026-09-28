@@ -132,7 +132,11 @@ export default function PrivacyPage() {
               <tr className="border-b border-line">
                 <td className="py-2.5 pr-3">Supabase, Inc.（米国）</td>
                 <td className="py-2.5 pr-3">記録の保存、ログイン</td>
-                <td className="py-2.5">お預かりする情報のすべて</td>
+                <td className="py-2.5">
+                  お預かりする情報のすべて。
+                  <strong>保存先の場所は東京（日本国内）です</strong>
+                  が、運営する会社は米国の事業者です。
+                </td>
               </tr>
               <tr className="border-b border-line">
                 <td className="py-2.5 pr-3">Vercel Inc.（米国）</td>
@@ -170,6 +174,9 @@ export default function PrivacyPage() {
       <Section title="5. 安全のための措置">
         <List>
           <li>通信はすべて暗号化しています（HTTPS）。</li>
+          <li>
+            記録そのものは、<strong>東京（日本国内）のデータセンターに保存</strong>しています。
+          </li>
           <li>保存先にはサーバーからしか書き込めず、他の利用者の記録を読むことはできない仕組みにしています。</li>
           <li>外部サービスの認証の情報や通知の宛先は、画面にも返しません。</li>
           <li>IP アドレスは、元に戻せない形に変換してから扱います。</li>
