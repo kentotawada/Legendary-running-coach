@@ -613,7 +613,11 @@ export default function ProfileSheet({
                         */}
                         {subscribed && onChangeNotifyHour && (
                           <span className="mt-3 block">
-                            <span className="block text-[12px] text-muted">受け取る時刻</span>
+                            <span className="block text-[12px] text-muted">
+                              受け取る時刻
+                              {/* ちょうどその時刻とは限らない。待たせないために先に言っておく。 */}
+                              <span className="ml-1 text-[11px]">（その1時間のうちに届きます）</span>
+                            </span>
                             <span className="mt-1 flex flex-wrap gap-1.5">
                               {NOTIFY_HOURS.map((hour) => {
                                 const active = notifyHour === hour;

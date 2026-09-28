@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { coachHour, DEFAULT_TIME_ZONE } from '@/lib/day';
+import { NOTIFY_HOURS } from '@/lib/nudge';
 
 /**
  * vercel.json の定期実行。
@@ -48,6 +50,41 @@ describe('定期実行は、無料プランで通る形にする', () => {
   it('叩く先は、実在する送信口', () => {
     for (const cron of crons) {
       expect(cron.path.split('?')[0]).toBe('/api/push/send');
+    }
+  });
+});
+
+/**
+ * 選べる時刻ごとに、その時刻の定期実行が置いてあるか。
+ *
+ * **画面で「21時」を選べるのに、21時に動く実行が無ければ、その人には永久に届かない。**
+ * 毎時の実行が無料プランで使えないので、時刻ごとに1日1回ずつ置いている。
+ * 画面の選択肢（NOTIFY_HOURS）と vercel.json がずれたら、ここで止める。
+ */
+describe('選べる時刻と、定期実行が揃っている', () => {
+  /** UTC の「時」を、コーチの地域の「時」に直す。 */
+  const localHour = (utcHour: number) =>
+    coachHour(new Date(Date.UTC(2026, 0, 15, utcHour, 0, 0)), DEFAULT_TIME_ZONE);
+
+  const covered = crons.map((cron) => localHour(Number(cron.schedule.trim().split(/\s+/)[1])));
+
+  it('選べる時刻のどれにも、その時刻に動く実行がある', () => {
+    for (const hour of NOTIFY_HOURS) {
+      expect(covered, `${hour}時に動く実行が無い`).toContain(hour);
+    }
+  });
+
+  it('選べない時刻に、余計な実行を置いていない', () => {
+    for (const hour of covered) {
+      expect(NOTIFY_HOURS as readonly number[], `${hour}時の実行は、画面で選べない`).toContain(hour);
+    }
+  });
+
+  it('叩く先の目印（?at=）が、実際に動く時刻と一致している', () => {
+    for (const cron of crons) {
+      const at = Number(new URLSearchParams(cron.path.split('?')[1] ?? '').get('at'));
+      const hour = localHour(Number(cron.schedule.trim().split(/\s+/)[1]));
+      expect(at, `${cron.path} は ${hour}時に動く`).toBe(hour);
     }
   });
 });
