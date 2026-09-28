@@ -23,9 +23,19 @@ export interface OpsEvent {
   payload: Record<string, unknown>;
 }
 
+export interface EventEntry {
+  userId?: string;
+  /** 同じものを2件にしないための目印。 */
+  ref?: string;
+  payload: Record<string, unknown>;
+}
+
 export interface OpsLog {
-  /** 文章を伴う記録を1件残す。 */
-  record(kind: EventKind, entry: { userId?: string; payload: Record<string, unknown> }): Promise<void>;
+  /**
+   * 文章を伴う記録を1件残す。
+   * ref を付けると、同じ ref の記録を**書き換える**（評価の押し直し・理由の追記）。
+   */
+  record(kind: EventKind, entry: EventEntry): Promise<void>;
   /** 新しい順に読む。 */
   recent(kind: EventKind, limit: number): Promise<OpsEvent[]>;
   /** 回数をまとめて読む。無い鍵は 0。 */
@@ -49,10 +59,11 @@ export function clip(payload: Record<string, unknown>): Record<string, unknown> 
 class SupabaseOpsLog implements OpsLog {
   constructor(private readonly client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>) {}
 
-  async record(kind: EventKind, entry: { userId?: string; payload: Record<string, unknown> }) {
-    const { error } = await this.client
-      .from('app_events')
-      .insert({ kind, user_id: entry.userId ?? null, payload: clip(entry.payload) });
+  async record(kind: EventKind, entry: EventEntry) {
+    const row = { kind, user_id: entry.userId ?? null, ref: entry.ref ?? null, payload: clip(entry.payload) };
+    const { error } = entry.ref
+      ? await this.client.from('app_events').upsert(row, { onConflict: 'kind,ref' })
+      : await this.client.from('app_events').insert(row);
     if (error) throw new Error(`${error.code ?? ''} ${error.message}`);
   }
 
@@ -88,11 +99,17 @@ class SupabaseOpsLog implements OpsLog {
 
 /** データベースが無い時（手元の開発・テスト）。プロセスが生きている間だけ覚えている。 */
 export class MemoryOpsLog implements OpsLog {
-  private readonly events: { kind: EventKind; event: OpsEvent }[] = [];
+  private readonly events: { kind: EventKind; ref?: string; event: OpsEvent }[] = [];
   constructor(private readonly counter?: UsageCounter & { peek?: (key: string) => number }) {}
 
-  async record(kind: EventKind, entry: { userId?: string; payload: Record<string, unknown> }) {
-    this.events.push({ kind, event: { at: new Date().toISOString(), userId: entry.userId, payload: clip(entry.payload) } });
+  async record(kind: EventKind, entry: EventEntry) {
+    const event = { at: new Date().toISOString(), userId: entry.userId, payload: clip(entry.payload) };
+    const existing = entry.ref
+      ? this.events.findIndex((item) => item.kind === kind && item.ref === entry.ref)
+      : -1;
+    // 書き換えた記録は、新しいものとして並べ直す（読む時は新しい順）。
+    if (existing !== -1) this.events.splice(existing, 1);
+    this.events.push({ kind, ref: entry.ref, event });
   }
 
   async recent(kind: EventKind, limit: number): Promise<OpsEvent[]> {

@@ -20,7 +20,7 @@ interface Props {
   speaking?: boolean;
   onToggleSpeak?: () => void;
   feedback?: Feedback;
-  onFeedback?: (value: Feedback) => void;
+  onFeedback?: (value: Feedback, reason?: string) => void;
   onRegenerate?: () => void;
   busy?: boolean;
   /** 送信に失敗した発言。薄く出して、やり直せることを示す。 */
