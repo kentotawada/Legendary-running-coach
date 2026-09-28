@@ -26,6 +26,8 @@ import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
 import type { ActivityLog } from '@/lib/types';
+import { hasConsent } from '@/lib/legal';
+import ConsentGate from './ConsentGate';
 
 export default function CoachApp() {
   const {
@@ -33,6 +35,7 @@ export default function CoachApp() {
     greeting,
     needsCoach,
     chooseCoach,
+    giveConsent,
     saveNotifyHour,
     streamingText,
     profile,
@@ -175,6 +178,20 @@ export default function CoachApp() {
    */
   if (ready && needsCoach) {
     return <Welcome onPick={(id, name) => void chooseCoach(id, name)} busy={busy || savingProfile} />;
+  }
+
+  /**
+   * 規約ができる前から使っている人と、規約の版が上がってから開いた人。
+   * **同意するまで、体の情報を預かる画面には進めない**（サーバー側でも断っている）。
+   */
+  if (ready && profile && !hasConsent(profile)) {
+    return (
+      <ConsentGate
+        busy={busy || savingProfile}
+        onAgree={() => void giveConsent()}
+        onErase={() => void reset()}
+      />
+    );
   }
 
   return (

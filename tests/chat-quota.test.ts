@@ -4,6 +4,7 @@ import { MemoryUsageCounter, PLAN_LIMITS } from '@/lib/quota';
 import { setStore, type CoachStore } from '@/lib/store';
 import { createDefaultProfile, type CoachState } from '@/lib/types';
 import { coachDate } from '@/lib/day';
+import { withConsent } from '@/lib/legal';
 
 /**
  * 1日の上限が、チャットの入口で本当に効いているか。
@@ -23,8 +24,9 @@ const { POST } = await import('@/app/api/chat/route');
 
 const USER = '11111111-2222-3333-4444-555555555555';
 
-function memoryStore() {
-  let row: CoachState = { profile: createDefaultProfile(USER), history: [] };
+function memoryStore(consented = true) {
+  const profile = createDefaultProfile(USER);
+  let row: CoachState = { profile: consented ? withConsent(profile) : profile, history: [] };
   const usage = new MemoryUsageCounter();
   const store: CoachStore = {
     load: async () => row,
@@ -112,5 +114,17 @@ describe('チャットの入口で、1日の上限が効いている', () => {
     expect(memory.usage.peek(`tokens-in:${today()}`)).toBe(18000);
     expect(memory.usage.peek(`tokens-out:${today()}`)).toBe(800);
     expect(memory.usage.peek(`users:${today()}`)).toBe(1);
+  });
+});
+
+describe('同意していない人', () => {
+  it('モデルを呼ばずに断り、回数も減らさない', async () => {
+    memory = memoryStore(false);
+    setStore(memory.store);
+    const response = await send('今日は10km');
+    expect(response.body).toContain('同意');
+    expect(runCoachTurn).not.toHaveBeenCalled();
+    // 断った1回は、数えない。
+    expect(memory.usage.peek(`turns:${today()}:user:${USER}`)).toBe(0);
   });
 });

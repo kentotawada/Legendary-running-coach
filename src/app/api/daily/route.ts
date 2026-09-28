@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
 import { getStore, loadForSession } from '@/lib/store';
 import { publicProfile } from '@/lib/profile';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
@@ -68,6 +69,10 @@ export async function PATCH(request: NextRequest) {
   let profile;
   try {
     const state = await loadForSession(session);
+    // 体重は体の情報。預かる前に同意を確かめる。
+    if (!hasConsent(state.profile)) {
+      return Response.json({ error: CONSENT_REQUIRED_MESSAGE }, { status: 403 });
+    }
     // 小数第1位まで。体重計の表示より細かく持っても意味がない。
     profile = logWeight(state.profile, Math.round(raw * 10) / 10);
     await store.save(userId, { ...state, profile }, session.authUserId);

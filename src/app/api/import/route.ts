@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { publicProfile } from '@/lib/profile';
@@ -230,6 +231,11 @@ export async function POST(request: NextRequest) {
     state = await loadForSession(session);
   } catch (error) {
     return storageErrorResponse(error, 'カルテを読み込めませんでした');
+  }
+
+  // 心拍や練習の記録を預かる前に、同意を確かめる。
+  if (!hasConsent(state.profile)) {
+    return Response.json({ error: CONSENT_REQUIRED_MESSAGE }, { status: 403 });
   }
 
   const result = importWorkouts(state.profile, workouts, new Date());

@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { withConsent } from '@/lib/legal';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
@@ -52,6 +53,8 @@ interface ProfilePatchBody {
   characterId?: unknown;
   /** 通知を受け取る時刻（0〜23）。 */
   notifyHour?: unknown;
+  /** 規約とプライバシーポリシーに同意した。true だけを受け付ける。版と時刻はサーバーが決める。 */
+  consent?: unknown;
   injuryHistory?: unknown;
   maxHr?: unknown;
   restingHr?: unknown;
@@ -175,6 +178,15 @@ export async function PATCH(request: NextRequest) {
       body.injuryHistory.filter((item): item is string => typeof item === 'string'),
       now,
     );
+  }
+
+  /**
+   * 同意。**画面からは「同意した」という事実だけを受け取る。**
+   * どの版に、いつ同意したかはサーバーが決める。版や日付を画面から受け取ると、
+   * 同意していない版に同意したことにできてしまう。
+   */
+  if (body.consent === true) {
+    profile = withConsent(profile, now);
   }
 
   /**

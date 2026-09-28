@@ -34,6 +34,13 @@ import {
   describeStreamFailure,
 } from '@/lib/transport-error';
 import type { ProfileEdit } from '@/components/GoalEditor';
+import { hasConsent } from '@/lib/legal';
+
+/**
+ * カルテへの書き込み。**同意は「同意した」という事実だけを送る。**
+ * どの版に・いつ同意したかはサーバーが決める。
+ */
+type ProfileUpdate = Partial<ProfileEdit> & { consent?: true };
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
 import {
   describeColumns,
@@ -92,7 +99,9 @@ export interface CoachChat {
   editLast: (text: string, previews: string[]) => Promise<void>;
   reset: () => Promise<void>;
   /** カルテ画面からの設定変更。変える項目だけを渡してよい。 */
-  updateProfile: (edit: Partial<ProfileEdit>) => Promise<void>;
+  updateProfile: (edit: ProfileUpdate) => Promise<void>;
+  /** 規約に同意する。まだ一度も話していなければ、そのままコーチが話し始める。 */
+  giveConsent: () => Promise<void>;
   savingProfile: boolean;
   /** 今日のスタンプと連続日数。 */
   daily: DailyStatus | null;
@@ -607,7 +616,9 @@ export function useCoachChat(): CoachChat {
         const firstRun = data.messages.length === 0 && !data.profile?.characterId;
         setNeedsCoach(firstRun);
 
-        const letModelOpen = data.messages.length === 0 && data.hasApiKey && !firstRun;
+        // 同意がまだの人には、ここで話しかけない。同意の画面が先に出て、同意した時に話し始める。
+        const letModelOpen =
+          data.messages.length === 0 && data.hasApiKey && !firstRun && hasConsent(data.profile);
         // **まだコーチを選んでいない人には出さない。** 選ぶ前の既定の口調で
         // 挨拶してしまい、選んだ直後に別人の言葉が残ることになる。
         if (!letModelOpen && !firstRun && data.profile && firstOpenToday()) {
@@ -643,10 +654,15 @@ export function useCoachChat(): CoachChat {
     setStreamingText(null);
     setError(null);
     setErrorDetail(null);
-    await turn('');
-  }, [turn]);
+    /**
+     * **消したら、最初の画面に戻す。** ここで勝手に話し始めない。
+     * 記録と一緒に同意も消えているので、話し始めてもサーバーに断られる。
+     * コーチ選びと同意から、もう一度。
+     */
+    setNeedsCoach(true);
+  }, []);
 
-  const updateProfile = useCallback(async (edit: Partial<ProfileEdit>) => {
+  const updateProfile = useCallback(async (edit: ProfileUpdate) => {
     setSavingProfile(true);
     setError(null);
     setErrorDetail(null);
@@ -674,13 +690,26 @@ export function useCoachChat(): CoachChat {
    */
   const chooseCoach = useCallback(
     async (characterId: string, displayName?: string) => {
-      // 名前は、最初の一言より先に保存する。**でないと初回だけ名前で呼べない。**
-      await updateProfile(displayName ? { characterId, displayName } : { characterId });
+      // 名前と同意は、最初の一言より先に保存する。
+      // **同意が先に無いと、サーバーは体の情報を預からない**（最初の一言そのものが断られる）。
+      await updateProfile(
+        displayName ? { characterId, displayName, consent: true } : { characterId, consent: true },
+      );
       setNeedsCoach(false);
       await turn('');
     },
     [updateProfile, turn],
   );
+
+  /**
+   * すでに使っている人の同意。
+   * まだ一度も話していない人なら、同意した時点でコーチに話し始めてもらう。
+   * **起動時には話しかけていない**（同意の無い人の会話は、サーバーが断るため）。
+   */
+  const giveConsent = useCallback(async () => {
+    await updateProfile({ consent: true });
+    if (messages.length === 0) await turn('');
+  }, [updateProfile, turn, messages]);
 
   /**
    * 通知を受け取る時刻。
@@ -733,6 +762,7 @@ export function useCoachChat(): CoachChat {
     messages,
     greeting,
     needsCoach,
+    giveConsent,
     chooseCoach,
     saveNotifyHour,
     streamingText,

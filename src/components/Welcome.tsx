@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { COACH_CHARACTERS } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
+import ConsentCheck from './ConsentCheck';
 
 /**
  * いちばん最初の画面。
@@ -28,6 +29,7 @@ export default function Welcome({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const chosen = COACH_CHARACTERS.find((character) => character.id === picked);
 
   /**
@@ -133,17 +135,26 @@ export default function Welcome({
 
       {/* 選んでから決める。人を選ぶのだから、一拍おける形にしておく。 */}
       <div className="border-t border-line bg-bg px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        {/*
+          **同意は、決定ボタンのすぐ上に置く。** 体の情報を預かる前に、必ず目に入る場所。
+          スクロールの奥に置くと、読まずに押せてしまう。
+        */}
+        <div className="mb-3">
+          <ConsentCheck checked={agreed} onChange={setAgreed} />
+        </div>
         <button
           type="button"
-          disabled={!picked || busy}
+          disabled={!picked || !agreed || busy}
           onClick={() => picked && onPick(picked, name.trim())}
           className="w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy
             ? '呼んでいます…'
-            : chosen
-              ? `${chosen.name}さんにお願いする`
-              : 'コーチを選んでください'}
+            : !chosen
+              ? 'コーチを選んでください'
+              : !agreed
+                ? '同意すると始められます'
+                : `${chosen.name}さんにお願いする`}
         </button>
       </div>
     </div>
