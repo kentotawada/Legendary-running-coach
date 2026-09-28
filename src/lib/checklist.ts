@@ -61,7 +61,7 @@ function fuelSection(profile: RunnerProfile, now: Date): ChecklistSection | null
   return { title: '補給（計算済み）', items };
 }
 
-function shoeSection(profile: RunnerProfile, now: Date): ChecklistSection {
+function shoeSection(profile: RunnerProfile): ChecklistSection {
   const items: ChecklistItem[] = [];
   const race = activeShoes(profile).filter((shoe) => shoe.role === 'race');
 
@@ -170,7 +170,7 @@ export function raceChecklistFor(profile: RunnerProfile, now: Date = new Date())
 
   const sections = [
     fuelSection(profile, now),
-    shoeSection(profile, now),
+    shoeSection(profile),
     kitSection(),
     morningSection(profile, now),
     avoidSection(profile, now),
