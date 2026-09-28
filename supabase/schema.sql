@@ -1,4 +1,4 @@
--- 伝説のランニングコーチ / Supabase スキーマ
+-- RUNCOACH / Supabase スキーマ
 --
 -- Supabase の SQL Editor にこのファイルの中身を貼り付けて実行してください。
 -- 何度実行しても壊れないように書いてあります（IF NOT EXISTS / CREATE OR REPLACE）。
@@ -87,3 +87,44 @@ create policy "自分の行だけ消せる"
   on public.coach_states
   for delete
   using (auth.uid() = auth_user_id);
+
+-- ============================================================
+-- 4. 使った回数（1日の上限と、費用の実測）
+-- ============================================================
+--
+-- 1日に話せる回数を数えるための表です（src/lib/quota.ts）。
+-- key に日付が入っているので、日が変わると自然に別の数になります。
+--   turns:2026-09-28:user:<id>    その人が今日話した回数
+--   turns:2026-09-28:place:<hash> 同じ回線から今日話した回数（IP は潰して保存。元には戻せません）
+--   turns:2026-09-28:all          アプリ全体で今日話した回数
+--   tokens-in / tokens-out / calls / users   費用を出すための実測
+--
+-- **利用者の側（anon キー）からは、一切触れないようにしてあります。**
+-- 触れると、他人の回数を使い切らせたり、全体の上限まで埋めて止めたりできてしまうため。
+
+create table if not exists public.usage_counters (
+  key text primary key,
+  count bigint not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- 行レベルセキュリティを有効にし、ポリシーは作らない。
+-- = service_role（アプリのサーバー）以外は、読むことも書くこともできない。
+alter table public.usage_counters enable row level security;
+
+-- 足して、足した後の値を返す。**1本の文でやるので、同時に来ても数え漏れない。**
+create or replace function public.bump_usage(p_key text, p_by bigint default 1)
+returns bigint
+language sql
+as $$
+  insert into public.usage_counters as u (key, count)
+  values (p_key, p_by)
+  on conflict (key) do update
+    set count = u.count + excluded.count,
+        updated_at = now()
+  returning u.count;
+$$;
+
+-- 関数は、作った時点で誰でも呼べる状態になっている。サーバーだけに絞る。
+revoke all on function public.bump_usage(text, bigint) from public, anon, authenticated;
+grant execute on function public.bump_usage(text, bigint) to service_role;

@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { StorageError, storageErrorResponse } from '@/lib/storage-error';
 import { dropLastUserTurn, rewindToLastUserTurn } from '@/lib/history';
 import { greetingFor } from '@/lib/greeting';
+import { clientAddress, planFor, recordUsage, takeQuota } from '@/lib/quota';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,6 +91,29 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: imageError }, { status: 400 });
   }
 
+  /**
+   * **モデルを呼ぶ前に、1日の枠を確かめる。**
+   * 呼んでから断っても、費用はもうかかっている。
+   * 数える先が無い保存層（テスト用など）では、枠をかけない。
+   */
+  const quota = store.bumpUsage
+    ? await takeQuota({
+        counter: { bumpUsage: store.bumpUsage.bind(store) },
+        plan: planFor(session),
+        userId,
+        address: clientAddress(request.headers),
+        images: images.length,
+      })
+    : null;
+  if (quota && !quota.ok) {
+    return Response.json({ error: quota.message, reason: quota.reason }, { status: 429 });
+  }
+  // 返事を作る前に終わった時は、数えた分を戻す。こちらの都合で回数を減らさない。
+  let delivered = false;
+  const releaseQuota = () => {
+    if (!delivered && quota?.ok) void quota.release();
+  };
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -101,6 +125,7 @@ export async function POST(request: NextRequest) {
       const finish = () => {
         if (closed) return;
         closed = true;
+        releaseQuota();
         clearInterval(heartbeat);
         controller.close();
       };
@@ -212,6 +237,12 @@ export async function POST(request: NextRequest) {
         }
         finish();
         return;
+      }
+
+      // ここで返事は出来ている。この1回は、使ったものとして数える。
+      delivered = true;
+      if (store.bumpUsage) {
+        void recordUsage({ bumpUsage: store.bumpUsage.bind(store) }, result.usage);
       }
 
       // 送った画像を後から開き直せるよう、小さくした控えを残す。

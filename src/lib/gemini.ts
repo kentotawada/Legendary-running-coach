@@ -15,6 +15,7 @@ import {
 import { stripInlineData, trimHistory } from './store';
 import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
+import type { Usage } from './quota';
 
 const DEFAULT_MODEL = 'gemini-3-pro-preview';
 /** 既定のモデルがそのキーで使えない時に、黙って倒れないための退避先。 */
@@ -139,6 +140,8 @@ interface StepResult {
   parts: Part[];
   text: string;
   calls: { name: string; args: unknown; id?: string }[];
+  /** この1回で使った量。値段を決めるための実測に使う。 */
+  usage: { input: number; output: number };
 }
 
 /**
@@ -161,8 +164,16 @@ async function streamOnce(
   const parts: Part[] = [];
   const calls: StepResult['calls'] = [];
   let text = '';
+  // 使った量は、流れてくるたびに「ここまでの合計」で届く。最後に届いたものが全体。
+  const usage = { input: 0, output: 0 };
 
   for await (const chunk of stream) {
+    const metadata = chunk.usageMetadata;
+    if (metadata) {
+      usage.input = metadata.promptTokenCount ?? usage.input;
+      // 考えた分も、書いた分と同じく課金される。
+      usage.output = (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0) || usage.output;
+    }
     const chunkParts = chunk.candidates?.[0]?.content?.parts ?? [];
     for (const part of chunkParts) {
       if (part.functionCall) {
@@ -197,7 +208,7 @@ async function streamOnce(
     }
   }
 
-  return { parts, text, calls };
+  return { parts, text, calls, usage };
 }
 
 /**
@@ -271,6 +282,8 @@ export interface CoachTurnResult {
   /** 走行メニュー混入を検知して書き直させた回数。運用の観測用。 */
   rewrites: number;
   usedTools: string[];
+  /** この返事のために使った量。道具を使うと、1回の返事で何度もモデルを呼ぶ。 */
+  usage: Usage;
 }
 
 /**
@@ -301,6 +314,7 @@ export async function runCoachTurn({
   const history: Content[] = [...state.history, { role: 'user', parts: userParts }];
 
   const usedTools: string[] = [];
+  const usage: Usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
   let rewrites = 0;
   let retryDirective: string | null = null;
   let finalText = '';
@@ -325,6 +339,9 @@ export async function runCoachTurn({
       : buildSystemInstruction(profile, now);
 
     const result = await generateStep(history, systemInstruction, strict ? undefined : onDelta);
+    usage.inputTokens += result.usage.input;
+    usage.outputTokens += result.usage.output;
+    usage.calls += 1;
 
     if (result.calls.length > 0) {
       const responseParts: Part[] = [];
@@ -399,5 +416,6 @@ export async function runCoachTurn({
     text: finalText,
     rewrites,
     usedTools,
+    usage,
   };
 }

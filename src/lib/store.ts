@@ -7,6 +7,7 @@ import type { Content, Part } from '@google/genai';
 import { imagePlaceholder } from './markers';
 import { createSupabaseAdminClient } from './supabase';
 import { SupabaseCoachStore } from './store-supabase';
+import { MemoryUsageCounter } from './quota';
 
 /**
  * 保存層。いまは JSON ファイルだが、
@@ -30,6 +31,11 @@ export interface CoachStore {
   listProfiles?(limit?: number): Promise<{ userId: string; profile: RunnerProfile }[]>;
   /** カルテだけを書き戻す。履歴を読み込まずに済ませるため。 */
   saveProfile?(userId: string, profile: RunnerProfile): Promise<void>;
+  /**
+   * 使った回数を数える（quota.ts）。key を by だけ増やし、増やした後の値を返す。
+   * **同時に来ても数え漏れない**こと。比べる前に数える作りなので、ここが甘いと枠をすり抜ける。
+   */
+  bumpUsage?(key: string, by?: number): Promise<number>;
 }
 
 /** モデルに渡す会話の上限。これを超えたら古い順に落とす。 */
@@ -124,6 +130,8 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
 
 class FileCoachStore implements CoachStore {
   private readonly dir: string;
+  /** 手元の開発用。再起動で数え直しになるが、本番はデータベース側で数える。 */
+  private readonly usage = new MemoryUsageCounter();
   /** ファイルシステムが読み取り専用（サーバーレス等）な場合のフォールバック。 */
   private readonly memory = new Map<string, CoachState>();
   private fsUsable = true;
@@ -174,6 +182,10 @@ class FileCoachStore implements CoachStore {
         this.fsUsable = false;
       }
     });
+  }
+
+  bumpUsage(key: string, by = 1): Promise<number> {
+    return this.usage.bumpUsage(key, by);
   }
 
   async listProfiles(limit = 500): Promise<{ userId: string; profile: RunnerProfile }[]> {

@@ -34,11 +34,26 @@ async function checkDatabase(): Promise<DatabaseStatus> {
   return { database: 'ok', rows: count ?? 0 };
 }
 
+/**
+ * 1日の上限を数える仕組みが動いているか。
+ *
+ * **ここが動いていないと、上限は黙って外れる**（数えられない時は止めずに通す作りのため）。
+ * SQL を流し忘れていても画面は普通に動くので、ここで見えるようにしておく。
+ */
+async function checkUsage(): Promise<{ usage: 'ok' | 'not-configured' | 'error'; usageError?: string }> {
+  const client = createSupabaseAdminClient();
+  if (!client) return { usage: 'not-configured' };
+  // 0 を足すだけ。数は変わらない。
+  const { error } = await client.rpc('bump_usage', { p_key: 'health', p_by: 0 });
+  if (error) return { usage: 'error', usageError: `${error.code ?? ''} ${error.message}`.trim() };
+  return { usage: 'ok' };
+}
+
 export async function GET() {
-  const database = await checkDatabase();
+  const [database, usage] = await Promise.all([checkDatabase(), checkUsage()]);
 
   return Response.json(
-    { ok: true, checkedAt: new Date().toISOString(), ...getBuildInfo(), ...database },
+    { ok: true, checkedAt: new Date().toISOString(), ...getBuildInfo(), ...database, ...usage },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
