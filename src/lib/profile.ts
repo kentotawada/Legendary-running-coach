@@ -192,11 +192,103 @@ function byDate(activities: ActivityLog[]): ActivityLog[] {
   );
 }
 
+/**
+ * 同じ練習が、別の入口から二度入るのを防ぐ。
+ *
+ * 入口は3つある（チャットでの申告・ファイルの取り込み・ランニングアプリの同期）。
+ * **どれも元IDが違うので、IDだけで照合すると素通りする。**
+ * そこで日付・種目・距離・時間で見て、ほぼ同じものは同じ練習とみなす。
+ *
+ * 幅は狭く取る。広げると「午前と午後に同じ距離を走った日」の片方が消え、
+ * 週の走行距離が足りなくなる。二重に数えるのと同じくらい困る。
+ */
+const SAME_DISTANCE_KM = 0.3;
+const SAME_DURATION_MIN = 2;
+
+export function isSameWorkout(
+  existing: Pick<ActivityLog, 'date' | 'type' | 'distanceKm' | 'durationMin'>,
+  candidate: Pick<ActivityLog, 'date' | 'type' | 'distanceKm' | 'durationMin'>,
+): boolean {
+  if (existing.date !== candidate.date || existing.type !== candidate.type) return false;
+
+  // どちらかに距離が無ければ、同じものだと言い切れない。
+  if (existing.distanceKm === undefined || candidate.distanceKm === undefined) return false;
+  if (Math.abs(existing.distanceKm - candidate.distanceKm) > SAME_DISTANCE_KM) return false;
+
+  if (existing.durationMin === undefined || candidate.durationMin === undefined) return true;
+  return Math.abs(existing.durationMin - candidate.durationMin) <= SAME_DURATION_MIN;
+}
+
+/**
+ * その記録が、どれだけ測った中身を持っているか。
+ *
+ * 二つの場面で使う。どちらも**捨てる側を間違えないため**にある。
+ *
+ * ひとつは、同じ練習が2件ある時に**どちらを土台にするか**を決める時。
+ * もうひとつは「同じ練習だから飛ばす」の前の比較。取り込める項目は後から増えるので、
+ * 飛ばしてしまうと**増えた項目が永久に入らない**。
+ * 入れ直せば良くなる、という逃げ道を常に残しておく。
+ */
+export function activityRichness(
+  activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics' | 'hrSeconds'>,
+): number {
+  const laps = activity.laps?.length ?? 0;
+  const columns = activity.series
+    ? (['pace', 'cadence', 'power', 'vo', 'gct', 'step'] as const).filter(
+        (key) => (activity.series?.[key]?.length ?? 0) > 0,
+      ).length + 1
+    : 0;
+  const form = activity.metrics
+    ? (['powerW', 'verticalOscillationCm', 'groundContactMs', 'balanceLeft', 'stepLengthCm'] as const)
+        .filter((key) => activity.metrics?.[key] !== undefined).length
+    : 0;
+  const zones = activity.hrSeconds && activity.hrSeconds.length > 0 ? 1 : 0;
+  return Math.min(laps, 60) + columns * 10 + form * 10 + zones * 10;
+}
+
+/**
+ * 同じ練習の2件を1件にする。
+ *
+ * **測れるものは詳しいほうから、本人の言葉はある方から取る。**
+ * 時計は「どう感じたか」を測れないし、本人は区間ごとの心拍を覚えていない。
+ * どちらかを捨てると、必ず片方の情報が失われる。
+ */
+function mergeActivity(
+  a: Omit<ActivityLog, 'id' | 'createdAt'>,
+  b: Omit<ActivityLog, 'id' | 'createdAt'>,
+): Omit<ActivityLog, 'id' | 'createdAt'> {
+  const [rich, plain] = activityRichness(b) > activityRichness(a) ? [b, a] : [a, b];
+  return {
+    ...rich,
+    // 本人が書いたものが勝つ。
+    session: plain.session ?? rich.session,
+    felt: plain.felt ?? rich.felt,
+    effort: plain.effort ?? rich.effort,
+    shoeId: plain.shoeId ?? rich.shoeId,
+    externalId: rich.externalId ?? plain.externalId,
+  };
+}
+
 export function addActivity(
   profile: RunnerProfile,
   activity: Omit<ActivityLog, 'id' | 'createdAt'>,
   now: Date = new Date(),
 ): RunnerProfile {
+  /**
+   * **同じ練習をもう1件つくらない。**
+   * ファイルを取り込んだあとにチャットで同じ練習を話すと、
+   * これまでは2件になって、走行距離まで二重に数えていた。
+   */
+  const twin = profile.activities.find((existing) => isSameWorkout(existing, activity));
+  if (twin) {
+    const merged: ActivityLog = { ...mergeActivity(twin, activity), id: twin.id, createdAt: twin.createdAt };
+    return {
+      ...profile,
+      activities: byDate(profile.activities.map((item) => (item.id === twin.id ? merged : item))),
+      updatedAt: now.toISOString(),
+    };
+  }
+
   const entry: ActivityLog = { ...activity, id: newId(), createdAt: now.toISOString() };
   // 並べてから古い端を落とす。落とすのは、いちばん古い記録でなければならない。
   return {
@@ -204,6 +296,28 @@ export function addActivity(
     activities: tail(byDate([...profile.activities, entry]), MAX_ACTIVITIES),
     updatedAt: now.toISOString(),
   };
+}
+
+/**
+ * すでに二重になっている記録を、まとめ直す。
+ * **入口を直しても、過去に入った分は残る。** 取り込みのたびに通して、そこで直す。
+ */
+export function dedupeActivities(profile: RunnerProfile, now: Date = new Date()): RunnerProfile {
+  const kept: ActivityLog[] = [];
+  let changed = false;
+
+  for (const activity of profile.activities) {
+    const at = kept.findIndex((existing) => isSameWorkout(existing, activity));
+    if (at === -1) {
+      kept.push(activity);
+      continue;
+    }
+    kept[at] = { ...mergeActivity(kept[at], activity), id: kept[at].id, createdAt: kept[at].createdAt };
+    changed = true;
+  }
+
+  if (!changed) return profile;
+  return { ...profile, activities: byDate(kept), updatedAt: now.toISOString() };
 }
 
 /**

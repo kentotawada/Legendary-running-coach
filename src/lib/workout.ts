@@ -13,7 +13,14 @@
 import type { ActivityLap, ActivityLog, ActivitySeries, ActivityType, RunnerProfile } from './types';
 import { formatPace } from './goals';
 import { coachDate } from './day';
-import { addActivity, addShoeDistance, upgradeActivity } from './profile';
+import {
+  activityRichness as richness,
+  addActivity,
+  addShoeDistance,
+  dedupeActivities,
+  isSameWorkout,
+  upgradeActivity,
+} from './profile';
 import { attributeRun } from './shoes';
 
 /** どこから来た練習か。 */
@@ -408,32 +415,6 @@ function hr(value: number | undefined): number | undefined {
   return rounded >= 30 && rounded <= 240 ? rounded : undefined;
 }
 
-/**
- * 同じ練習が、別の入口から二度入るのを防ぐ。
- *
- * ヘルスケアから入った1本と、同じ練習をファイルから入れた1本は、元IDが違うので素通りする。
- * そこで**日付・種目・距離・時間**で見て、ほぼ同じものは同じ練習とみなす。
- *
- * 幅は狭く取る。広げると「午前と午後に同じ距離を走った日」の片方が消え、
- * 週の走行距離が足りなくなる。二重に数えるのと同じくらい困る。
- */
-const SAME_DISTANCE_KM = 0.3;
-const SAME_DURATION_MIN = 2;
-
-function isSameWorkout(
-  existing: ActivityLog,
-  candidate: Omit<ActivityLog, 'id' | 'createdAt'>,
-): boolean {
-  if (existing.date !== candidate.date || existing.type !== candidate.type) return false;
-
-  // どちらかに距離が無ければ、同じものだと言い切れない。
-  if (existing.distanceKm === undefined || candidate.distanceKm === undefined) return false;
-  if (Math.abs(existing.distanceKm - candidate.distanceKm) > SAME_DISTANCE_KM) return false;
-
-  if (existing.durationMin === undefined || candidate.durationMin === undefined) return true;
-  return Math.abs(existing.durationMin - candidate.durationMin) <= SAME_DURATION_MIN;
-}
-
 function trimSeries(profile: RunnerProfile): RunnerProfile {
   const withSeries = profile.activities.filter((activity) => activity.series);
   if (withSeries.length <= KEEP_SERIES) return profile;
@@ -445,36 +426,6 @@ function trimSeries(profile: RunnerProfile): RunnerProfile {
       activity.series && !keep.has(activity.id) ? { ...activity, series: undefined } : activity,
     ),
   };
-}
-
-/**
- * その記録が、どれだけのことを持っているか。
- *
- * **「同じ練習だから飛ばす」の前に、必ずこれで比べる。**
- * 取り込める項目は後から増える。増えた後に同じファイルを入れ直した時、
- * 飛ばしてしまうと**新しい項目が永久に入らない**。
- * 入れ直せば良くなる、という逃げ道を常に残しておく。
- */
-function richness(activity: Pick<ActivityLog, 'laps' | 'series' | 'metrics' | 'hrSeconds'>): number {
-  const laps = activity.laps?.length ?? 0;
-  // 推移は、持っている列の数で数える（心拍だけの推移と、6項目の推移は別物）。
-  const columns = activity.series
-    ? (['pace', 'cadence', 'power', 'vo', 'gct', 'step'] as const).filter(
-        (key) => (activity.series?.[key]?.length ?? 0) > 0,
-      ).length + 1
-    : 0;
-  // フォームの指標は、1項目ごとに数える。
-  const form = activity.metrics
-    ? (['powerW', 'verticalOscillationCm', 'groundContactMs', 'balanceLeft', 'stepLengthCm'] as const).filter(
-        (key) => activity.metrics?.[key] !== undefined,
-      ).length
-    : 0;
-
-  // ゾーンの集計を持っているかどうかも、詳しさのうち。
-  const zones = activity.hrSeconds && activity.hrSeconds.length > 0 ? 1 : 0;
-
-  // 区間は数が多いほど細かいが、1本の重みは推移や指標より軽い。
-  return Math.min(laps, 60) + columns * 10 + form * 10 + zones * 10;
 }
 
 export interface ImportResult {
@@ -506,7 +457,12 @@ export function importWorkouts(
     profile.activities.map((activity) => activity.externalId).filter((id): id is string => Boolean(id)),
   );
 
-  let next = profile;
+  /**
+   * **過去に二重で入った分を、先にまとめる。**
+   * 入口を直しても、すでに入っているものは残る。
+   * 取り込みはこれを通す唯一の機会なので、ここで直す。
+   */
+  let next = dedupeActivities(profile, now);
   let imported = 0;
   let skipped = 0;
   let upgraded = 0;
