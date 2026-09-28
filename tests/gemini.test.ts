@@ -296,16 +296,60 @@ describe('describeGeminiError', () => {
   });
 });
 
-describe('モデルの退避', () => {
+/**
+ * どのモデルに回すか。
+ *
+ * **費用のほぼ全部がここで決まる。** 実測で1通あたり約17円、その93%が入力だった。
+ * ふだんの会話は軽いモデルへ、画像の読み取りだけ強いモデルへ回す。
+ *
+ * 分けているのは**頼みごとの重さであって、人ではない。**
+ * 無料の人と会員で返事の質が変わると、無料の人が「たいしたことない」と離れていく。
+ */
+describe('モデルの振り分け', () => {
   beforeEach(() => {
     process.env.GEMINI_API_KEY = 'test-key';
     delete process.env.GEMINI_MODEL;
+    delete process.env.GEMINI_MODEL_VISION;
     generateContentStream.mockReset();
+  });
+
+  const speaks = (text: string) =>
+    generateContentStream.mockImplementation(async () =>
+      (async function* stream() {
+        for (const chunk of chunksOf([{ text }])) yield chunk;
+      })(),
+    );
+
+  const modelsUsed = () => generateContentStream.mock.calls.map((c) => c[0].model);
+
+  it('ふだんの会話は、軽いモデルで話す', async () => {
+    speaks('こんにちは！');
+    await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+    expect(modelsUsed()).toEqual(['gemini-3-flash-preview']);
+  });
+
+  /** 時計の画面を読み違えると、そのあとの助言がまるごと狂う。ここは安いほうに倒さない。 */
+  it('画像が付いていれば、読み取りの強いモデルに回す', async () => {
+    speaks('16.1km、キロ4分14秒ですね。');
+    await runCoachTurn({
+      state: stateOf(),
+      userText: 'これ読んで',
+      images: [{ mimeType: 'image/jpeg', data: 'AAAA' }],
+      now: NOW,
+    });
+    expect(modelsUsed()).toEqual(['gemini-3-pro-preview']);
+  });
+
+  it('環境変数で、どちらのモデルも差し替えられる', async () => {
+    process.env.GEMINI_MODEL = 'gemini-3-flash-lite-preview';
+    speaks('はい');
+    await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+    expect(modelsUsed()[0]).toBe('gemini-3-flash-lite-preview');
   });
 
   it('既定のモデルが使えなければ、退避先のモデルで続行する', async () => {
     generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
-      if (model === 'gemini-3-pro-preview') throw apiError('models/gemini-3-pro-preview is not found', 404);
+      if (model === 'gemini-3-flash-preview') throw apiError('models/gemini-3-flash-preview is not found', 404);
       return (async function* stream() {
         for (const chunk of chunksOf([{ text: 'こんにちは！' }])) yield chunk;
       })();
@@ -314,13 +358,11 @@ describe('モデルの退避', () => {
     const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
 
     expect(result.text).toBe('こんにちは！');
-    expect(generateContentStream.mock.calls.map((c) => c[0].model)).toEqual([
-      'gemini-3-pro-preview',
-      'gemini-3-flash-preview',
-    ]);
+    expect(modelsUsed()).toEqual(['gemini-3-flash-preview', 'gemini-3-pro-preview']);
   });
 
-  it('上位モデルの割り当てが無い(429)時も、軽いモデルで一度試す', async () => {
+  /** 読み取りの強いモデルが使えない日でも、黙って止まらない。 */
+  it('画像のモデルが使えなければ、軽いモデルで読み取りを試す', async () => {
     generateContentStream.mockImplementation(async ({ model }: { model: string }) => {
       if (model === 'gemini-3-pro-preview') throw apiError('RESOURCE_EXHAUSTED', 429);
       return (async function* stream() {
@@ -328,8 +370,14 @@ describe('モデルの退避', () => {
       })();
     });
 
-    const result = await runCoachTurn({ state: stateOf(), userText: 'やあ', now: NOW });
+    const result = await runCoachTurn({
+      state: stateOf(),
+      userText: 'これ読んで',
+      images: [{ mimeType: 'image/jpeg', data: 'AAAA' }],
+      now: NOW,
+    });
     expect(result.text).toBe('いけました');
+    expect(modelsUsed()).toEqual(['gemini-3-pro-preview', 'gemini-3-flash-preview']);
   });
 
   it('退避先も駄目なら、最後のエラーの理由をそのまま伝える', async () => {
