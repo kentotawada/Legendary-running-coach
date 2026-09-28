@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toSpokenText } from '@/lib/speech';
+import { BAD_REASONS } from '@/lib/feedback-client';
 
 export type Feedback = 'good' | 'bad' | null;
 
 interface Props {
   text: string;
   feedback: Feedback;
-  onFeedback: (value: Feedback) => void;
+  /** reason は「良くない」の理由。あとから足される（1回目は評価だけ届く）。 */
+  onFeedback: (value: Feedback, reason?: string) => void;
   canSpeak: boolean;
   speaking: boolean;
   onToggleSpeak: () => void;
@@ -79,6 +81,10 @@ export default function MessageActions({
   const [copied, setCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  /** 「良くない」を押した直後だけ、理由を聞く。 */
+  const [askReason, setAskReason] = useState(false);
+  const [other, setOther] = useState('');
+  const [thanked, setThanked] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -173,7 +179,13 @@ export default function MessageActions({
       <ActionButton
         label="的外れだった"
         active={feedback === 'bad'}
-        onClick={() => onFeedback(feedback === 'bad' ? null : 'bad')}
+        onClick={() => {
+          const next = feedback === 'bad' ? null : 'bad';
+          // **評価はこの時点で届ける。** 理由を選ばずに閉じても、「外した」ことは残る。
+          onFeedback(next);
+          setAskReason(next === 'bad');
+          setThanked(false);
+        }}
       >
         <Icon path={THUMB_DOWN} filled={feedback === 'bad'} />
       </ActionButton>
@@ -191,6 +203,69 @@ export default function MessageActions({
       </ActionButton>
 
       {copied && <span className="ml-1 text-[12px] text-muted">コピーしました</span>}
+      {thanked && <span className="ml-1 text-[12px] text-muted">ありがとうございます。直す材料にします</span>}
+
+      {/*
+        「良くない」の理由。**1回押せば終わる**ように候補を並べる。
+        どれにも当てはまらない時だけ、書いてもらう。
+      */}
+      {askReason && (
+        <div className="absolute bottom-11 left-0 z-20 w-[min(340px,calc(100vw-32px))] rounded-[14px] border border-line bg-elevated p-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold">どこが良くなかったですか？</p>
+            <button
+              type="button"
+              onClick={() => setAskReason(false)}
+              aria-label="閉じる"
+              className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-muted"
+            >
+              ×
+            </button>
+          </div>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {BAD_REASONS.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => {
+                  onFeedback('bad', reason);
+                  setAskReason(false);
+                  setThanked(true);
+                }}
+                className="rounded-full border border-line px-3 py-1.5 text-[12px] active:bg-sunken"
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+          <form
+            className="mt-2.5 flex gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!other.trim()) return;
+              onFeedback('bad', other.trim());
+              setOther('');
+              setAskReason(false);
+              setThanked(true);
+            }}
+          >
+            <input
+              value={other}
+              onChange={(event) => setOther(event.target.value)}
+              placeholder="そのほか（自由に）"
+              maxLength={300}
+              className="min-w-0 flex-1 rounded-[10px] border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-[color:var(--accent)]"
+            />
+            <button
+              type="submit"
+              disabled={!other.trim()}
+              className="rounded-[10px] bg-accent px-3 text-[12px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+            >
+              送る
+            </button>
+          </form>
+        </div>
+      )}
 
       {menuOpen && (
         <div className="absolute bottom-11 left-0 z-20 w-56 overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">

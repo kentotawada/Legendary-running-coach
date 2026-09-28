@@ -27,6 +27,7 @@ import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
 import type { ActivityLog } from '@/lib/types';
 import { hasConsent } from '@/lib/legal';
+import { sendFeedback } from '@/lib/feedback-client';
 import ConsentGate from './ConsentGate';
 
 export default function CoachApp() {
@@ -267,7 +268,11 @@ export default function CoachApp() {
             speaking={readAloud.speakingId === message.id}
             onToggleSpeak={() => readAloud.toggle(message.id, message.text)}
             feedback={feedback[message.id] ?? null}
-            onFeedback={(value) => setFeedback((prev) => ({ ...prev, [message.id]: value }))}
+            onFeedback={(value, reason) => {
+              setFeedback((prev) => ({ ...prev, [message.id]: value }));
+              // 取り消し（押し直して外す）は送らない。残っている評価はそのまま読む。
+              if (value) sendFeedback({ rating: value, reason, reply: message.text });
+            }}
             onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
             canEdit={message.id === lastUserId && !busy}
             onEdit={(text) => void editLast(text, message.imagePreviews ?? [])}

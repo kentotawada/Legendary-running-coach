@@ -144,8 +144,13 @@ create table if not exists public.app_events (
   id bigint generated always as identity primary key,
   kind text not null,
   user_id text,
+  -- 同じものを2件にしないための目印。評価なら「誰が・どの返答に」。
+  -- 良い→良くないと押し直したり、あとから理由を足したりしても、1件のまま書き換わる。
+  -- 空の行（不具合など）はいくつあってもよい（NULL どうしは重複とみなされない）。
+  ref text,
   payload jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (kind, ref)
 );
 
 create index if not exists app_events_kind_created_at_idx
