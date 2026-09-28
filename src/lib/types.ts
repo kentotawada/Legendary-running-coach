@@ -353,9 +353,27 @@ export interface DailyRecord {
   weightKg?: number;
 }
 
+/** 危険な兆候の重さ（red-flags.ts）。emergency は胸の痛み・意識が遠のく等、warning はめまい・動悸等。 */
+export type RedFlagLevel = 'emergency' | 'warning';
+
+/** 危険な兆候の訴え。**診てもらったと分かるまで、練習を出さないための記録。** */
+export interface RedFlagRecord {
+  level: RedFlagLevel;
+  /** 拾った兆候の呼び名（重い順）。 */
+  signs: string[];
+  /** いつ訴えがあったか。 */
+  at: string;
+  /** 医師に診てもらった・症状が消えた、と確認できた時刻。 */
+  clearedAt?: string;
+  /** 解除した理由（本人の言葉）。 */
+  clearedReason?: string;
+}
+
 export interface RunnerProfile {
   id: string;
   displayName?: string;
+  /** 危険な兆候の訴え（新しいものが後ろ）。 */
+  redFlags?: RedFlagRecord[];
   /**
    * 規約とプライバシーポリシーへの同意。**どの版に、いつ同意したか。**
    * 版が変わったら、もう一度同意してもらう（legal.ts の CONSENT_VERSION）。

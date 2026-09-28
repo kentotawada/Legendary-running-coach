@@ -1,4 +1,5 @@
 import type { PainPoint, RunnerProfile } from './types';
+import { activeRedFlag, redFlagDirectives, type ActiveRedFlag } from './red-flags';
 
 /**
  * 「少しでも痛みや違和感があれば、絶対に走らせない」を
@@ -17,6 +18,12 @@ export interface SafetyAssessment {
   maxSeverity: number;
   /** システムプロンプトに差し込む強制ディレクティブ。 */
   directives: string[];
+  /**
+   * まだ解除されていない、危険な兆候（胸の痛み・めまい等）の訴え（red-flags.ts）。
+   * **痛みとは別に持つ。** 膝の痛みの指示（フォームの仮説・代替トレーニング）は、胸の痛みには当てはまらない。
+   * ある間は、走行メニューを出さない検査（慎重モード）が働く。
+   */
+  redFlag: ActiveRedFlag | null;
 }
 
 const STALE_PAIN_DAYS = 14;
@@ -29,6 +36,10 @@ export function assessSafety(profile: RunnerProfile, now: Date = new Date()): Sa
   const activePains = profile.pains.filter((p) => p.status !== 'resolved' && p.severity >= 1);
   const maxSeverity = activePains.reduce((max, p) => Math.max(max, p.severity), 0);
   const directives: string[] = [];
+
+  // 危険な兆候は、痛みより先に置く。重さが違う。
+  const redFlag = activeRedFlag(profile, now);
+  if (redFlag) directives.push(...redFlagDirectives(redFlag));
 
   if (activePains.length > 0) {
     const list = activePains
@@ -61,6 +72,7 @@ export function assessSafety(profile: RunnerProfile, now: Date = new Date()): Sa
     activePains,
     maxSeverity,
     directives,
+    redFlag,
   };
 }
 

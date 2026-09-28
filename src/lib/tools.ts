@@ -24,6 +24,7 @@ import {
   upsertPain,
 } from './profile';
 import { logWeight } from './daily';
+import { activeRedFlag, clearRedFlags } from './red-flags';
 import { SHOE_ROLE_LABEL, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
 
@@ -158,6 +159,21 @@ export const coachTools: FunctionDeclaration[] = [
         since: { type: 'string', description: 'いつから' },
       },
       required: ['site', 'severity'],
+    },
+  },
+  {
+    name: 'clear_red_flag',
+    description:
+      '胸の痛み・意識が遠のく感じ・めまい・動悸などの危険な兆候の訴えを、解除する。' +
+      '胸の痛み・意識が遠のく感じ・ろれつ・息ができない（重い兆候）は、医師に診てもらって問題ないと言われたと本人が言った時だけ呼ぶ。' +
+      'めまい・動悸・息苦しさ・冷や汗（軽い兆候）は、症状がすっかり消えたと本人が言った時にも呼んでよい。' +
+      '推測で呼ばないこと。解除するまで、走る練習もきつい運動も提案できない。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: '本人の言葉のまま。例: "循環器内科で検査して異常なしと言われた"' },
+      },
+      required: ['reason'],
     },
   },
   {
@@ -505,6 +521,26 @@ export function executeTool(
         now,
       );
       return { profile: next, result: { ok: true, message: '今日のコンディションを記録した' } };
+    }
+
+    case 'clear_red_flag': {
+      const reason = str(args.reason);
+      if (!reason) {
+        return {
+          profile,
+          result: { ok: false, error: 'reason は必須。医師に何と言われたか、症状がどうなったかを本人の言葉で聞くこと。' },
+        };
+      }
+      if (!activeRedFlag(profile, now)) {
+        return { profile, result: { ok: true, message: '解除する訴えは残っていなかった。' } };
+      }
+      return {
+        profile: clearRedFlags(profile, reason, now),
+        result: {
+          ok: true,
+          message: '危険な兆候の訴えを解除した。再開は段階的に、短く軽いところから。同じ症状が出たらすぐやめるよう添えること。',
+        },
+      };
     }
 
     case 'update_pain': {

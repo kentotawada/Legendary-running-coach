@@ -23,6 +23,7 @@ import type { ActivityLog, RunnerProfile } from './types';
 
 export type GreetingKind =
   | 'empty'
+  | 'redflag'
   | 'pain'
   | 'race'
   | 'back'
@@ -117,11 +118,26 @@ export function greetingFor(profile: RunnerProfile, now: Date = new Date()): Gre
     text: parts.filter((part): part is string => Boolean(part)).join(' '),
   });
 
+  const safety = assessSafety(profile, now);
+
+  /**
+   * 胸の痛み・めまいなどの訴えが、まだ解除されていない。**何よりも先に、その後を聞く。**
+   * 記録がまだ無い人でも同じ（最初の会話で訴えることもある）。どのコーチでも、言うことは同じ。
+   */
+  if (safety.redFlag) {
+    const { record, daysAgo } = safety.redFlag;
+    const fact = `${daysAgo === 0 ? '' : `${whenWord(daysAgo)}の`}${record.signs[0]}、その後どうですか。`;
+    const advice =
+      record.level === 'emergency'
+        ? '医師に診てもらうまでは、走らずに様子を見てください。続く・強い時は 119 番へ。'
+        : '今日も無理はしないでください。続く・繰り返す時は受診を。';
+    return say('redflag', first(fact), advice);
+  }
+
   // まだ何も無い。**ここで近況を語り出しても、語る材料が無い。**
   if (profile.activities.length === 0) return say('empty', first(voice.empty));
 
   // 痛み。どのコーチでも、ここから入る。
-  const safety = assessSafety(profile, now);
   if (safety.runningForbidden) {
     const pain = safety.activePains[0];
     const since = pain.since ? daysBetween(pain.since, today) : undefined;

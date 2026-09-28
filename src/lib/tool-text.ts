@@ -20,6 +20,7 @@ export const COACH_TOOL_NAMES = [
   'remove_race',
   'log_condition',
   'update_pain',
+  'clear_red_flag',
   'log_activity',
   'set_today_plan',
   'log_weight',

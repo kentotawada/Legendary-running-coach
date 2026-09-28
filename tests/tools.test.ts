@@ -10,6 +10,7 @@ describe('coachTools', () => {
     expect(coachTools.map((t) => t.name).sort()).toEqual([
       'add_race',
       'add_shoes',
+      'clear_red_flag',
       'find_gear',
       'log_activity',
       'log_condition',
