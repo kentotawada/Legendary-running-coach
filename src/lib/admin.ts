@@ -75,6 +75,16 @@ export interface DayRow {
   signups: number;
   /** 話した回数。 */
   turns: number;
+  /** モデルを呼んだ回数。道具を使うと、1通の返事で何度も呼ぶ。 */
+  calls: number;
+  /**
+   * 1通の返事のために、モデルを何回呼んだか。
+   *
+   * **単価を下げる時に、いちばん先に見る数。**
+   * 呼ぶたびに、固定の指示文と道具の説明（約1.3万トークン）を頭から送り直している。
+   * ここが 3 なら、同じ文章を1通のために3回買っている。
+   */
+  callsPerTurn: number | null;
   inputTokens: number;
   outputTokens: number;
   /** 概算の費用（円）。単価が入っていなければ null。 */
@@ -93,6 +103,8 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
   const inputTokens = read(`tokens-in:${day}`);
   const outputTokens = read(`tokens-out:${day}`);
   const users = read(`users:${day}`);
+  const turns = read(`turns:${day}:all`);
+  const calls = read(`calls:${day}`);
   const yen = prices ? costYen(inputTokens, outputTokens, prices) : null;
   const limit = (plan: (typeof LIMIT_PLANS)[number]) =>
     LIMIT_REASONS.reduce((sum, reason) => sum + read(`event:${day}:limit:${reason}:${plan}`), 0);
@@ -100,7 +112,9 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
     day,
     users,
     signups: read(`event:${day}:signup`),
-    turns: read(`turns:${day}:all`),
+    turns,
+    calls,
+    callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
     inputTokens,
     outputTokens,
     yen,
@@ -115,6 +129,10 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
 export interface Totals {
   signups: number;
   turns: number;
+  /** モデルを呼んだ回数の合計。 */
+  calls: number;
+  /** 1通の返事あたり、モデルを呼んだ回数。**減らせばそのぶん安くなる。** */
+  callsPerTurn: number | null;
   yen: number | null;
   /** 1回話すあたりの費用（円）。**値段を決める一番の材料。** */
   yenPerTurn: number | null;
@@ -127,9 +145,12 @@ export function totalsOf(rows: DayRow[]): Totals {
   const priced = rows.every((row) => row.yen !== null);
   const yen = priced ? sum((row) => row.yen ?? 0) : null;
   const turns = sum((row) => row.turns);
+  const calls = sum((row) => row.calls);
   return {
     signups: sum((row) => row.signups),
     turns,
+    calls,
+    callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
     yen,
     yenPerTurn: yen !== null && turns > 0 ? yen / turns : null,
     limitGuest: sum((row) => row.limitGuest),

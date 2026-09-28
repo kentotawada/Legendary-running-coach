@@ -94,7 +94,15 @@ export default async function AdminPage() {
 
         <section className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <Stat label="使い始めた人" value={number(totals.signups)} />
-          <Stat label="話した回数" value={number(totals.turns)} />
+          <Stat
+            label="話した回数"
+            value={number(totals.turns)}
+            note={
+              totals.callsPerTurn !== null
+                ? `1通につきモデルを ${totals.callsPerTurn.toFixed(1)} 回`
+                : undefined
+            }
+          />
           <Stat
             label="概算の費用"
             value={yen(totals.yen)}
@@ -110,10 +118,10 @@ export default async function AdminPage() {
         <section className="mt-8">
           <h2 className="text-[15px] font-bold">日ごと</h2>
           <div className="mt-2 overflow-x-auto rounded-[14px] border border-line">
-            <table className="w-full min-w-[760px] border-collapse text-[13px] tabular-nums">
+            <table className="w-full min-w-[900px] border-collapse text-[13px] tabular-nums">
               <thead className="bg-sunken text-left text-[11px] text-muted">
                 <tr>
-                  {['日付', '話した人', '使い始めた', '回数', '送った量', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員）'].map(
+                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員）'].map(
                     (label) => (
                       <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">
                         {label}
@@ -129,6 +137,10 @@ export default async function AdminPage() {
                     <td className="px-3 py-2">{number(row.users)}</td>
                     <td className="px-3 py-2">{number(row.signups)}</td>
                     <td className="px-3 py-2">{number(row.turns)}</td>
+                    <td className="px-3 py-2">{number(row.calls)}</td>
+                    <td className="px-3 py-2">
+                      {row.callsPerTurn === null ? '—' : `${row.callsPerTurn.toFixed(1)}回`}
+                    </td>
                     <td className="px-3 py-2">{number(row.inputTokens)}</td>
                     <td className="px-3 py-2">{number(row.outputTokens)}</td>
                     <td className="px-3 py-2">{yen(row.yen)}</td>
@@ -146,6 +158,9 @@ export default async function AdminPage() {
           <p className="mt-2 text-[11px] leading-relaxed text-muted">
             費用は 1ドル={USD_TO_JPY}円 で換算した目安です。正確な金額は Google の請求画面で確かめてください。
             「上限（会員）」が増えてきたら、有料の枠を用意する頃合いです。
+            <br />
+            「1通あたり」は、1通の返事のためにモデルを何回呼んだか。呼ぶたびに固定の指示文と道具の説明（約1.3万トークン）を
+            送り直しているので、<strong>ここが 1 に近いほど安くなります</strong>。
           </p>
         </section>
 

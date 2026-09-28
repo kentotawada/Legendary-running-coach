@@ -45,6 +45,7 @@ describe('日ごとの数', () => {
   const counts = {
     [`users:${day}`]: 4,
     [`turns:${day}:all`]: 30,
+    [`calls:${day}`]: 90,
     [`tokens-in:${day}`]: 300_000,
     [`tokens-out:${day}`]: 20_000,
     [`event:${day}:signup`]: 2,
@@ -77,6 +78,29 @@ describe('日ごとの数', () => {
   it('1回あたりの費用を、期間全体で出す（値段を決める一番の材料）', () => {
     const totals = totalsOf([dayRow(day, counts, { inputPerMTok: 2, outputPerMTok: 12 })]);
     expect(totals.yenPerTurn).toBeCloseTo((0.84 * USD_TO_JPY) / 30);
+  });
+
+  /**
+   * 1通のためにモデルを何回呼んだか。
+   *
+   * **単価を下げる時に、いちばん先に見る数。** 呼ぶたびに、固定の指示文と道具の説明
+   * （約1.3万トークン）を頭から送り直している。3回なら、同じ文章を3回買っている。
+   */
+  it('1通あたり、モデルを何回呼んだかを出す', () => {
+    expect(dayRow(day, counts, null).callsPerTurn).toBe(3);
+    expect(totalsOf([dayRow(day, counts, null)]).callsPerTurn).toBe(3);
+  });
+
+  /** 数えていない日を「0回で済んだ」と読み違えさせない。 */
+  it('呼んだ回数を数えていなければ、空欄にする（0回と出さない）', () => {
+    const row = dayRow(day, { [`turns:${day}:all`]: 30 }, null);
+    expect(row.calls).toBe(0);
+    expect(row.callsPerTurn).toBeNull();
+  });
+
+  it('まだ誰も話していない日は、1通あたりを出さない', () => {
+    expect(dayRow(day, {}, null).callsPerTurn).toBeNull();
+    expect(totalsOf([dayRow(day, {}, null)]).callsPerTurn).toBeNull();
   });
 
   it('読む鍵に、上限の組み合わせがすべて入っている', () => {

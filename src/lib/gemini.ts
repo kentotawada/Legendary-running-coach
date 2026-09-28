@@ -24,9 +24,24 @@ import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
 import type { Usage } from './quota';
 
-const DEFAULT_MODEL = 'gemini-3-pro-preview';
-/** 既定のモデルがそのキーで使えない時に、黙って倒れないための退避先。 */
-const FALLBACK_MODEL = 'gemini-3-flash-preview';
+/**
+ * ふだんの会話に使うモデル。環境変数 GEMINI_MODEL で変えられる。
+ *
+ * **費用のほぼ全部が、ここで決まる。**
+ * 1回の返事で、固定の指示文と道具の説明あわせて約2万字（約1.3万トークン）を送る。
+ * 道具を使えばそれを何度も送り直すので、実測で1通あたり入力5万トークンを超えた。
+ * 上位のモデルのままでは、30人が毎日使うだけで月3〜6万円になる。
+ */
+const DEFAULT_MODEL = 'gemini-3-flash-preview';
+
+/**
+ * 画像を見てもらう時だけ使う、読み取りの強いモデル。環境変数 GEMINI_MODEL_VISION。
+ *
+ * **分けているのは人ではなく、頼みごとの重さ。**
+ * 時計の画面やフォームの写真から数値を読み取るのは、取り違えると助言そのものが狂う。
+ * ここだけは安いほうに倒さない。無料の人か会員かでは切り替えない。
+ */
+const VISION_MODEL = 'gemini-3-pro-preview';
 /** ツール呼び出し込みの1ターンで回す上限。無限ループを防ぐ。 */
 const MAX_STEPS = 6;
 /** 走行メニュー混入を検知した時に、書き直させる回数。 */
@@ -96,7 +111,7 @@ export function describeGeminiError(error: unknown, model: string): CoachApiErro
     message =
       'この API キーでは Gemini API を呼び出せません。キーに制限（HTTPリファラ / IP）がかかっていないか、Generative Language API が有効かを確認してください。';
   } else if (isModelUnavailable(error)) {
-    message = `モデル「${model}」がこのキーでは利用できません。環境変数 GEMINI_MODEL に ${FALLBACK_MODEL} を設定してみてください。`;
+    message = `モデル「${model}」がこのキーでは利用できません。環境変数 GEMINI_MODEL に、使えるモデル名を設定してください。`;
   } else if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(raw)) {
     message = 'Gemini API の利用上限に達しました。少し時間をおいてから、もう一度話しかけてください。';
   } else if (status !== undefined && status >= 500) {
@@ -108,10 +123,16 @@ export function describeGeminiError(error: unknown, model: string): CoachApiErro
   return new CoachApiError(message, raw.slice(0, 500), status);
 }
 
-/** 実際に使うモデルの候補。既定モデルが駄目なら退避先を試す。 */
-function candidateModels(): string[] {
-  const primary = modelName();
-  return primary === FALLBACK_MODEL ? [primary] : [primary, FALLBACK_MODEL];
+/**
+ * 実際に使うモデルの候補。先頭から順に試す。
+ *
+ * 2番目はあくまで**退避先**。そのキーで先頭のモデルが使えない時に、黙って倒れないためだけにある。
+ * 費用が上がる側へ退避することもあるが、**使えなくなるよりは高いほうがまし**という判断。
+ */
+function candidateModels(vision: boolean): string[] {
+  const primary = vision ? visionModelName() : modelName();
+  const spare = vision ? modelName() : visionModelName();
+  return primary === spare ? [primary] : [primary, spare];
 }
 
 function getClient(): GoogleGenAI {
@@ -124,6 +145,10 @@ function getClient(): GoogleGenAI {
 
 function modelName(): string {
   return cleanEnv(process.env.GEMINI_MODEL) || DEFAULT_MODEL;
+}
+
+function visionModelName(): string {
+  return cleanEnv(process.env.GEMINI_MODEL_VISION) || VISION_MODEL;
 }
 
 function baseConfig(systemInstruction: string, model: string): GenerateContentConfig {
@@ -226,9 +251,10 @@ async function streamOnce(
 async function generateStep(
   contents: Content[],
   systemInstruction: string,
+  vision: boolean,
   onDelta?: (delta: string) => void,
 ): Promise<StepResult> {
-  const models = candidateModels();
+  const models = candidateModels(vision);
   const emitted = { value: false };
 
   for (let index = 0; index < models.length; index += 1) {
@@ -319,6 +345,14 @@ export async function runCoachTurn({
     { text: userText },
   ];
 
+  /**
+   * 画像が付いているターンか。付いていれば、読み取りの強いモデルに回す。
+   *
+   * ターンの途中で切り替えない。道具を使うと同じ画像を何度も送り直すことになるので、
+   * 1回目と2回目で読み取りの精度が変わると、前の手順と噛み合わない返事になる。
+   */
+  const vision = (images ?? []).length > 0;
+
   const stamp = now.toISOString();
   const history: TimedContent[] = [...state.history, { role: 'user', parts: userParts, at: stamp }];
 
@@ -357,7 +391,7 @@ export async function runCoachTurn({
       ? `${buildSystemInstruction(profile, now)}\n\n${retryDirective}`
       : buildSystemInstruction(profile, now);
 
-    const result = await generateStep(history, systemInstruction, strict ? undefined : onDelta);
+    const result = await generateStep(history, systemInstruction, vision, strict ? undefined : onDelta);
     usage.inputTokens += result.usage.input;
     usage.outputTokens += result.usage.output;
     usage.calls += 1;
