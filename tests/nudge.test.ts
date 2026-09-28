@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { alreadySentToday, markNotified, notifyHourOf, nudgeFor, timeToNotify } from '@/lib/nudge';
+import {
+  alreadySentToday,
+  markNotified,
+  notifyHourOf,
+  nudgeFor,
+  nudgeStatus,
+  timeToNotify,
+} from '@/lib/nudge';
 import { addRace, addShoes, applyProfileUpdate, addActivity, upsertPain } from '@/lib/profile';
 import { createDefaultProfile } from '@/lib/types';
 import type { RunnerProfile } from '@/lib/types';
@@ -184,5 +191,67 @@ describe('受け取る時刻', () => {
       notifications: { hour: 7, lastSentAt: jst(7).toISOString() },
     });
     expect(nudgeFor(sent, jst(11))).toBeNull();
+  });
+});
+
+/**
+ * 「来なかった」の中身。
+ *
+ * **送る用事が無かっただけなのか、どこかで止まっているのか。**
+ * 外からは同じ「来ない」に見えるので、理由を言える形にしておく。
+ */
+describe('なぜ今日は送らないのか', () => {
+  it('知らせる用事が無い（いちばん多く、これは正常）', () => {
+    const status = nudgeStatus(active(base()), NOW);
+    expect(status.nudge).toBeNull();
+    expect(status.skip).toBe('nothing-to-say');
+  });
+
+  it('決めた時刻より前', () => {
+    // 9時に受け取る設定の人を、朝6時に見る。
+    const profile = applyProfileUpdate(active(base()), {}, NOW);
+    const at9 = { ...profile, notifications: { ...(profile.notifications ?? {}), hour: 9 } };
+    const status = nudgeStatus(at9, new Date('2026-09-24T06:00:00+09:00'));
+    expect(status.skip).toBe('too-early');
+  });
+
+  it('今日はもう送った', () => {
+    const profile = markNotified(active(base()), 'quiet', NOW);
+    expect(nudgeStatus(profile, NOW).skip).toBe('sent-today');
+  });
+
+  /** 用事はあるが、最近送ったばかり。**用事が無いのとは、次にすることが違う。** */
+  it('最近同じことを送ったばかり', () => {
+    const raceDay = addRace(
+      withGoal(),
+      { name: '東京マラソン', date: '2026-09-24', distance: 'フル', priority: 'A' },
+      NOW,
+    );
+    // 本番当日の知らせを、昨日のうちに送ってしまった形にする。
+    const yesterday = new Date(NOW.getTime() - 86_400_000);
+    const sent = markNotified(active(raceDay), 'race-day', yesterday);
+    // 「今日はもう送った」には当たらないが、その用事は冷却中。
+    expect(alreadySentToday(sent, NOW)).toBe(false);
+    expect(nudgeStatus(sent, NOW).skip).toBe('on-cooldown');
+  });
+
+  it('送る時は、理由が付かない', () => {
+    const profile = active(
+      addRace(withGoal(), { name: '東京マラソン', date: '2026-09-24', distance: 'フル', priority: 'A' }, NOW),
+    );
+    const status = nudgeStatus(profile, NOW);
+    expect(status.skip).toBeNull();
+    expect(status.nudge?.tag).toBe('race-day');
+  });
+
+  it('nudgeFor と、同じ判断になる', () => {
+    const scenes = [
+      active(base()),
+      markNotified(active(base()), 'quiet', NOW),
+      active(addRace(withGoal(), { name: '大会', date: '2026-09-24', priority: 'A' }, NOW)),
+    ];
+    for (const scene of scenes) {
+      expect(nudgeFor(scene, NOW)).toEqual(nudgeStatus(scene, NOW).nudge);
+    }
   });
 });

@@ -91,15 +91,43 @@ function onCooldown(profile: RunnerProfile, tag: string, cooldownDays: number, n
 }
 
 /**
+ * なぜ今日は送らないのか。
+ *
+ * **「来なかった」と「送る用事が無かった」は、外からは見分けがつかない。**
+ * 鍵の設定を疑って半日つぶすことになるので、理由を言える形にしておく。
+ */
+export type NudgeSkip =
+  /** 今日はもう1通送った。 */
+  | 'sent-today'
+  /** 本人が決めた時刻より前。 */
+  | 'too-early'
+  /** 知らせる用事が無い。**いちばん多い。そしてこれは正常。** */
+  | 'nothing-to-say'
+  /** 用事はあるが、最近送ったばかり。 */
+  | 'on-cooldown';
+
+export interface NudgeStatus {
+  /** 送る一言。無ければ null。 */
+  nudge: Nudge | null;
+  /** 送らない理由。送る時は null。 */
+  skip: NudgeSkip | null;
+}
+
+/**
  * 今日送るべき一言。無ければ null。
  * **無いことの方が多くて正常です。** 毎日送る理由は、こちらの都合でしかない。
  */
 export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge | null {
+  return nudgeStatus(profile, now).nudge;
+}
+
+/** nudgeFor と同じ判断を、理由つきで返す。 */
+export function nudgeStatus(profile: RunnerProfile, now: Date = new Date()): NudgeStatus {
   // ここは全員ぶんを順に回る場所。**1人の欠けた記録で、全員の通知を止めない。**
   // 保存が古くて配列そのものが無いことがあるので、必ず既定値を敷いてから触る。
-  if (alreadySentToday(profile, now)) return null;
+  if (alreadySentToday(profile, now)) return { nudge: null, skip: 'sent-today' };
   // **本人が決めた時刻より前には送らない。** 朝が全員に良い時間とは限らない。
-  if (!timeToNotify(profile, now)) return null;
+  if (!timeToNotify(profile, now)) return { nudge: null, skip: 'too-early' };
 
   const candidates: Nudge[] = [];
   const race = targetRace(profile, now);
@@ -184,7 +212,10 @@ export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge 
   }
 
   const chosen = candidates.find((nudge) => !onCooldown(profile, nudge.tag, nudge.cooldownDays, now));
-  if (!chosen) return null;
+  if (!chosen) {
+    // 候補すら無かったのか、あったが最近送ったばかりなのかで、次にすることが違う。
+    return { nudge: null, skip: candidates.length === 0 ? 'nothing-to-say' : 'on-cooldown' };
+  }
 
   /**
    * 名前で呼びかける。**原則3と同じ理由。**
@@ -192,7 +223,8 @@ export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge 
    * 名前を聞けていなければ、何も足さない。
    */
   const address = addressFor(profile.characterId, profile.displayName);
-  return address ? { ...chosen, title: `${address}、${chosen.title}` } : chosen;
+  const named = address ? { ...chosen, title: `${address}、${chosen.title}` } : chosen;
+  return { nudge: named, skip: null };
 }
 
 /** 送ったことを記録する。次に同じ知らせを出さないため。 */
