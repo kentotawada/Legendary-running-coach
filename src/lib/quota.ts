@@ -46,8 +46,14 @@ export const PLAN_LIMITS: Record<Exclude<Plan, 'admin'>, PlanLimits> = {
  */
 export const PLACE_DAILY_TURNS = 80;
 
-/** アプリ全体で1日に話せる回数。環境変数 DAILY_TURN_BUDGET で変えられる。 */
-export const DEFAULT_DAILY_BUDGET = 1000;
+/**
+ * アプリ全体で1日に話せる回数。環境変数 DAILY_TURN_BUDGET で変えられる。
+ *
+ * **既定は低めにしてある。** 1回の返事で、約1.2万文字の指示文と会話をまとめて送り、
+ * 道具を使えば何度も送り直す。仮の単価で1回およそ10円前後。1000回なら1日1万円前後になりうる。
+ * /admin で実際の「1回あたりの費用」を見てから上げる。
+ */
+export const DEFAULT_DAILY_BUDGET = 300;
 
 /** 数を数える先。key を by だけ増やし、増やした後の値を返す。 */
 export interface UsageCounter {
