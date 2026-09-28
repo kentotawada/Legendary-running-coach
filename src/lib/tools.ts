@@ -39,7 +39,11 @@ export const coachTools: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: 'object',
       properties: {
-        displayName: { type: 'string', description: '呼んでほしい名前' },
+        displayName: {
+          type: 'string',
+          description:
+            '呼んでほしい名前。**聞けたらその場で必ず記録する。** これが空だと、以降ずっと名前で呼べない。',
+        },
         experience: { type: 'string', description: 'ランニング歴や運動経験' },
         weeklyVolumeKm: { type: 'number', description: 'week あたりの走行距離(km)' },
         bodyWeightKg: { type: 'number' },

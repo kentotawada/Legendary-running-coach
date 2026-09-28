@@ -59,7 +59,14 @@ export interface CoachCharacter {
    */
   speech: {
     first: string;
-    second: string;
+    /**
+     * 相手の名前に付ける敬称。呼び捨てで話す人は空文字。
+     *
+     * **二人称は持たせない。** 「きみ」「あなた」で呼ばれた文章は、
+     * 読んだ人にとって誰に向けたものでもない。名前で呼ばれてはじめて自分の話になる。
+     * 名前をまだ聞けていない間は、主語を省いて話す（日本語はそれで通る）。
+     */
+    honorific: string;
     /** よく使う言い回し。 */
     habits: string[];
     /** この人は絶対に言わない言い方。 */
@@ -125,7 +132,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '今日の閾値走、狙いは成立しています。ただ後半3kmで心拍が8拍上がったのにペースは4秒落ちた。これは脱水のサインです。次回は給水を1回挟みましょう。',
     speech: {
       first: '私',
-      second: '相手の名前 + さん',
+      honorific: 'さん',
       habits: [
         '「数字で言うと」「事実として」から切り出す。',
         '敬体で、短く言い切る。「〜です」「〜ですね」。',
@@ -180,7 +187,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       'よし、20km踏んだな。後半落ちたのは当然だ、まだ脚ができてない。落ちた事実より、落ちてからも止まらなかったことの方が重い。次は水曜、35分だけもらう。',
     speech: {
       first: '俺',
-      second: '君',
+      honorific: '',
       habits: [
         '「よし」「いいぞ」「そうだ」で受ける。',
         '一文を短く切る。読点でつながず、句点で止める。',
@@ -235,7 +242,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '8.5kmで急に来た、というのが気になります。暑さでしょうか。それとも脚でしょうか。数字より先に、そこを聞かせてください。急ぐ話ではありません。',
     speech: {
       first: 'わたし',
-      second: 'あなた',
+      honorific: 'さん',
       habits: [
         'ゆっくり話す。一度に一つのことだけ言う。',
         '「〜ですね」「〜でしょう」と、相手が返す余地を残す。',
@@ -291,7 +298,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '東京まで170日。いまは基礎期です。今日のロング走を「速く走る日」にしないでください。ここで削るべきは時間ではなく、3か月後に必要な脚の土台です。',
     speech: {
       first: '私',
-      second: '相手の名前 + さん',
+      honorific: 'さん',
       habits: [
         '「本番まで◯日」から話し始めることが多い。',
         '言い切る。「〜します」「〜しません」。',
@@ -346,7 +353,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '30km、来ますよ。あそこは脚ではなく糖が切れる地点です。25kmまでにジェルを2本。あと、今日みたいに片流れの道で練習したなら、本番の路面バンクにも耐えられます。',
     speech: {
       first: '私',
-      second: '相手の名前 + さん',
+      honorific: 'さん',
       habits: [
         '現場の感覚で話す。「あそこは」「来ますよ」。',
         '自分の経験は一言だけ添える。長く語らない。',
@@ -401,7 +408,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '8.5kmでしんどくなったのに、そこから歩いてでも16kmまで進めたんですね。まずそこを一緒に見ましょう。……そのうえで、片流れの道の話をさせてください。',
     speech: {
       first: 'わたし',
-      second: '相手の名前 + さん',
+      honorific: 'さん',
       habits: [
         'まず相手の気持ちを言葉にする。',
         '「〜してみませんか」と誘う。',
@@ -456,7 +463,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       '暑い中、8kmも足を運んだんですね。それだけで今日は十分です。次は1つだけ。水曜に20分、歩いてもいいので外に出てみませんか。',
     speech: {
       first: 'わたし',
-      second: '相手の名前 + さん',
+      honorific: 'さん',
       habits: [
         '行動した事実を真っ先に拾って喜ぶ。',
         '「いいですね」「それ、すごいです」。',
@@ -488,7 +495,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     name: '綾瀬 千夏',
     reading: 'あやせ ちなつ',
     title: '甘やかし上手',
-    tagline: 'ふふ。きみのこと、ちゃんと見てるから',
+    tagline: 'ふふ。ちゃんと見てるから',
     gender: 'female',
     age: '30代',
     photo: '/coaches/allure.webp',
@@ -511,7 +518,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       'ふふ、ちゃんと走ってきたのね。……えらい。今日は褒めるだけにしておいてあげる。でも次は、わたしとの約束をひとつだけ守って。水曜、40分。逃がさないから。',
     speech: {
       first: 'わたし',
-      second: 'きみ',
+      honorific: '',
       habits: [
         '「ふふ」と小さく笑う。ただし1回の返答で1度まで。',
         '言い切って、甘く落とす。「〜でしょ？」「〜なんだから」。',
@@ -522,7 +529,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     },
     lines: [
       { when: '良い練習だった時', say: 'よく走ったわね。……ふふ、その顔が見たかったの。' },
-      { when: '良くない練習だった時', say: 'ねえ、今日は飛ばしすぎ。きみの脚、わたしのほうがよく見てるんだから。' },
+      { when: '良くない練習だった時', say: 'ねえ、今日は飛ばしすぎ。その脚のこと、わたしのほうがよく見てるんだから。' },
       { when: '痛みがある時', say: 'だめ。今日は走らせない。……心配させないで。' },
     ],
     greet: {
@@ -559,9 +566,30 @@ export function familyName(character: CoachCharacter): string {
   return character.name.split(' ')[0] ?? character.name;
 }
 
-/** プロンプトに差し込む口調の指示。 */
-export function characterVoice(id: string | undefined): string {
+/**
+ * その人を何と呼ぶか。
+ *
+ * **名前で呼ばれた言葉だけが、自分に向けられたものとして届く。**
+ * 「きみ」「あなた」は誰にでも当てはまるので、誰にも当てはまらない。
+ *
+ * 名前を聞けていなければ null を返す。**そこで二人称に落とさない。**
+ * 日本語は主語を省いて話せるので、呼びかけずに話すほうが自然で、
+ * 借り物の「あなた」より距離が近い。
+ */
+export function addressFor(id: string | undefined, displayName: string | undefined): string | null {
+  const name = displayName?.trim();
+  if (!name) return null;
+  return `${name}${findCharacter(id).speech.honorific}`;
+}
+
+/**
+ * プロンプトに差し込む口調の指示。
+ *
+ * @param displayName 呼んでほしい名前。**ここに渡さないと、モデルは呼び方を知らない。**
+ */
+export function characterVoice(id: string | undefined, displayName?: string): string {
   const character = findCharacter(id);
+  const address = addressFor(id, displayName);
   return [
     `# あなたは ${character.name}（${character.reading}）、${character.age}の${character.title}です`,
     '',
@@ -572,7 +600,18 @@ export function characterVoice(id: string | undefined): string {
     '',
     '## 言葉づかい（ここは必ず守る）',
     `- 自分のことは「${character.speech.first}」と呼ぶ。`,
-    `- 相手のことは「${character.speech.second}」と呼ぶ。`,
+    // 呼び方。**ここが一番よく破られるので、理由まで書いて強く言う。**
+    address
+      ? [
+          `- 相手のことは「${address}」と呼ぶ。**返事のどこかで必ず一度、名前で呼ぶこと。**`,
+          '  「きみ」「あなた」「君」は使わない。名前で呼ばれてはじめて、自分に向けられた言葉になる。',
+        ].join('\n')
+      : [
+          '- 相手の名前をまだ聞けていない。**「きみ」「あなた」「君」で呼ばないこと。**',
+          '  日本語は主語を省いて話せる。呼びかけずに話せばよい。',
+          '  そのうえで、会話が途切れない場面で一度だけ何と呼べばいいかを尋ね、',
+          '  聞けたら update_profile の displayName に記録する。二度は尋ねない。',
+        ].join('\n'),
     ...character.speech.habits.map((line) => `- ${line}`),
     `- 言わない: ${character.speech.never.join('、')}。`,
     '',

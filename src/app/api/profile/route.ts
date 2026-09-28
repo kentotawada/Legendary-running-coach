@@ -191,6 +191,17 @@ export async function PATCH(request: NextRequest) {
     };
   }
 
+  /**
+   * 名前を消す。
+   *
+   * applyProfileUpdate は undefined を「まだ分からない」として扱い、既存の値を残す。
+   * それは会話から拾う時には正しいが、**カルテの入力欄を空にした時に消えないと、
+   * 一度付けた名前を外せない。** 空文字で送られた時だけ、はっきり消す。
+   */
+  if (typeof body.displayName === 'string' && !body.displayName.trim() && profile.displayName) {
+    profile = { ...profile, displayName: undefined, updatedAt: now.toISOString() };
+  }
+
   profile = applyProfileUpdate(
     profile,
     {

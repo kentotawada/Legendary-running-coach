@@ -19,6 +19,7 @@ import type { Content } from '@google/genai';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
+import { addressFor } from './characters';
 import { coachDate } from './day';
 import { SHOE_ROLE_LABEL, activeShoes, findShoe } from './shoes';
 
@@ -688,7 +689,10 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
   const lines: string[] = [];
   lines.push('# このランナーについて今わかっていること');
   lines.push(`- 現在地: ${PHASE_LABEL[profile.phase]}`);
-  if (profile.displayName) lines.push(`- 呼び方: ${profile.displayName}さん`);
+  // 敬称はキャラクターごとに違う。ここで「さん」を固定すると、
+  // 呼び捨てで話す人の指示と食い違い、モデルがどちらを取るか分からなくなる。
+  const address = addressFor(profile.characterId, profile.displayName);
+  if (address) lines.push(`- 呼び方: ${address}`);
   if (profile.experience) lines.push(`- 経験: ${profile.experience}`);
 
   if (profile.goal && profile.goal.kind !== 'none') {

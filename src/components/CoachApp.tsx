@@ -174,7 +174,7 @@ export default function CoachApp() {
    * **空のチャットに放り出さない。** 白紙の入力欄の前で止まった人は、たいてい戻ってこない。
    */
   if (ready && needsCoach) {
-    return <Welcome onPick={(id) => void chooseCoach(id)} busy={busy || savingProfile} />;
+    return <Welcome onPick={(id, name) => void chooseCoach(id, name)} busy={busy || savingProfile} />;
   }
 
   return (

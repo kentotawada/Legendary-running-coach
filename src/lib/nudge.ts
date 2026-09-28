@@ -10,6 +10,7 @@
  */
 
 import type { RunnerProfile } from './types';
+import { addressFor } from './characters';
 import { daysUntil, targetRace } from './races';
 import { shoeStatuses } from './shoes';
 import { fuelPlanFor } from './gear-spec';
@@ -182,7 +183,16 @@ export function nudgeFor(profile: RunnerProfile, now: Date = new Date()): Nudge 
     }
   }
 
-  return candidates.find((nudge) => !onCooldown(profile, nudge.tag, nudge.cooldownDays, now)) ?? null;
+  const chosen = candidates.find((nudge) => !onCooldown(profile, nudge.tag, nudge.cooldownDays, now));
+  if (!chosen) return null;
+
+  /**
+   * 名前で呼びかける。**原則3と同じ理由。**
+   * ロック画面に並ぶ通知の中で、目が止まるのは自分の名前が見えた時だけ。
+   * 名前を聞けていなければ、何も足さない。
+   */
+  const address = addressFor(profile.characterId, profile.displayName);
+  return address ? { ...chosen, title: `${address}、${chosen.title}` } : chosen;
 }
 
 /** 送ったことを記録する。次に同じ知らせを出さないため。 */

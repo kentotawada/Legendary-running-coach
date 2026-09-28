@@ -7,7 +7,7 @@ import { PHASE_LABEL } from '@/lib/phase';
 import Sheet from './Sheet';
 import GoalEditor, { type ProfileEdit } from './GoalEditor';
 import CoachAvatar from './CoachAvatar';
-import { findCharacter } from '@/lib/characters';
+import { addressFor, findCharacter } from '@/lib/characters';
 import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
 import { RACE_PRIORITY_LABEL, daysUntil, racesOf, targetRace } from '@/lib/races';
 import { FONT_SIZES, type FontSizeId } from '@/lib/display';
@@ -293,7 +293,12 @@ export default function ProfileSheet({
                     </span>
                   </span>
                 </Row>
-                {profile.displayName && <Row label="呼び方">{profile.displayName}さん</Row>}
+                {/* 敬称はコーチごとに違うので、実際に呼ばれる形をそのまま出す。 */}
+                <Row label="呼び方">
+                  {addressFor(profile.characterId, profile.displayName) ?? (
+                    <span className="text-muted">まだ決めていません</span>
+                  )}
+                </Row>
                 <Row label="現在地">{PHASE_LABEL[profile.phase]}</Row>
                 <Row label="目標">
                   {profile.goal && profile.goal.kind !== 'none' ? (

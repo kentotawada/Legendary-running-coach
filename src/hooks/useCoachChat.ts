@@ -66,7 +66,7 @@ export interface CoachChat {
   /** まだ誰に見てもらうかを選んでいない。**選ぶところから始める。** */
   needsCoach: boolean;
   /** コーチを決めて、会話を始める。 */
-  chooseCoach: (characterId: string) => Promise<void>;
+  chooseCoach: (characterId: string, displayName?: string) => Promise<void>;
   /** 通知を受け取る時刻を決める（0〜23、走る人の地域の時刻）。 */
   saveNotifyHour: (hour: number) => Promise<void>;
   streamingText: string | null;
@@ -673,8 +673,9 @@ export function useCoachChat(): CoachChat {
    * **選んだ直後に黙られると、何が起きたのか分からない。**
    */
   const chooseCoach = useCallback(
-    async (characterId: string) => {
-      await updateProfile({ characterId });
+    async (characterId: string, displayName?: string) => {
+      // 名前は、最初の一言より先に保存する。**でないと初回だけ名前で呼べない。**
+      await updateProfile(displayName ? { characterId, displayName } : { characterId });
       setNeedsCoach(false);
       await turn('');
     },

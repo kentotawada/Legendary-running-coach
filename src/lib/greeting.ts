@@ -1,5 +1,5 @@
 import { coachDate, daysBetween } from './day';
-import { findCharacter } from './characters';
+import { addressFor, findCharacter } from './characters';
 import { upcomingRaces, daysUntil } from './races';
 import { assessSafety } from './safety';
 import { shoeStatuses } from './shoes';
@@ -90,13 +90,35 @@ function runFact(run: ActivityLog, days: number): string {
 export function greetingFor(profile: RunnerProfile, now: Date = new Date()): Greeting {
   const voice = findCharacter(profile.characterId).greet;
   const today = coachDate(now);
+
+  /**
+   * 名前で呼びかけてから話し始める。
+   *
+   * **この一言は、開いた瞬間に目に入る最初の文章。** ここが「お疲れさまです。」なら
+   * 誰に向けたものでもないが、「ケントさん、お疲れさまです。」なら自分の話になる。
+   * 名前を聞けていなければ、何も足さずにそのまま出す。
+   */
+  const address = addressFor(profile.characterId, profile.displayName);
+
+  /**
+   * コーチ本人の一言に名前を差し込む。
+   *
+   * 「よし、来たな。」の頭に置くと「ケント、よし、来たな。」で読点が続いて読みにくい。
+   * 感動詞で切り出す人は、その後ろに名前を置く。「よし、ケント、来たな。」
+   */
+  const first = (line: string): string => {
+    if (!address) return line;
+    const lead = /^(よし|あら|ねえ|ほら|さあ|おお)、/.exec(line);
+    return lead ? `${lead[1]}、${address}、${line.slice(lead[0].length)}` : `${address}、${line}`;
+  };
+
   const say = (kind: GreetingKind, ...parts: (string | undefined)[]): Greeting => ({
     kind,
     text: parts.filter((part): part is string => Boolean(part)).join(' '),
   });
 
   // まだ何も無い。**ここで近況を語り出しても、語る材料が無い。**
-  if (profile.activities.length === 0) return say('empty', voice.empty);
+  if (profile.activities.length === 0) return say('empty', first(voice.empty));
 
   // 痛み。どのコーチでも、ここから入る。
   const safety = assessSafety(profile, now);
@@ -105,7 +127,7 @@ export function greetingFor(profile: RunnerProfile, now: Date = new Date()): Gre
     const since = pain.since ? daysBetween(pain.since, today) : undefined;
     const fact =
       since !== undefined && since >= 1 ? `${pain.site}、${since}日目です。` : `${pain.site}ですね。`;
-    return say('pain', fact, voice.pain);
+    return say('pain', first(fact), voice.pain);
   }
 
   const run = latestRun(profile);
@@ -116,21 +138,21 @@ export function greetingFor(profile: RunnerProfile, now: Date = new Date()): Gre
   const until = race ? daysUntil(race.date, now) : undefined;
   if (race && until !== undefined && until <= RACE_NEAR_DAYS) {
     const fact = until === 0 ? `${race.name}、今日ですね。` : `${race.name}まで${until}日です。`;
-    return say('race', voice.hello, fact, voice.ask);
+    return say('race', first(voice.hello), fact, voice.ask);
   }
 
   // しばらく来ていない。**責めない。** 戻ってきたことのほうが重い。
   if (away !== undefined && away >= AWAY_DAYS) {
-    return say('back', voice.back, `前に走ってから${away}日空いています。`, voice.ask);
+    return say('back', first(voice.back), `前に走ってから${away}日空いています。`, voice.ask);
   }
 
   // いちばん多い場面。この前の練習を、見ていたと分かる形で言う。
   if (run && away !== undefined && away <= RECENT_DAYS) {
-    return say('recent', voice.hello, runFact(run, away), voice.ask);
+    return say('recent', first(voice.hello), runFact(run, away), voice.ask);
   }
 
   if (race && until !== undefined && until <= RACE_FAR_DAYS) {
-    return say('race', voice.hello, `${race.name}まで${until}日です。`, voice.ask);
+    return say('race', first(voice.hello), `${race.name}まで${until}日です。`, voice.ask);
   }
 
   // 靴。急ぎではないが、黙っていると、ある日いきなり痛みになって出てくる。
@@ -140,8 +162,8 @@ export function greetingFor(profile: RunnerProfile, now: Date = new Date()): Gre
       worn.level === 'over'
         ? `${worn.shoe.name}が${Math.round(worn.shoe.km)}km。替えどきを過ぎています。`
         : `${worn.shoe.name}が${Math.round(worn.shoe.km)}km。そろそろです。`;
-    return say('shoes', voice.hello, fact, voice.ask);
+    return say('shoes', first(voice.hello), fact, voice.ask);
   }
 
-  return say('plain', voice.hello, voice.ask);
+  return say('plain', first(voice.hello), voice.ask);
 }
