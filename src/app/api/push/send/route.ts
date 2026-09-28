@@ -3,6 +3,7 @@ import { cleanEnv } from '@/lib/build-info';
 import { getStore } from '@/lib/store';
 import { markNotified, nudgeFor } from '@/lib/nudge';
 import { applyOutcomes, isPushConfigured, sendPush, type PushOutcome } from '@/lib/push';
+import { countEvent, counterOf } from '@/lib/ops';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +87,8 @@ async function run(request: NextRequest): Promise<Response> {
     }
   }
 
+  // 届けた数。定期実行が本当に動いているかは、ここが毎日増えているかで分かる。
+  await countEvent(counterOf(store), 'push_sent', sent, now);
   return Response.json({ ok: true, people: people.length, sent, skipped, dropped });
 }
 
