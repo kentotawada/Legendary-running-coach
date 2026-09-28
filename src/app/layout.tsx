@@ -19,6 +19,8 @@ const latin = Inter({
   display: 'swap',
 });
 import { FONT_SIZE_BOOT_SCRIPT } from '@/lib/display';
+import { Analytics } from '@vercel/analytics/next';
+import ErrorReporter from '@/components/ErrorReporter';
 
 export const metadata: Metadata = {
   title: 'RUNCOACH',
@@ -65,7 +67,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         */}
         <script dangerouslySetInnerHTML={{ __html: FONT_SIZE_BOOT_SCRIPT }} />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        {/*
+          どこから来て、どの端末で見ているか。Cookie を使わず、個人を特定しない集計。
+          Vercel の管理画面で Web Analytics を有効にすると数え始める。
+        */}
+        <Analytics />
+        <ErrorReporter />
+      </body>
     </html>
   );
 }

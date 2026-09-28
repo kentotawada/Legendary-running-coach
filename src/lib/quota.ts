@@ -256,3 +256,16 @@ export class MemoryUsageCounter implements UsageCounter {
     return this.counts.get(key) ?? 0;
   }
 }
+
+/**
+ * 手元の開発で使う、プロセスで1つだけの数え先。
+ *
+ * **開発中の Next は、API とページを別々に組み立てる。** 部品ごとに数え先を作ると、
+ * API で数えた数がページ（/admin）からは見えない。globalThis に1つだけ置いて共有する。
+ * 本番はデータベースで数えるので、ここは通らない。
+ */
+export function sharedDevUsage(): MemoryUsageCounter {
+  const holder = globalThis as { __runcoachUsage?: MemoryUsageCounter };
+  holder.__runcoachUsage ??= new MemoryUsageCounter();
+  return holder.__runcoachUsage;
+}

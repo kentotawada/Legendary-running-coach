@@ -7,7 +7,7 @@ import type { Content, Part } from '@google/genai';
 import { imagePlaceholder } from './markers';
 import { createSupabaseAdminClient } from './supabase';
 import { SupabaseCoachStore } from './store-supabase';
-import { MemoryUsageCounter } from './quota';
+import { sharedDevUsage } from './quota';
 
 /**
  * 保存層。いまは JSON ファイルだが、
@@ -131,7 +131,7 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
 class FileCoachStore implements CoachStore {
   private readonly dir: string;
   /** 手元の開発用。再起動で数え直しになるが、本番はデータベース側で数える。 */
-  private readonly usage = new MemoryUsageCounter();
+  private readonly usage = sharedDevUsage();
   /** ファイルシステムが読み取り専用（サーバーレス等）な場合のフォールバック。 */
   private readonly memory = new Map<string, CoachState>();
   private fsUsable = true;

@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
+import { countEvent, counterOf } from '@/lib/ops';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { publicProfile } from '@/lib/profile';
@@ -245,6 +246,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return storageErrorResponse(error, '取り込んだ記録を保存できませんでした');
   }
+
+  // 記録を取り込んだ人は、続けて使う人の一番の目印。
+  if (result.imported + result.upgraded > 0) await countEvent(counterOf(getStore()), 'import');
 
   return Response.json(
     {

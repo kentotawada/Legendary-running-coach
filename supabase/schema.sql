@@ -128,3 +128,28 @@ $$;
 -- 関数は、作った時点で誰でも呼べる状態になっている。サーバーだけに絞る。
 revoke all on function public.bump_usage(text, bigint) from public, anon, authenticated;
 grant execute on function public.bump_usage(text, bigint) to service_role;
+
+-- ============================================================
+-- 5. 運営の記録（不具合と、返答への評価）
+-- ============================================================
+--
+-- 持ち主だけが /admin で読みます（src/lib/ops.ts）。
+--   kind = 'error'     本番で起きた不具合。どこで・何が・どのビルドで
+--   kind = 'feedback'  返答への「良い・良くない」と、その理由
+--
+-- 使った回数や、使い始めた人数などの数は、4. の usage_counters に入ります。
+-- **利用者の側（anon キー）からは、一切触れないようにしてあります。**
+
+create table if not exists public.app_events (
+  id bigint generated always as identity primary key,
+  kind text not null,
+  user_id text,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists app_events_kind_created_at_idx
+  on public.app_events (kind, created_at desc);
+
+-- 行レベルセキュリティを有効にし、ポリシーは作らない。= サーバーだけが読み書きできる。
+alter table public.app_events enable row level security;

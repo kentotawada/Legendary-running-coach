@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { withConsent } from '@/lib/legal';
+import { countEvent, counterOf } from '@/lib/ops';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
@@ -185,8 +186,15 @@ export async function PATCH(request: NextRequest) {
    * どの版に、いつ同意したかはサーバーが決める。版や日付を画面から受け取ると、
    * 同意していない版に同意したことにできてしまう。
    */
+  // 同意した人と、はじめてコーチを選んだ人（＝使い始めた人）を数える。
+  // 最初の画面でどれだけ離れているかは、この2つと訪問数の差で分かる。
+  const events: string[] = [];
   if (body.consent === true) {
+    if (!profile.consent) events.push('consent');
     profile = withConsent(profile, now);
+  }
+  if (typeof body.characterId === 'string' && body.characterId.trim() && !profile.characterId) {
+    events.push('signup');
   }
 
   /**
@@ -232,6 +240,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     return storageErrorResponse(error, '設定を保存できませんでした');
   }
+  for (const name of events) await countEvent(counterOf(store), name, 1, now);
 
   return Response.json(
     { profile: publicProfile(profile) },

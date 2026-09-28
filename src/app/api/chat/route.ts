@@ -13,6 +13,7 @@ import { dropLastUserTurn, rewindToLastUserTurn } from '@/lib/history';
 import { greetingFor } from '@/lib/greeting';
 import { clientAddress, planFor, recordUsage, takeQuota } from '@/lib/quota';
 import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
+import { countEvent, counterOf, reportError } from '@/lib/ops';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
       })
     : null;
   if (quota && !quota.ok) {
+    // 上限に当たった人の数は、「お金を払ってでも使いたい人」の数に近い。値段を決める材料。
+    await countEvent(counterOf(store), `limit:${quota.reason}:${quota.plan}`);
     return Response.json({ error: quota.message, reason: quota.reason }, { status: 429 });
   }
   // 返事を作る前に終わった時は、数えた分を戻す。こちらの都合で回数を減らさない。
@@ -139,6 +142,7 @@ export async function POST(request: NextRequest) {
       // まとめて「接続できませんでした」にすると、原因の見当がつかなくなる。
       const sendStorageFailure = (error: unknown, what: string) => {
         console.error(`[coach] ${what}`, error);
+        void reportError('chat:storage', error, { userId, what });
         if (error instanceof StorageError) {
           send({ type: 'error', message: error.message, detail: `${error.detail}\n\n${error.hint}` });
         } else {
@@ -227,6 +231,11 @@ export async function POST(request: NextRequest) {
           onDelta: (delta) => send({ type: 'delta', text: delta }),
         });
       } catch (error) {
+        // 返事を作れなかった。**鍵の設定漏れも、モデルの不調も、ここに来る。** 必ず残す。
+        void reportError('chat:model', error, {
+          userId,
+          detail: error instanceof CoachApiError ? error.detail : undefined,
+        });
         if (error instanceof MissingApiKeyError) {
           send({ type: 'error', message: error.message });
         } else if (error instanceof CoachApiError) {

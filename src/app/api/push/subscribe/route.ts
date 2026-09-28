@@ -3,6 +3,7 @@ import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
 import { addSubscription, isPushConfigured, removeSubscription } from '@/lib/push';
+import { countEvent, counterOf } from '@/lib/ops';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return storageErrorResponse(error, '通知の設定を保存できませんでした');
   }
+  await countEvent(counterOf(getStore()), 'push_on');
 
   return Response.json(
     { ok: true },
