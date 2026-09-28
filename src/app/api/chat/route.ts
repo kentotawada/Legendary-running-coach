@@ -14,6 +14,7 @@ import { greetingFor } from '@/lib/greeting';
 import { clientAddress, planFor, recordUsage, takeQuota } from '@/lib/quota';
 import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
 import { countEvent, counterOf, reportError } from '@/lib/ops';
+import { detectRedFlags, redFlagNoticePlain } from '@/lib/red-flags';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,10 +108,17 @@ export async function POST(request: NextRequest) {
         images: images.length,
       })
     : null;
+  /**
+   * 危険な兆候の訴え。**上限に当たっていても、モデルが落ちていても、安全の文だけは返す。**
+   * 胸が苦しいと書いた人に「今日はここまでです」だけを返して終わらせない。
+   */
+  const redFlag = detectRedFlags(typeof body.message === 'string' ? body.message : '');
+  const withRedFlag = (message: string) => (redFlag ? `${redFlagNoticePlain(redFlag)}\n\n${message}` : message);
+
   if (quota && !quota.ok) {
     // 上限に当たった人の数は、「お金を払ってでも使いたい人」の数に近い。値段を決める材料。
     await countEvent(counterOf(store), `limit:${quota.reason}:${quota.plan}`);
-    return Response.json({ error: quota.message, reason: quota.reason }, { status: 429 });
+    return Response.json({ error: withRedFlag(quota.message), reason: quota.reason }, { status: 429 });
   }
   // 返事を作る前に終わった時は、数えた分を戻す。こちらの都合で回数を減らさない。
   let delivered = false;
@@ -236,19 +244,23 @@ export async function POST(request: NextRequest) {
           userId,
           detail: error instanceof CoachApiError ? error.detail : undefined,
         });
+        // 危険な兆候を訴えた人には、返事が作れなくても、やめる・119・受診の文だけは届ける。
+        const turnFlag = detectRedFlags(userText);
+        const safe = (message: string) => (turnFlag ? `${redFlagNoticePlain(turnFlag)}\n\n${message}` : message);
+
         if (error instanceof MissingApiKeyError) {
-          send({ type: 'error', message: error.message });
+          send({ type: 'error', message: safe(error.message) });
         } else if (error instanceof CoachApiError) {
           // 原因が分からないまま詰まるのが一番困る。翻訳した理由と生のメッセージを両方返す。
           console.error('[coach] turn failed', error.status, error.detail);
-          send({ type: 'error', message: error.message, detail: error.detail });
+          send({ type: 'error', message: safe(error.message), detail: error.detail });
         } else {
           console.error('[coach] turn failed', error);
           // detail が空だと画面に詳細が出ず、原因の切り分けができなくなる。必ず何か入れる。
           const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           send({
             type: 'error',
-            message: 'コーチへの接続がうまくいきませんでした。少し時間をおいて、もう一度話しかけてください。',
+            message: safe('コーチへの接続がうまくいきませんでした。少し時間をおいて、もう一度話しかけてください。'),
             detail: (raw.trim() || '詳細不明のエラー').slice(0, 500),
           });
         }

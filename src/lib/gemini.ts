@@ -12,6 +12,13 @@ import {
   containsRunningPrescription,
   mentionsDiscomfort,
 } from './safety';
+import {
+  detectRedFlags,
+  guardRedFlagReply,
+  recordRedFlag,
+  redFlagNotice,
+  redFlagRetryDirective,
+} from './red-flags';
 import { stripInlineData, trimHistory } from './store';
 import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
@@ -330,10 +337,20 @@ export async function runCoachTurn({
       typeof part.text === 'string' && !part.thought ? { ...part, text: resolve(part.text) } : part,
     );
 
-  const cautious = assessSafety(profile, now).runningForbidden || mentionsDiscomfort(userText);
+  /**
+   * 危険な兆候（胸の痛み・意識が遠のく感じ・めまい等）。**モデルが気づく前に、コードで拾う。**
+   * 拾ったら記録に残す。記録があると、指示文の先頭に強制の指示が入り（safety.ts）、
+   * 次の日以降も、診てもらったと分かるまで練習を出さない。
+   */
+  const turnFlag = detectRedFlags(userText);
+  if (turnFlag) profile = recordRedFlag(profile, turnFlag, now);
+
+  const cautious =
+    assessSafety(profile, now).runningForbidden || mentionsDiscomfort(userText) || Boolean(turnFlag);
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
-    const strict = cautious || assessSafety(profile, now).runningForbidden;
+    const safety = assessSafety(profile, now);
+    const strict = cautious || safety.runningForbidden || Boolean(safety.redFlag);
     const systemInstruction = retryDirective
       ? `${buildSystemInstruction(profile, now)}\n\n${retryDirective}`
       : buildSystemInstruction(profile, now);
@@ -390,17 +407,41 @@ export async function runCoachTurn({
     if (strict && containsRunningPrescription(candidate) && rewrites < MAX_REWRITES) {
       // 走行メニューが混ざっていた。この発言は画面に出さず、まるごと書き直させる。
       rewrites += 1;
-      retryDirective = RUNNING_PRESCRIPTION_RETRY_DIRECTIVE;
+      // 危険な兆候の時は、痛みの書き直し（フォームの仮説・代替トレーニング）ではなく、やめる・受診の方へ。
+      retryDirective = safety.redFlag ? redFlagRetryDirective(safety.redFlag.record) : RUNNING_PRESCRIPTION_RETRY_DIRECTIVE;
       finalText = '';
       continue;
     }
 
-    history.push({ role: 'model', parts: cleanParts(result.parts, stepText) });
-    finalText = candidate;
+    /**
+     * **「やめる」「119」「受診」は、モデルが書き忘れても、コードで必ず届ける。**
+     * 重い兆候では、決まった文言を先頭に置く。軽い兆候では、受診の話が無い時だけ足す。
+     */
+    const guarded = turnFlag ? guardRedFlagReply(candidate, turnFlag) : candidate;
+    const prefix = guarded.endsWith(candidate) ? guarded.slice(0, guarded.length - candidate.length) : '';
+
+    history.push({ role: 'model', parts: cleanParts(result.parts, prefix + stepText) });
+    finalText = guarded;
 
     // 慎重モードでは、ここまで一切流していない。検査を通った本文をまとめて届ける。
     if (strict) onDelta?.(finalText);
     break;
+  }
+
+  /**
+   * **ループがどこで終わっても、安全の文は必ず入れる。**
+   *
+   * 上の検査（ループの中）を通らずにここへ来る道が2つある。
+   * 道具を使った後に本文が空で終わった時と、手順の上限に達した時。
+   * どちらも、本文は溜まっているので「空の時の文」にも引っかからない。
+   */
+  if (turnFlag) {
+    const guarded = guardRedFlagReply(finalText, turnFlag);
+    if (guarded !== finalText) {
+      finalText = guarded;
+      // 画面に出したものを、履歴にも残す。次のターンで、自分が何を言ったか分かるように。
+      history.push({ role: 'model', parts: [{ text: redFlagNotice(turnFlag) }] });
+    }
   }
 
   if (!finalText.trim()) {
