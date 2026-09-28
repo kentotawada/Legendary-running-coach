@@ -126,10 +126,8 @@ export default function PrivacyPage() {
                 <td className="py-2.5 pr-3">コーチの返答を作る（Gemini API）</td>
                 <td className="py-2.5">
                   会話の内容、送った画像、返答に必要なプロフィール・体の状態・練習の記録。
-                  <strong>
-                    現在は無料の枠で利用しているため、送った内容が Google のサービス改善に利用され、担当者が内容を確認する場合があります。
-                  </strong>
-                  有料の枠へ移行しだい、この記述を改めます。
+                  <strong>有料の枠で利用しており</strong>
+                  、Google がこれらを自社のサービスの改善に利用することはありません。
                 </td>
               </tr>
               <tr className="border-b border-line">
