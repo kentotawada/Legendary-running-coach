@@ -48,6 +48,36 @@ interface Props {
   onOpenRun?: (activity: ActivityLog) => void;
 }
 
+/**
+ * カルテの区切り。
+ *
+ * **3種類のものが1列に並んでいた。** 「あなたのこと」「記録」「設定」は
+ * 見る目的が違うのに、同じ太さの線で延々とつながっていたので、
+ * 探しているものにたどり着けなかった。見出しで切る。
+ */
+function Group({
+  title,
+  when = true,
+  children,
+}: {
+  title: string;
+  /**
+   * 中身が1つでもあるか。
+   * **空の見出しを出さない。** 中の行はどれも条件つきなので、
+   * まだ何も記録していない人には、名前だけの区切りが並ぶことになる。
+   */
+  when?: boolean;
+  children: React.ReactNode;
+}) {
+  if (!when) return null;
+  return (
+    <section className="mt-5 first:mt-1">
+      <h3 className="mb-0.5 text-[11px] font-bold tracking-[0.14em] text-muted">{title}</h3>
+      <dl className="divide-y divide-[color:var(--border)]">{children}</dl>
+    </section>
+  );
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3 py-2">
@@ -250,394 +280,412 @@ export default function ProfileSheet({
           ) : !profile ? (
             <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
           ) : (
-            <dl className="divide-y divide-[color:var(--border)]">
-              {authAvailable && (
-                <Row label="保存先">
-                  {signedInAs ? (
-                    <>
-                      <span className="font-medium">{signedInAs}</span>
-                      <span className="block text-[12px] text-muted">
-                        どの端末から開いても同じ記録が表示されます
+            <>
+            <Group title="あなたのこと">
+                <Row label="コーチ">
+                  <span className="flex items-center gap-2">
+                    <CoachAvatar character={findCharacter(profile.characterId)} size={26} />
+                    <span>
+                      {findCharacter(profile.characterId).name}
+                      <span className="ml-1.5 text-[12px] text-muted">
+                        {findCharacter(profile.characterId).tagline}
                       </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-muted">この端末にのみ保存されています</span>
-                      <button
-                        type="button"
-                        onClick={onOpenAuth}
-                        className="mt-1.5 rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
-                      >
-                        ログインして引き継ぐ
-                      </button>
-                    </>
-                  )}
-                </Row>
-              )}
-              {pushAvailable && (
-                <Row label="通知">
-                  {pushState === 'needs-install' ? (
-                    <>
-                      <span className="text-muted">
-                        iPhone では、<strong className="font-semibold text-fg">ホーム画面に追加</strong>
-                        すると通知を受け取れます
-                      </span>
-                      <span className="mt-1 block text-[12px] text-muted">
-                        共有ボタン → 「ホーム画面に追加」→ 追加したアイコンから開く
-                      </span>
-                    </>
-                  ) : pushState === 'unsupported' ? (
-                    <span className="text-muted">この端末では通知を使えません</span>
-                  ) : (
-                    <>
-                      <span className={subscribed ? 'font-medium text-good' : 'text-muted'}>
-                        {subscribed ? '受け取る設定になっています' : '靴の寿命や本番前に、こちらから声をかけます'}
-                      </span>
-                      <span className="mt-0.5 block text-[12px] text-muted">
-                        送るのは1日に1通まで。走れていない日を責めることはしません
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void toggleNotifications()}
-                        disabled={pushBusy}
-                        className={`mt-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40 ${
-                          subscribed
-                            ? 'border border-line text-fg'
-                            : 'bg-accent text-[var(--accent-fg)]'
-                        }`}
-                      >
-                        {pushBusy ? '設定中…' : subscribed ? '通知を止める' : '通知を受け取る'}
-                      </button>
-                      {pushNote && <span className="mt-1.5 block text-[12px] text-accent">{pushNote}</span>}
-
-                      {/*
-                        **朝が全員にとって良い時間とは限らない。**
-                        夜に走る人に朝9時の声かけは早すぎるし、早朝に出る人には遅い。
-                        受け取っている人にだけ出す。切っている人には意味が無い。
-                      */}
-                      {subscribed && onChangeNotifyHour && (
-                        <span className="mt-3 block">
-                          <span className="block text-[12px] text-muted">受け取る時刻</span>
-                          <span className="mt-1 flex flex-wrap gap-1.5">
-                            {NOTIFY_HOURS.map((hour) => {
-                              const active = notifyHour === hour;
-                              return (
-                                <button
-                                  key={hour}
-                                  type="button"
-                                  onClick={() => onChangeNotifyHour(hour)}
-                                  aria-pressed={active}
-                                  className={[
-                                    'min-w-[46px] rounded-[10px] border py-1.5 text-[13px] tabular-nums transition active:scale-[0.97]',
-                                    active
-                                      ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
-                                      : 'border-line text-fg',
-                                  ].join(' ')}
-                                >
-                                  {hour}時
-                                </button>
-                              );
-                            })}
-                          </span>
-                        </span>
-                      )}
-                    </>
-                  )}
-                </Row>
-              )}
-              {/*
-                自動連携が使えない時も、この行は出す。
-                書き出したファイルから取り込む道は、設定に関係なく使えるため。
-              */}
-              <Row label="アプリ連携">
-                  {strava ? (
-                    <>
-                      <span className="font-semibold text-accent">Strava と連携中</span>
-                      {strava.athleteName && (
-                        <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
-                      )}
-                      <span className="mt-0.5 block text-[12px] text-muted">
-                        {strava.lastSyncedAt
-                          ? `最終取り込み ${new Date(strava.lastSyncedAt).toLocaleString('ja-JP', {
-                              month: 'numeric',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}`
-                          : 'まだ取り込んでいません'}
-                        {strava.imported ? ` / これまで${strava.imported}件` : ''}
-                      </span>
-                    </>
-                  ) : stravaAvailable ? (
-                    <span className="text-muted">
-                      つないでおくと、走り終えた時点で記録が入っています。
-                      スクリーンショットを送る必要がなくなります
-                    </span>
-                  ) : (
-                    <span className="text-muted">
-                      時計から書き出したファイル（GPX / TCX）から、過去の練習をまとめて取り込めます
-                    </span>
-                  )}
-                  {/*
-                    取り込みも解除も手順も、連携の画面に集めてある。
-                    ここに同じ操作を並べると、どちらが正しい入口か分からなくなる。
-                  */}
-                  <button
-                    type="button"
-                    onClick={onOpenConnect}
-                    className="mt-2.5 block w-fit rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
-                  >
-                    {strava ? '連携の設定を開く' : stravaAvailable ? '時計・アプリとつなぐ' : '記録を取り込む'}
-                  </button>
-              </Row>
-              <Row label="コーチ">
-                <span className="flex items-center gap-2">
-                  <CoachAvatar character={findCharacter(profile.characterId)} size={26} />
-                  <span>
-                    {findCharacter(profile.characterId).name}
-                    <span className="ml-1.5 text-[12px] text-muted">
-                      {findCharacter(profile.characterId).tagline}
                     </span>
                   </span>
-                </span>
-              </Row>
-              <Row label="現在地">{PHASE_LABEL[profile.phase]}</Row>
-              {profile.displayName && <Row label="呼び方">{profile.displayName}さん</Row>}
-              <Row label="目標">
-                {profile.goal && profile.goal.kind !== 'none' ? (
-                  <>
-                    <span className="font-medium">{profile.goal.summary}</span>
-                    {profile.goal.targetTime && <span className="block text-muted">目標タイム: {profile.goal.targetTime}</span>}
-                    {targetPace && <span className="block text-muted">目標ペース: {targetPace}</span>}
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
-                  >
-                    目標を設定する
-                  </button>
+                </Row>
+                {profile.displayName && <Row label="呼び方">{profile.displayName}さん</Row>}
+                <Row label="現在地">{PHASE_LABEL[profile.phase]}</Row>
+                <Row label="目標">
+                  {profile.goal && profile.goal.kind !== 'none' ? (
+                    <>
+                      <span className="font-medium">{profile.goal.summary}</span>
+                      {profile.goal.targetTime && <span className="block text-muted">目標タイム: {profile.goal.targetTime}</span>}
+                      {targetPace && <span className="block text-muted">目標ペース: {targetPace}</span>}
+                      {/*
+                        **VDOT に1行を与えない。** 目標タイムから計算した数字なので、
+                        目標から離して並べると、別の何かに見える。ここに小さく添える。
+                      */}
+                      {vdot !== undefined && (
+                        <span className="block text-[12px] text-muted">VDOT {vdot.toFixed(1)}（目標から計算した走力の目安）</span>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                    >
+                      目標を設定する
+                    </button>
+                  )}
+                </Row>
+                {/*
+                  **表示の設定は、いちばん下でいい。**
+                  自分のカルテを開いてまず目に入るのが文字サイズの選択では、
+                  本人の目標も状態も、その下に押し下げられてしまう。
+                */}
+                {races.length > 0 && (
+                  <Row label="出場する大会">
+                    <ul className="space-y-1.5">
+                      {races.map((race) => {
+                        const left = daysUntil(race.date);
+                        const isTarget = race.id === focus?.id;
+                        return (
+                          <li key={race.id}>
+                            <span className={isTarget ? 'font-medium' : undefined}>{race.name}</span>
+                            <span className="ml-1.5 text-[12px] text-muted">
+                              {race.priority}・{RACE_PRIORITY_LABEL[race.priority]}
+                              {race.distance ? ` / ${race.distance}` : ''}
+                            </span>
+                            <span className="block text-[12px] text-muted">
+                              {race.date}
+                              {left === undefined
+                                ? ''
+                                : left > 0
+                                  ? `（あと${left}日）`
+                                  : left === 0
+                                    ? '（今日）'
+                                    : '（終了）'}
+                              {race.targetTime ? ` / 目標 ${race.targetTime}` : ''}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Row>
                 )}
-              </Row>
-              {races.length > 0 && (
-                <Row label="出場する大会">
-                  <ul className="space-y-1.5">
-                    {races.map((race) => {
-                      const left = daysUntil(race.date);
-                      const isTarget = race.id === focus?.id;
-                      return (
-                        <li key={race.id}>
-                          <span className={isTarget ? 'font-medium' : undefined}>{race.name}</span>
-                          <span className="ml-1.5 text-[12px] text-muted">
-                            {race.priority}・{RACE_PRIORITY_LABEL[race.priority]}
-                            {race.distance ? ` / ${race.distance}` : ''}
-                          </span>
-                          <span className="block text-[12px] text-muted">
-                            {race.date}
-                            {left === undefined
-                              ? ''
-                              : left > 0
-                                ? `（あと${left}日）`
-                                : left === 0
-                                  ? '（今日）'
-                                  : '（終了）'}
-                            {race.targetTime ? ` / 目標 ${race.targetTime}` : ''}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                <Row label="心拍">
+                  {profile.maxHr || profile.lthr || profile.restingHr ? (
+                    <>
+                      {[
+                        profile.maxHr ? `最大 ${profile.maxHr}` : null,
+                        profile.lthr ? `LTHR ${profile.lthr}` : null,
+                        profile.restingHr ? `安静時 ${profile.restingHr}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' / ')}
+                      {zones && zones.zones.length > 0 && (
+                        <span className="mt-1 block text-[12px] text-muted">{zones.basisLabel}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted">未設定（ゾーン評価には最大心拍数が必要です）</span>
+                  )}
                 </Row>
-              )}
-              {profile.experience && <Row label="経験">{profile.experience}</Row>}
-              {profile.weeklyVolumeKm !== undefined && <Row label="週間距離">約 {profile.weeklyVolumeKm} km</Row>}
-              {profile.availableDays?.length ? <Row label="走れる曜日">{profile.availableDays.join('・')}</Row> : null}
-              {profile.typicalSessionMinutes !== undefined && (
-                <Row label="使える時間">1回 約 {profile.typicalSessionMinutes} 分</Row>
-              )}
-              {profile.constraints?.length ? (
-                <Row label="生活の制約">
-                  <ul className="list-disc space-y-1 pl-4">
-                    {profile.constraints.map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </Row>
-              ) : null}
-              {profile.motivations?.length ? (
-                <Row label="走る理由">
-                  <ul className="list-disc space-y-1 pl-4">
-                    {profile.motivations.map((m) => (
-                      <li key={m}>{m}</li>
-                    ))}
-                  </ul>
-                </Row>
-              ) : null}
-              {profile.injuryHistory?.length ? (
-                <Row label="故障歴">
-                  <ul className="list-disc space-y-1 pl-4">
-                    {profile.injuryHistory.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </Row>
-              ) : null}
-              {shoes.length > 0 && (
-                <Row label="シューズ">
-                  <ul className="space-y-2.5">
-                    {shoes.map(({ shoe, lifespan, remainingKm, ratio, level, weeksLeft }) => (
-                      <li key={shoe.id}>
-                        <span className="font-medium">{shoe.name}</span>
-                        <span className="ml-1.5 text-[12px] text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
-                        <span
-                          aria-hidden="true"
-                          className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-sunken"
-                        >
-                          <span
-                            className={`block h-full rounded-full ${
-                              level === 'over' ? 'bg-warn' : level === 'caution' ? 'bg-accent' : 'bg-good'
-                            }`}
-                            style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
-                          />
-                        </span>
-                        <span className="mt-1 block text-[12px] text-muted tabular-nums">
-                          {Math.round(shoe.km)} km / 目安 {lifespan.replace} km
-                          {level === 'over'
-                            ? `（${-remainingKm}km 超過）`
-                            : weeksLeft !== undefined
-                              ? `（残り ${remainingKm}km・約${weeksLeft}週）`
-                              : `（残り ${remainingKm}km）`}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </Row>
-              )}
-              {gearNotes.length > 0 && (
-                <Row label="道具の相性">
-                  <ul className="space-y-1">
-                    {gearNotes
-                      .slice()
-                      .reverse()
-                      .slice(0, 8)
-                      .map((note) => (
-                        <li key={note.id} className={note.verdict === 'bad' ? 'text-warn' : 'text-good'}>
-                          {note.verdict === 'bad' ? '合わなかった' : '合った'}: {note.name}
-                          {note.reason ? <span className="text-muted">（{note.reason}）</span> : null}
+                {profile.injuryHistory?.length ? (
+                  <Row label="故障歴">
+                    <ul className="list-disc space-y-1 pl-4">
+                      {profile.injuryHistory.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </Row>
+                ) : null}
+                <Row label="体の状態">
+                  {pains.length > 0 ? (
+                    <ul className="space-y-1">
+                      {pains.map((p) => (
+                        <li key={p.id} className="text-warn">
+                          {p.site} — 強さ {p.severity}/5（{p.status === 'improving' ? '回復傾向' : '継続中'}）
                         </li>
                       ))}
-                  </ul>
-                  <span className="mt-1 block text-[12px] text-muted">
-                    「合わなかった」ものは、商品を探す時に候補から外れます
-                  </span>
+                    </ul>
+                  ) : (
+                    <span className="text-good">痛みの記録はありません</span>
+                  )}
                 </Row>
-              )}
-              {vdot !== undefined && (
-                <Row label="VDOT">
-                  <span className="font-medium">{vdot.toFixed(1)}</span>
-                  <span className="block text-[12px] text-muted">目標タイムから自動計算される走力指標です</span>
-                </Row>
-              )}
-              {/*
-                **表示の設定は、いちばん下でいい。**
-                自分のカルテを開いてまず目に入るのが文字サイズの選択では、
-                本人の目標も状態も、その下に押し下げられてしまう。
-              */}
-              <Row label="文字の大きさ">
-                <div className="flex gap-1.5">
-                  {FONT_SIZES.map((size) => (
-                    <button
-                      key={size.id}
-                      type="button"
-                      onClick={() => onChangeFontSize(size.id)}
-                      aria-pressed={fontSize === size.id}
-                      className={[
-                        'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
-                        fontSize === size.id
-                          ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
-                          : 'border-line text-fg',
-                      ].join(' ')}
-                    >
-                      {size.label}
-                    </button>
-                  ))}
-                </div>
-                <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
-                  {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
-                </span>
-              </Row>
-              <Row label="心拍">
-                {profile.maxHr || profile.lthr || profile.restingHr ? (
-                  <>
-                    {[
-                      profile.maxHr ? `最大 ${profile.maxHr}` : null,
-                      profile.lthr ? `LTHR ${profile.lthr}` : null,
-                      profile.restingHr ? `安静時 ${profile.restingHr}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' / ')}
-                    {zones && zones.zones.length > 0 && (
-                      <span className="mt-1 block text-[12px] text-muted">{zones.basisLabel}</span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-muted">未設定（ゾーン評価には最大心拍数が必要です）</span>
+                {profile.experience && <Row label="経験">{profile.experience}</Row>}
+                {profile.weeklyVolumeKm !== undefined && <Row label="週間距離">約 {profile.weeklyVolumeKm} km</Row>}
+                {profile.availableDays?.length ? <Row label="走れる曜日">{profile.availableDays.join('・')}</Row> : null}
+                {profile.typicalSessionMinutes !== undefined && (
+                  <Row label="使える時間">1回 約 {profile.typicalSessionMinutes} 分</Row>
                 )}
-              </Row>
-              <Row label="体の状態">
-                {pains.length > 0 ? (
-                  <ul className="space-y-1">
-                    {pains.map((p) => (
-                      <li key={p.id} className="text-warn">
-                        {p.site} — 強さ {p.severity}/5（{p.status === 'improving' ? '回復傾向' : '継続中'}）
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-good">痛みの記録はありません</span>
+                {profile.constraints?.length ? (
+                  <Row label="生活の制約">
+                    <ul className="list-disc space-y-1 pl-4">
+                      {profile.constraints.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </Row>
+                ) : null}
+                {profile.motivations?.length ? (
+                  <Row label="走る理由">
+                    <ul className="list-disc space-y-1 pl-4">
+                      {profile.motivations.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </Row>
+                ) : null}
+            </Group>
+            <Group title="道具" when={shoes.length > 0 || gearNotes.length > 0}>
+                {shoes.length > 0 && (
+                  <Row label="シューズ">
+                    <ul className="space-y-2.5">
+                      {shoes.map(({ shoe, lifespan, remainingKm, ratio, level, weeksLeft }) => (
+                        <li key={shoe.id}>
+                          <span className="font-medium">{shoe.name}</span>
+                          <span className="ml-1.5 text-[12px] text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
+                          <span
+                            aria-hidden="true"
+                            className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-sunken"
+                          >
+                            <span
+                              className={`block h-full rounded-full ${
+                                level === 'over' ? 'bg-warn' : level === 'caution' ? 'bg-accent' : 'bg-good'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
+                            />
+                          </span>
+                          <span className="mt-1 block text-[12px] text-muted tabular-nums">
+                            {Math.round(shoe.km)} km / 目安 {lifespan.replace} km
+                            {level === 'over'
+                              ? `（${-remainingKm}km 超過）`
+                              : weeksLeft !== undefined
+                                ? `（残り ${remainingKm}km・約${weeksLeft}週）`
+                                : `（残り ${remainingKm}km）`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Row>
                 )}
-              </Row>
-              {plan && (
-                <Row label="直近のメニュー">
-                  <span className="font-medium">{plan.title}</span>
-                  <ul className="mt-1 list-decimal space-y-0.5 pl-4 text-muted">
-                    {plan.steps.map((s, i) => (
-                      <li key={`${plan.id}-${i}`}>{s}</li>
-                    ))}
-                  </ul>
-                </Row>
-              )}
-              <Row label="直近の記録">
-                {recent.length > 0 ? (
-                  <ul className="-mr-1 space-y-1.5">
-                    {recent.map((a) => (
-                      <li key={a.id}>
-                        <ActivityRow activity={a} onOpen={onOpenRun} />
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-muted">
-                    まだありません。
-                    <span className="mt-0.5 block text-[11px]">
-                      上の「記録を取り込む」から、時計のファイルを入れられます。
+                {gearNotes.length > 0 && (
+                  <Row label="道具の相性">
+                    <ul className="space-y-1">
+                      {gearNotes
+                        .slice()
+                        .reverse()
+                        .slice(0, 8)
+                        .map((note) => (
+                          <li key={note.id} className={note.verdict === 'bad' ? 'text-warn' : 'text-good'}>
+                            {note.verdict === 'bad' ? '合わなかった' : '合った'}: {note.name}
+                            {note.reason ? <span className="text-muted">（{note.reason}）</span> : null}
+                          </li>
+                        ))}
+                    </ul>
+                    <span className="mt-1 block text-[12px] text-muted">
+                      「合わなかった」ものは、商品を探す時に候補から外れます
                     </span>
-                  </span>
+                  </Row>
                 )}
-              </Row>
-              {profile.phaseHistory.length > 0 && (
-                <Row label="歩み">
-                  <ul className="space-y-1 text-muted">
-                    {profile.phaseHistory.slice(-4).map((h) => (
-                      <li key={h.at}>
-                        {PHASE_LABEL[h.from]} → {PHASE_LABEL[h.to]}（{h.reason}）
-                      </li>
-                    ))}
-                  </ul>
+            </Group>
+            <Group title="記録" when={Boolean(plan) || recent.length > 0 || profile.phaseHistory.length > 0}>
+                {plan && (
+                  <Row label="直近のメニュー">
+                    <span className="font-medium">{plan.title}</span>
+                    <ul className="mt-1 list-decimal space-y-0.5 pl-4 text-muted">
+                      {plan.steps.map((s, i) => (
+                        <li key={`${plan.id}-${i}`}>{s}</li>
+                      ))}
+                    </ul>
+                  </Row>
+                )}
+                <Row label="直近の記録">
+                  {recent.length > 0 ? (
+                    <ul className="-mr-1 space-y-1.5">
+                      {recent.map((a) => (
+                        <li key={a.id}>
+                          <ActivityRow activity={a} onOpen={onOpenRun} />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-muted">
+                      まだありません。
+                      <span className="mt-0.5 block text-[11px]">
+                        上の「記録を取り込む」から、時計のファイルを入れられます。
+                      </span>
+                    </span>
+                  )}
                 </Row>
-              )}
-            </dl>
+                {profile.phaseHistory.length > 0 && (
+                  <Row label="歩み">
+                    {/*
+                      **畳んでおく。** これはコーチ側が段階を切り替えた理由の記録で、
+                      毎日見るものではない。開いたままだと、長い注釈で画面が埋まる。
+                    */}
+                    <details>
+                      <summary className="cursor-pointer text-[13px] text-muted">
+                        {profile.phaseHistory.length}回の変化
+                      </summary>
+                      <ul className="mt-1.5 space-y-1 text-muted">
+                        {profile.phaseHistory.slice(-4).map((h) => (
+                          <li key={h.at}>
+                            {PHASE_LABEL[h.from]} → {PHASE_LABEL[h.to]}（{h.reason}）
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </Row>
+                )}
+            </Group>
+            <Group title="設定">
+                <Row label="アプリ連携">
+                    {strava ? (
+                      <>
+                        <span className="font-semibold text-accent">Strava と連携中</span>
+                        {strava.athleteName && (
+                          <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
+                        )}
+                        <span className="mt-0.5 block text-[12px] text-muted">
+                          {strava.lastSyncedAt
+                            ? `最終取り込み ${new Date(strava.lastSyncedAt).toLocaleString('ja-JP', {
+                                month: 'numeric',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}`
+                            : 'まだ取り込んでいません'}
+                          {strava.imported ? ` / これまで${strava.imported}件` : ''}
+                        </span>
+                      </>
+                    ) : stravaAvailable ? (
+                      <span className="text-muted">
+                        つないでおくと、走り終えた時点で記録が入っています。
+                        スクリーンショットを送る必要がなくなります
+                      </span>
+                    ) : (
+                      <span className="text-muted">
+                        時計から書き出したファイル（GPX / TCX）から、過去の練習をまとめて取り込めます
+                      </span>
+                    )}
+                    {/*
+                      取り込みも解除も手順も、連携の画面に集めてある。
+                      ここに同じ操作を並べると、どちらが正しい入口か分からなくなる。
+                    */}
+                    <button
+                      type="button"
+                      onClick={onOpenConnect}
+                      className="mt-2.5 block w-fit rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
+                    >
+                      {strava ? '連携の設定を開く' : stravaAvailable ? '時計・アプリとつなぐ' : '記録を取り込む'}
+                    </button>
+                </Row>
+                {pushAvailable && (
+                  <Row label="通知">
+                    {pushState === 'needs-install' ? (
+                      <>
+                        <span className="text-muted">
+                          iPhone では、<strong className="font-semibold text-fg">ホーム画面に追加</strong>
+                          すると通知を受け取れます
+                        </span>
+                        <span className="mt-1 block text-[12px] text-muted">
+                          共有ボタン → 「ホーム画面に追加」→ 追加したアイコンから開く
+                        </span>
+                      </>
+                    ) : pushState === 'unsupported' ? (
+                      <span className="text-muted">この端末では通知を使えません</span>
+                    ) : (
+                      <>
+                        <span className={subscribed ? 'font-medium text-good' : 'text-muted'}>
+                          {subscribed ? '受け取る設定になっています' : '靴の寿命や本番前に、こちらから声をかけます'}
+                        </span>
+                        <span className="mt-0.5 block text-[12px] text-muted">
+                          送るのは1日に1通まで。走れていない日を責めることはしません
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void toggleNotifications()}
+                          disabled={pushBusy}
+                          className={`mt-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40 ${
+                            subscribed
+                              ? 'border border-line text-fg'
+                              : 'bg-accent text-[var(--accent-fg)]'
+                          }`}
+                        >
+                          {pushBusy ? '設定中…' : subscribed ? '通知を止める' : '通知を受け取る'}
+                        </button>
+                        {pushNote && <span className="mt-1.5 block text-[12px] text-accent">{pushNote}</span>}
+
+                        {/*
+                          **朝が全員にとって良い時間とは限らない。**
+                          夜に走る人に朝9時の声かけは早すぎるし、早朝に出る人には遅い。
+                          受け取っている人にだけ出す。切っている人には意味が無い。
+                        */}
+                        {subscribed && onChangeNotifyHour && (
+                          <span className="mt-3 block">
+                            <span className="block text-[12px] text-muted">受け取る時刻</span>
+                            <span className="mt-1 flex flex-wrap gap-1.5">
+                              {NOTIFY_HOURS.map((hour) => {
+                                const active = notifyHour === hour;
+                                return (
+                                  <button
+                                    key={hour}
+                                    type="button"
+                                    onClick={() => onChangeNotifyHour(hour)}
+                                    aria-pressed={active}
+                                    className={[
+                                      'min-w-[46px] rounded-[10px] border py-1.5 text-[13px] tabular-nums transition active:scale-[0.97]',
+                                      active
+                                        ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                                        : 'border-line text-fg',
+                                    ].join(' ')}
+                                  >
+                                    {hour}時
+                                  </button>
+                                );
+                              })}
+                            </span>
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </Row>
+                )}
+                {/*
+                  自動連携が使えない時も、この行は出す。
+                  書き出したファイルから取り込む道は、設定に関係なく使えるため。
+                */}
+                {authAvailable && (
+                  <Row label="保存先">
+                    {signedInAs ? (
+                      <>
+                        <span className="font-medium">{signedInAs}</span>
+                        <span className="block text-[12px] text-muted">
+                          どの端末から開いても同じ記録が表示されます
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-muted">この端末にのみ保存されています</span>
+                        <button
+                          type="button"
+                          onClick={onOpenAuth}
+                          className="mt-1.5 rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                        >
+                          ログインして引き継ぐ
+                        </button>
+                      </>
+                    )}
+                  </Row>
+                )}
+                <Row label="文字の大きさ">
+                  <div className="flex gap-1.5">
+                    {FONT_SIZES.map((size) => (
+                      <button
+                        key={size.id}
+                        type="button"
+                        onClick={() => onChangeFontSize(size.id)}
+                        aria-pressed={fontSize === size.id}
+                        className={[
+                          'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
+                          fontSize === size.id
+                            ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                            : 'border-line text-fg',
+                        ].join(' ')}
+                      >
+                        {size.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
+                    {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
+                  </span>
+                </Row>
+            </Group>
+            </>
           )}
 
           {/* 名前は、ここに静かに置く。ヘッダーはコーチのための場所。 */}
