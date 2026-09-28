@@ -84,6 +84,16 @@ export class SupabaseCoachStore implements CoachStore {
     if (error) throw storageError('カルテの保存', error.code, error.message);
   }
 
+  /**
+   * 足して、足した後の値を返す。**1本の SQL の中でやる**（supabase/schema.sql の bump_usage）。
+   * 読んでから書く2手に分けると、同時に来た2通が同じ値を読んで、1回ぶん数え漏れる。
+   */
+  async bumpUsage(key: string, by = 1): Promise<number> {
+    const { data, error } = await this.client.rpc('bump_usage', { p_key: key, p_by: by });
+    if (error) throw storageError('利用回数の記録', error.code, error.message);
+    return Number(data);
+  }
+
   async reset(userId: string): Promise<void> {
     const { error } = await this.client.from(TABLE).delete().eq('user_id', userId);
     if (error) throw storageError('記録の消去', error.code, error.message);
