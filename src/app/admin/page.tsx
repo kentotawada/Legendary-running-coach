@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { dayRow, keysForDay, pricesFromEnv, recentDays, totalsOf, USD_TO_JPY, type DayRow } from '@/lib/admin';
+import { modelName, visionModelName } from '@/lib/models';
 import { getOps, type OpsEvent } from '@/lib/ops';
 import { adminEmails } from '@/lib/quota';
 import { createSupabaseServerClient } from '@/lib/supabase';
@@ -156,7 +157,11 @@ export default async function AdminPage() {
             </table>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted">
-            費用は 1ドル={USD_TO_JPY}円 で換算した目安です。正確な金額は Google の請求画面で確かめてください。
+            費用は 1ドル={USD_TO_JPY}円 と、環境変数 GEMINI_PRICE_PER_MTOK に入れた単価で計算した目安です。
+            いま動いているのは <strong>{modelName()}</strong>（画像は <strong>{visionModelName()}</strong>）。
+            <strong>入れてある単価が、このモデルのものか確かめてください。</strong>
+            モデルを変えて単価を置き忘れると、ここの金額だけが古いモデルのまま何倍にもなります。
+            正確な金額は Google の請求画面で確かめてください。
             「上限（会員）」が増えてきたら、有料の枠を用意する頃合いです。
             <br />
             「1通あたり」は、1通の返事のためにモデルを何回呼んだか。呼ぶたびに固定の指示文と道具の説明（約1.3万トークン）を
