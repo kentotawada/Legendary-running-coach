@@ -859,7 +859,8 @@ API キーは [Google AI Studio](https://aistudio.google.com/apikey) で発行�
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | （必須） | Gemini API キー。サーバー側でのみ使用し、ブラウザには渡しません。 |
-| `GEMINI_MODEL` | `gemini-3-pro-preview` | 応答速度を優先するなら `gemini-3-flash-preview`。 |
+| `GEMINI_MODEL` | `gemini-3-flash-preview` | **ふだんの会話に使うモデル。費用のほぼ全部がここで決まります**（→ `docs/cost-and-revenue.md`）。 |
+| `GEMINI_MODEL_VISION` | `gemini-3-pro-preview` | 画像を読む時だけ使うモデル。読み取りを誤ると助言そのものが狂うので、ここは安いほうに倒しません。 |
 | `GEMINI_THINKING_LEVEL` | `LOW` | `MINIMAL` / `LOW` / `MEDIUM` / `HIGH`（Gemini 3 系のみ有効）。 |
 | `COACH_DATA_DIR` | `.data` | 会話とカルテの保存先。 |
 
@@ -962,10 +963,12 @@ Web UI 側は PWA として作ってあり（`public/manifest.webmanifest`）、
 1. Vercel のプロジェクト設定 → **Settings → Environment Variables** に `GEMINI_API_KEY` を追加する
    （対象は Production と Preview の両方）。
 2. 環境変数を足した後は**再デプロイが必要**です。既存のデプロイには反映されません。
-3. モデルを変えたい場合は `GEMINI_MODEL` も同じ場所に足します。
+3. モデルを変えたい場合は `GEMINI_MODEL` / `GEMINI_MODEL_VISION` も同じ場所に足します。
+   **環境変数はコードの既定より優先されます。** 古い値が残っていると、切り替えたつもりが効きません。
 
-既定のモデル `gemini-3-pro-preview` がそのキーで使えない場合（404、あるいは無料枠で割り当てが 0 のため 429）、
-自動的に `gemini-3-flash-preview` へ退避して対話を続けます。切り替わったことはサーバーログに残ります。
+ふだんの会話は `gemini-3-flash-preview`、画像が付いたターンだけ `gemini-3-pro-preview` に回します。
+どちらかがそのキーで使えない場合（404、あるいは割り当てが 0 のため 429）、
+自動的にもう一方へ退避して対話を続けます。切り替わったことはサーバーログに残ります。
 
 **会話とカルテは保存され続けません。** サーバーレス環境ではアプリのディレクトリが読み取り専用なので、
 保存先は `/tmp` になります。これはインスタンスごとに独立し、しばらく使われないと消えます。
@@ -1022,7 +1025,7 @@ Gemini 側のよくある原因は次のとおりです。
 | --- | --- |
 | `API key not valid` | キーが誤っているか失効。作り直して環境変数を更新し、再デプロイ。 |
 | `PERMISSION_DENIED` | キーに HTTP リファラ / IP 制限がかかっている、または Generative Language API が無効。 |
-| `NOT_FOUND` / `is not found` | そのモデルがキーで使えない。`GEMINI_MODEL` を `gemini-3-flash-preview` に。 |
+| `NOT_FOUND` / `is not found` | そのモデルがキーで使えない。`GEMINI_MODEL` に、使えるモデル名を設定。 |
 | `RESOURCE_EXHAUSTED` | 利用上限。時間をおくか、有料プランを検討。 |
 
 サーバー側のログ（Vercel なら Runtime Logs）にも `[coach] turn failed` として同じ内容が出ます。
@@ -1182,5 +1185,5 @@ npm test
 
 - 医療行為をするものではありません。強い痛み・腫れ・しびれ・長期化の兆候がある場合、
   コーチは受診を勧めるよう指示されています。
-- `gemini-3-pro-preview` は preview 版のモデルです。将来の安定版が出た場合は
-  `GEMINI_MODEL` で差し替えてください。
+- `gemini-3-flash-preview` / `gemini-3-pro-preview` は preview 版のモデルです。将来の安定版が出た場合は
+  `GEMINI_MODEL` / `GEMINI_MODEL_VISION` で差し替えてください。
