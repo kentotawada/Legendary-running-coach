@@ -38,23 +38,6 @@ export interface CoachStore {
   bumpUsage?(key: string, by?: number): Promise<number>;
 }
 
-/** モデルに渡す会話の上限。これを超えたら古い順に落とす。 */
-const MAX_HISTORY_CONTENTS = 80;
-
-export function trimHistory(history: Content[], max: number = MAX_HISTORY_CONTENTS): Content[] {
-  if (history.length <= max) return history;
-  // functionCall とその functionResponse が分断されないよう、user 発言の境目まで戻す。
-  let start = history.length - max;
-  while (start < history.length && history[start].role !== 'user') start += 1;
-  return history.slice(start === history.length ? history.length - max : start);
-}
-
-/**
- * 直近これだけのやり取りは、道具の呼び出しごとそのまま残す。
- * いま進んでいる話の続きに要るのは、この範囲。
- */
-const KEEP_VERBATIM = 12;
-
 /** 画面にも出ない、人が読めないパート（道具の呼び出しと、その結果）。 */
 function isToolPart(part: Part): boolean {
   return Boolean(part.functionCall || part.functionResponse);
@@ -65,6 +48,71 @@ function isSpokenTurn(content: Content): boolean {
   const parts = content.parts ?? [];
   return content.role === 'user' && !parts.some((part) => part.functionResponse);
 }
+
+/** モデルに渡す会話の上限。これを超えたら古い順に落とす。 */
+const MAX_HISTORY_CONTENTS = 80;
+
+export function trimHistory(history: Content[], max: number = MAX_HISTORY_CONTENTS): Content[] {
+  if (history.length <= max) return history;
+  /*
+    functionCall とその functionResponse が分断されないよう、**本物の発言**の境目まで戻す。
+    role が user かどうかだけでは足りない。道具の結果を返しているだけの turn も
+    role は user なので、そこで切ると「呼び出しの無い結果」が先頭に残る。
+  */
+  let start = history.length - max;
+  while (start < history.length && !isSpokenTurn(history[start])) start += 1;
+  // 残す範囲に本物の発言が1つも無い時は、上限どおりに切ってから繕う。
+  // **切る場所が無いことを、対を割ってよい理由にしない。**
+  if (start >= history.length) return repairHistory(history.slice(history.length - max));
+  return history.slice(start);
+}
+
+/**
+ * 呼び出しと結果の対が壊れた履歴を、送る前に繕う。
+ *
+ * **壊れた履歴は、その人の会話を永久に止める。**
+ * Gemini は「結果は呼び出しの直後に来ること」を求める。片方だけが残っていると
+ * 400 で弾かれ、保存まで進まないので直る機会も来ない。**次も、その次も同じ所で落ちる。**
+ * 実際に一度そうなった（古い切り詰めが、結果だけを先頭に残していた）。
+ *
+ * 落とすのは片割れだけで、人が話した言葉には触らない。
+ * 隣り合っているかだけを見る。名前まで突き合わせると、呼び名の付き方が変わった時に
+ * 揃っている対まで落としてしまう。
+ */
+export function repairHistory<T extends Content>(history: T[]): T[] {
+  const kept: T[] = [];
+
+  for (let index = 0; index < history.length; index += 1) {
+    const content = history[index];
+    const parts = content.parts ?? [];
+    let usable = parts;
+
+    // 直前が呼び出しでないなら、その結果は宙に浮いている。
+    if (parts.some((part) => part.functionResponse)) {
+      const previous = kept[kept.length - 1];
+      const answersACall = (previous?.parts ?? []).some((part) => part.functionCall);
+      if (!answersACall) usable = usable.filter((part) => !part.functionResponse);
+    }
+
+    // 次が結果でないなら、その呼び出しは返事を待ったまま取り残されている。
+    if (parts.some((part) => part.functionCall)) {
+      const next = history[index + 1];
+      const hasAnswer = (next?.parts ?? []).some((part) => part.functionResponse);
+      if (!hasAnswer) usable = usable.filter((part) => !part.functionCall);
+    }
+
+    if (usable.length === 0) continue;
+    kept.push(usable === parts ? content : ({ ...content, parts: usable } as T));
+  }
+
+  return kept;
+}
+
+/**
+ * 直近これだけのやり取りは、道具の呼び出しごとそのまま残す。
+ * いま進んでいる話の続きに要るのは、この範囲。
+ */
+const KEEP_VERBATIM = 12;
 
 /**
  * 道具のやり取りを落として、人が読める本文だけ残す。
