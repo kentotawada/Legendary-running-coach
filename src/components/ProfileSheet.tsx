@@ -768,7 +768,8 @@ export default function ProfileSheet({
             <div className="mt-2 rounded-xl border border-dashed border-line px-3 py-2.5 text-[11px] leading-relaxed text-muted">
               <p className="font-medium">開発用の表示</p>
               <p>
-                ビルド {build.commit} / {build.environment} / モデル {build.model}（思考 {build.thinkingLevel}）
+                ビルド {build.commit} / {build.environment} / モデル {build.model}・画像 {build.visionModel}（思考{' '}
+                {build.thinkingLevel}）
               </p>
               <p>
                 APIキー: {build.hasApiKey ? (build.apiKeyLooksValid ? '設定済み' : '設定済み（形式が怪しい）') : '未設定'}
