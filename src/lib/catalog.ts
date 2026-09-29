@@ -44,6 +44,14 @@ export interface ProductCandidate {
 
 export interface CatalogConfig {
   appId?: string;
+  /**
+   * 新しい方式のアプリに付いてくる秘密の鍵（pk_ で始まる）。
+   *
+   * **アプリIDだけでは通らなくなった。** 楽天の管理画面で発行されるIDが
+   * 数字の羅列から UUID の形に変わり、あわせてこの鍵を添える形になっている。
+   * 古い数字のIDは鍵なしでも通るので、**あれば添える**という扱いにしてある。
+   */
+  accessKey?: string;
   affiliateId?: string;
 }
 
@@ -54,6 +62,7 @@ function clean(value: string | undefined): string | undefined {
 export function catalogConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CatalogConfig {
   return {
     appId: clean(env.RAKUTEN_APP_ID),
+    accessKey: clean(env.RAKUTEN_ACCESS_KEY),
     // アフィリエイトIDは楽天の管理画面の形式に合わせて、そのまま渡す。
     affiliateId: clean(env.RAKUTEN_AFFILIATE_ID),
   };
@@ -251,6 +260,7 @@ export async function searchCatalog(
     availability: '1',
     sort: 'standard',
   });
+  if (config.accessKey) params.set('accessKey', config.accessKey);
   if (config.affiliateId) params.set('affiliateId', config.affiliateId);
   if (minPrice !== undefined) params.set('minPrice', String(Math.round(minPrice)));
 
@@ -265,7 +275,12 @@ export async function searchCatalog(
       // 本文まで残す。楽天は理由（wrong_parameter など）を本文で返すので、
       // 状態番号だけでは「IDが違うのか、混んでいるのか」が切り分けられない。
       const body = await response.text().catch(() => '');
-      console.warn(`[coach] 商品検索が ${response.status} を返しました: ${body.slice(0, 200)}`);
+      // 鍵が要る方式なのに入れていない、がいちばん起きやすい。名指しで書く。
+      const hint =
+        !config.accessKey && (response.status === 400 || response.status === 401 || response.status === 403)
+          ? '（RAKUTEN_ACCESS_KEY が未設定です。新しい方式のアプリIDには鍵が要ります）'
+          : '';
+      console.warn(`[coach] 商品検索が ${response.status} を返しました${hint}: ${body.slice(0, 200)}`);
       return [];
     }
     const json = (await response.json()) as unknown;

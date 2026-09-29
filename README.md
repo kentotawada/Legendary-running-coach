@@ -197,6 +197,7 @@ Aレースまでの残り日数から、いま何を積む時期かが決まり�
 | 変数 | 説明 |
 | --- | --- |
 | `RAKUTEN_APP_ID` | 楽天ウェブサービスのアプリID。**これが無いと商品の候補は取りません**（検索リンクのみ） |
+| `RAKUTEN_ACCESS_KEY` | 同じ画面の Access Key（`pk_` で始まる）。**IDが UUID の形なら必須**。古い数字だけのIDなら不要 |
 | `RAKUTEN_AFFILIATE_ID` | 楽天アフィリエイトID。設定すると候補のリンクがアフィリエイトリンクになります |
 | `AMAZON_ASSOCIATE_TAG` | AmazonアソシエイトのトラッキングID（検索リンク用） |
 | `RAKUTEN_LINK_TEMPLATE` | 楽天の検索リンク形式が変わった場合の上書き（`{url}` と `{id}`） |
