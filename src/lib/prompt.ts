@@ -228,12 +228,39 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
 
   const character = findCharacter(profile.characterId);
 
-  const sections = [
-    IDENTITY.replace('{{characterName}}', character.name),
-    characterVoice(profile.characterId, profile.displayName),
-    `今日の日付: ${today(now)}（${DAY_BOUNDARY_NOTE}）`,
+  /*
+    **順番は、変わらないものから。**
+
+    同じ文の並びが頭から続いているあいだ、モデル側はそこを使い回せる（前置きの
+    使い回し）。誰にとっても同じ規範を先に置き、次にその人ごとに決まるもの、
+    最後に毎ターン動くものを置くと、使い回せる範囲がいちばん長くなる。
+    逆に、カルテの要約を真ん中に挟むと、そこから後ろが毎回別物になる。
+
+    並べ替えても読ませる内容は変えていない。**絶対規範は先頭のまま**で、
+    その場の強制指示は末尾に置く。どちらも、いちばん効く位置に元から居る。
+  */
+
+  /** 誰にとっても同じ。ここが、毎回そのまま使い回せる部分。 */
+  const invariant = [
     ABSOLUTE_RULES,
     DOCTRINE,
+    IMAGE_POLICY,
+    figureDoctrine(),
+    gearDoctrine(),
+    productDoctrine(),
+    TOOL_POLICY,
+    TONE,
+  ];
+
+  /** その人ごとに決まるが、そう変わらないもの。 */
+  const perRunner = [
+    IDENTITY.replace('{{characterName}}', character.name),
+    characterVoice(profile.characterId, profile.displayName),
+  ];
+
+  /** 毎ターン動くもの。ここから後ろは、毎回組み直しになる。 */
+  const volatile = [
+    `今日の日付: ${today(now)}（${DAY_BOUNDARY_NOTE}）`,
     goalDoctrine(profile),
     raceDoctrine(profile, now),
     zoneDoctrine(profile),
@@ -242,23 +269,20 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     summarizeProfile(profile, now),
     latestRunDetail(profile),
     dailyDoctrine(profile, now),
-    safety.directives.length > 0
-      ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
-      : null,
     connectionDoctrine(profile, isStravaConfigured(), now),
-    IMAGE_POLICY,
-    figureDoctrine(),
     fuelDoctrine(profile, now),
     shoeDoctrine(profile, now),
     gearNoteDoctrine(profile),
     checklistDoctrine(profile, now),
-    gearDoctrine(),
-    productDoctrine(),
-    TOOL_POLICY,
-    TONE,
-  ].filter((section): section is string => Boolean(section));
+    // その場の強制指示は、いちばん最後。直前に読んだものがいちばん効く。
+    safety.directives.length > 0
+      ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
+      : null,
+  ];
 
-  return sections.join('\n\n');
+  return [...invariant, ...perRunner, ...volatile]
+    .filter((section): section is string => Boolean(section))
+    .join('\n\n');
 }
 
 /** 会話が空の時に、こちらから最初の一声をかけるための入力。 */

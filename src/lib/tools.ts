@@ -25,8 +25,9 @@ import {
 } from './profile';
 import { logWeight } from './daily';
 import { activeRedFlag, clearRedFlags } from './red-flags';
-import { SHOE_ROLE_LABEL, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
+import { SHOE_ROLE_LABEL, activeShoes, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
+import { racesOf } from './races';
 
 /**
  * コーチが「学習」するための手段。
@@ -791,4 +792,31 @@ export function executeTool(
     default:
       return { profile, result: { ok: false, error: `未知のツール: ${name}` } };
   }
+}
+
+/**
+ * その人の状態で、使いようのない道具を外す。
+ *
+ * **道具の説明は毎回まるごと送っている。** 1通で2回呼べば2回ぶん買う。
+ * 大会を1つも登録していない人に「大会を消す道具」の説明を送る意味は無いし、
+ * 選べない道具が並んでいること自体が、モデルの迷いにもなる。
+ *
+ * **外すのは「その状態では成立しない」ものだけ。**
+ * 話題で絞ると、聞かれる前に気づいて道具を使う動きまで殺してしまう。
+ */
+export function toolsFor(profile: RunnerProfile, now: Date = new Date()): FunctionDeclaration[] {
+  const drop = new Set<string>();
+
+  // 危険な兆候が出ていなければ、それを解除する道具は要らない。
+  if (!activeRedFlag(profile, now)) drop.add('clear_red_flag');
+  // 大会が1つも無ければ、消す道具は要らない（足す道具は残す）。
+  if (racesOf(profile).length === 0) drop.add('remove_race');
+  // 履いている靴が無ければ、引退させる道具は要らない。
+  if (activeShoes(profile).length === 0) drop.add('retire_shoes');
+  // 持ち物がまだ無ければ、合う合わないを記録する道具も要らない。
+  if (activeShoes(profile).length === 0 && (profile.gearNotes ?? []).length === 0) {
+    drop.add('log_gear_feedback');
+  }
+
+  return coachTools.filter((tool) => !drop.has(tool.name ?? ''));
 }

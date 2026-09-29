@@ -107,7 +107,14 @@ export default async function AdminPage() {
           <Stat
             label="概算の費用"
             value={yen(totals.yen)}
-            note={totals.yenPerTurn !== null ? `1回あたり ${yen(totals.yenPerTurn)}` : undefined}
+            note={[
+              totals.yenPerTurn !== null ? `1回あたり ${yen(totals.yenPerTurn)}` : null,
+              totals.cachedRatio !== null && totals.cachedRatio > 0
+                ? `送った量の ${Math.round(totals.cachedRatio * 100)}% は使い回し`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' / ')}
           />
           <Stat
             label="上限に当たった"
@@ -119,10 +126,10 @@ export default async function AdminPage() {
         <section className="mt-8">
           <h2 className="text-[15px] font-bold">日ごと</h2>
           <div className="mt-2 overflow-x-auto rounded-[14px] border border-line">
-            <table className="w-full min-w-[900px] border-collapse text-[13px] tabular-nums">
+            <table className="w-full min-w-[1000px] border-collapse text-[13px] tabular-nums">
               <thead className="bg-sunken text-left text-[11px] text-muted">
                 <tr>
-                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員）'].map(
+                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員）'].map(
                     (label) => (
                       <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">
                         {label}
@@ -143,6 +150,9 @@ export default async function AdminPage() {
                       {row.callsPerTurn === null ? '—' : `${row.callsPerTurn.toFixed(1)}回`}
                     </td>
                     <td className="px-3 py-2">{number(row.inputTokens)}</td>
+                    <td className="px-3 py-2">
+                      {row.cachedRatio === null ? '—' : `${Math.round(row.cachedRatio * 100)}%`}
+                    </td>
                     <td className="px-3 py-2">{number(row.outputTokens)}</td>
                     <td className="px-3 py-2">{yen(row.yen)}</td>
                     <td className="px-3 py-2">{yen(row.yenPerUser)}</td>
@@ -164,8 +174,12 @@ export default async function AdminPage() {
             正確な金額は Google の請求画面で確かめてください。
             「上限（会員）」が増えてきたら、有料の枠を用意する頃合いです。
             <br />
-            「1通あたり」は、1通の返事のためにモデルを何回呼んだか。呼ぶたびに固定の指示文と道具の説明（約1.3万トークン）を
+            「1通あたり」は、1通の返事のためにモデルを何回呼んだか。呼ぶたびに固定の指示文と道具の説明を
             送り直しているので、<strong>ここが 1 に近いほど安くなります</strong>。
+            <br />
+            「使い回し」は、送った量のうち前置きを使い回せた割合。
+            指示文は「誰にとっても同じ規範 → その人のこと → 今日のこと」の順に並べてあります。
+            <strong>ここが 0% のままなら、その並びが効いていません。</strong>
           </p>
         </section>
 

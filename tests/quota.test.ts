@@ -264,11 +264,29 @@ describe('どの枠で使っているか', () => {
 describe('使った量の記録', () => {
   it('日ごとに足していく（値段を決めるための実測）', async () => {
     const counter = new MemoryUsageCounter();
-    await recordUsage(counter, { inputTokens: 9000, outputTokens: 700, calls: 2 }, NOW);
-    await recordUsage(counter, { inputTokens: 1000, outputTokens: 300, calls: 1 }, NOW);
+    await recordUsage(counter, { inputTokens: 9000, outputTokens: 700, cachedTokens: 6000, calls: 2 }, NOW);
+    await recordUsage(counter, { inputTokens: 1000, outputTokens: 300, cachedTokens: 0, calls: 1 }, NOW);
     expect(counter.peek('tokens-in:2026-09-28')).toBe(10000);
     expect(counter.peek('tokens-out:2026-09-28')).toBe(1000);
     expect(counter.peek('calls:2026-09-28')).toBe(3);
+  });
+
+  /**
+   * 前置きの使い回しが効いた量。
+   * **効いているかどうかは、この数でしか分からない。**
+   */
+  it('使い回せた量も、日ごとに足す', async () => {
+    const counter = new MemoryUsageCounter();
+    await recordUsage(counter, { inputTokens: 9000, outputTokens: 700, cachedTokens: 6000, calls: 2 }, NOW);
+    await recordUsage(counter, { inputTokens: 9000, outputTokens: 300, cachedTokens: 5500, calls: 1 }, NOW);
+    expect(counter.peek('tokens-cached:2026-09-28')).toBe(11500);
+  });
+
+  /** 使い回しが効かなかった日を、0として残す（数えていないのと区別する必要は無い）。 */
+  it('使い回せた量が0なら、書き込まない', async () => {
+    const counter = new MemoryUsageCounter();
+    await recordUsage(counter, { inputTokens: 9000, outputTokens: 700, cachedTokens: 0, calls: 1 }, NOW);
+    expect(counter.peek('tokens-cached:2026-09-28')).toBe(0);
   });
 
   it('その日の最初の1回だけ、使った人を1人足す（1人あたりの費用の分母）', async () => {
