@@ -57,3 +57,36 @@ export function operatorInfo(env: NodeJS.ProcessEnv = process.env): OperatorInfo
     incomplete: !name || !contact,
   };
 }
+
+/**
+ * 特定商取引法に基づく表記に要る項目。
+ *
+ * **有料にするなら、これは任意ではない。** 住所と責任者名は「請求されたら
+ * 遅滞なく開示する」で足りる場面もあるが、**価格・支払時期・解約条件は必ず出す。**
+ * 空のまま有料の入口を出さないよう、そろっているかをここで判定する。
+ */
+export interface CommerceInfo {
+  operator: string;
+  manager: string;
+  address: string;
+  contact: string;
+  price: string;
+  /** 足りない項目がある。**有料の入口を出してはいけない状態。** */
+  incomplete: boolean;
+}
+
+export function commerceInfo(env: NodeJS.ProcessEnv = process.env): CommerceInfo {
+  const operator = cleanEnv(env.LEGAL_OPERATOR_NAME);
+  const manager = cleanEnv(env.LEGAL_MANAGER_NAME) || operator;
+  const address = cleanEnv(env.LEGAL_ADDRESS);
+  const contact = cleanEnv(env.LEGAL_CONTACT_EMAIL);
+  const price = cleanEnv(env.LEGAL_PRICE_TEXT);
+  return {
+    operator: operator || '（未設定）',
+    manager: manager || '（未設定）',
+    address: address || '（未設定）',
+    contact: contact || '（未設定）',
+    price: price || '（未設定）',
+    incomplete: !operator || !address || !contact || !price,
+  };
+}

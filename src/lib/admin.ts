@@ -16,7 +16,7 @@ export const USD_TO_JPY = 150;
 
 /** 上限に当たった理由と枠の組み合わせ（quota.ts の QuotaReason × Plan）。 */
 const LIMIT_REASONS = ['turns', 'images', 'place', 'busy'] as const;
-const LIMIT_PLANS = ['guest', 'member'] as const;
+const LIMIT_PLANS = ['guest', 'member', 'premium'] as const;
 
 export interface Prices {
   /** 送った量 100万トークンあたりの米ドル。 */
@@ -64,6 +64,8 @@ export function keysForDay(day: string): string[] {
     `event:${day}:import`,
     `event:${day}:push_on`,
     `event:${day}:push_sent`,
+    `event:${day}:subscribe`,
+    `event:${day}:unsubscribe`,
     ...LIMIT_REASONS.flatMap((reason) => LIMIT_PLANS.map((plan) => `event:${day}:limit:${reason}:${plan}`)),
   ];
 }
@@ -104,6 +106,11 @@ export interface DayRow {
   /** 上限に当たった回数。ゲストと会員を分ける（会員が当たるなら、有料枠の出番）。 */
   limitGuest: number;
   limitMember: number;
+  /** 有料の人が上限に当たった数。**ここが増えるなら、枠か値段が合っていない。** */
+  limitPremium: number;
+  /** その日に有料になった人 / やめた人。 */
+  subscribed: number;
+  unsubscribed: number;
 }
 
 export function dayRow(day: string, counts: Record<string, number>, prices: Prices | null): DayRow {
@@ -134,6 +141,9 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
     pushSent: read(`event:${day}:push_sent`),
     limitGuest: limit('guest'),
     limitMember: limit('member'),
+    limitPremium: limit('premium'),
+    subscribed: read(`event:${day}:subscribe`),
+    unsubscribed: read(`event:${day}:unsubscribe`),
   };
 }
 
@@ -151,6 +161,10 @@ export interface Totals {
   cachedRatio: number | null;
   limitGuest: number;
   limitMember: number;
+  limitPremium: number;
+  /** その期間に有料になった人 / やめた人。 */
+  subscribed: number;
+  unsubscribed: number;
 }
 
 export function totalsOf(rows: DayRow[]): Totals {
@@ -171,5 +185,8 @@ export function totalsOf(rows: DayRow[]): Totals {
     cachedRatio: inputTokens > 0 ? cachedTokens / inputTokens : null,
     limitGuest: sum((row) => row.limitGuest),
     limitMember: sum((row) => row.limitMember),
+    limitPremium: sum((row) => row.limitPremium),
+    subscribed: sum((row) => row.subscribed),
+    unsubscribed: sum((row) => row.unsubscribed),
   };
 }

@@ -425,6 +425,11 @@ export interface RunnerProfile {
   connections?: Connections;
   /** 通知の宛先。**ブラウザへ返してはならない。** */
   pushSubscriptions?: PushSubscriptionRecord[];
+  /**
+   * 有料の枠の状態。**画面には返さない**（publicProfile で落とす）。
+   * 顧客IDは、他人に渡れば契約を触られる手がかりになる。
+   */
+  subscription?: Subscription;
   /** 通知を出しすぎないための記録。 */
   notifications?: NotificationState;
   /**
@@ -459,6 +464,26 @@ export interface TimedContent extends Content {
 export interface CoachState {
   profile: RunnerProfile;
   history: TimedContent[];
+}
+
+/**
+ * 有料の枠の状態。
+ *
+ * **正は常に Stripe。** こちらが持つのは「いまどの状態か」だけで、
+ * 金額も明細も持たない。持てば、食い違った時にどちらが正しいのか分からなくなる。
+ */
+export interface Subscription {
+  /** Stripe の顧客ID。解約やカード変更の画面を出すのに要る。 */
+  customerId: string;
+  /** Stripe の契約ID。 */
+  subscriptionId?: string;
+  status: 'active' | 'trialing' | 'past_due' | 'canceled';
+  /** いまの期間の終わり（ISO 8601）。解約後も、ここまでは使える。 */
+  currentPeriodEnd?: string;
+  /** 期間の終わりで終了する予定か（解約を押した状態）。 */
+  cancelAtPeriodEnd?: boolean;
+  /** 最後に Stripe から知らせが来た時刻。 */
+  updatedAt: string;
 }
 
 /** チャットに添付された画像。data は base64（接頭辞なし）。 */
