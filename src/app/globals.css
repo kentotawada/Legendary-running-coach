@@ -226,8 +226,17 @@ select {
   iOS はキーボードが出ても 100dvh を縮めないため、そのままだと
   入力欄がキーボードの下に隠れ、Safari が画面ごとずらして端を切る。
   覆われた分だけ自分で縮める。
+
+  **position: fixed にしてあるのは、ずらしに連れていかれないため。**
+  ふつうの流れに置くと、Safari が文書ごと持ち上げた時に外枠も一緒に上がり、
+  入力欄が画面の上端まで飛んで、下に何も無い余白が残る。
+  fixed の基準はキーボードで動かない枠のほうなので、そこに釘で留める。
 */
 .app-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 100dvh;
   height: calc(100dvh - var(--keyboard-inset, 0px));
 }

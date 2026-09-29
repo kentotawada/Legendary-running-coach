@@ -31,12 +31,22 @@ export function useKeyboardInset(): void {
           ? 0
           : Math.min(covered, Math.round(window.innerHeight * MAX_RATIO));
       root.style.setProperty('--keyboard-inset', `${Math.round(inset)}px`);
+
+      /**
+       * iOS は、入力欄を見せようと**画面そのものを上へずらす**。
+       * 外枠はこちらで縮めているので、そのずらしは要らない。残ると、
+       * 入力欄が画面の上端まで飛び、下に何も無い余白ができる。
+       */
+      if (inset > 0 && window.scrollY !== 0) window.scrollTo(0, 0);
     };
 
     update();
     viewport.addEventListener('resize', update);
+    // ずらしは resize とは別に起きる。両方を見ないと、戻し損ねる。
+    viewport.addEventListener('scroll', update);
     return () => {
       viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
       root.style.setProperty('--keyboard-inset', '0px');
     };
   }, []);
