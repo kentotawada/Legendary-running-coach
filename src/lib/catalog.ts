@@ -15,6 +15,8 @@
  * 鍵（RAKUTEN_APP_ID）が無い環境では何も取らず、従来の検索リンクに落ちます。
  */
 
+import { reportError } from './ops';
+
 const ENDPOINT = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601';
 
 /** 1回の呼び出しで取る件数。この中から絞り込む。 */
@@ -225,6 +227,8 @@ export interface SearchOptions {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  /** 失敗を運営の画面に残す先。テストでは差し替える。 */
+  report?: (message: string, extra: Record<string, unknown>) => void;
 }
 
 /**
@@ -245,6 +249,7 @@ export async function searchCatalog(
     // そのまま渡さず包むのは、実行環境によっては fetch を単体で呼べないため。
     fetchImpl = (...args: Parameters<typeof fetch>) => fetch(...args),
     timeoutMs = TIMEOUT_MS,
+    report = (message, extra) => void reportError('catalog', new Error(message), extra),
   } = options;
 
   const config = catalogConfigFromEnv(env);
@@ -281,6 +286,17 @@ export async function searchCatalog(
           ? '（RAKUTEN_ACCESS_KEY が未設定です。新しい方式のアプリIDには鍵が要ります）'
           : '';
       console.warn(`[coach] 商品検索が ${response.status} を返しました${hint}: ${body.slice(0, 200)}`);
+      /*
+        **黙って落ちると、いちばん気づけない壊れ方になる。**
+        商品が取れない時は、カテゴリの検索リンクに落ちて会話は続く。
+        利用者から見れば普通に動いているので、紹介が成り立っていないことに
+        誰も気づかないまま日が過ぎる。運営の画面に出す。
+      */
+      void report(`商品検索が ${response.status} を返しました${hint}`, {
+        status: response.status,
+        body: body.slice(0, 200),
+        hasAccessKey: Boolean(config.accessKey),
+      });
       return [];
     }
     const json = (await response.json()) as unknown;
