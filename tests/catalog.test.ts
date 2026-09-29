@@ -135,6 +135,38 @@ describe('商品検索', () => {
     expect(found[0].name).toBe('ランニングシューズ A1');
   });
 
+  /**
+   * 新しい方式のアプリは、アプリIDだけでは通らない。
+   *
+   * 楽天の管理画面で発行されるIDが数字の羅列から UUID の形に変わり、
+   * あわせて秘密の鍵（Access Key）を添える形になった。
+   * **鍵を送らなければ、設定したつもりで何も出ない状態になる。**
+   */
+  it('秘密の鍵があれば、一緒に送る', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: { ...env, RAKUTEN_ACCESS_KEY: 'pk_secret' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl,
+    });
+
+    expect(new URL(String(fetchImpl.mock.calls[0][0])).searchParams.get('accessKey')).toBe('pk_secret');
+  });
+
+  /** 古い数字のIDは鍵なしでも通る。持っていないものを、空で送らない。 */
+  it('鍵が無ければ、その欄ごと送らない', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', { env, fetchImpl });
+    expect(String(fetchImpl.mock.calls[0][0])).not.toContain('accessKey');
+  });
+
   it('モール側が失敗しても、対話を止めない', async () => {
     const failing = vi.fn().mockResolvedValue({
       ok: false,
