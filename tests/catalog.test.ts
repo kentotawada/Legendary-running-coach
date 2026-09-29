@@ -136,6 +136,97 @@ describe('商品検索', () => {
   });
 
   /**
+   * **新しい窓口は「どこから呼んでいるか」を求める。**
+   *
+   * ブラウザなら勝手に付くヘッダだが、こちらはサーバーから呼んでいるので付かない。
+   * 名乗らないと 403 REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING で弾かれる。
+   * 楽天のアプリ登録で入れた「Allowed websites」と突き合わされる。
+   */
+  it('どのサイトから呼んでいるかを名乗る', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: {
+        ...env,
+        RAKUTEN_ACCESS_KEY: 'pk_secret',
+        NEXT_PUBLIC_SITE_URL: 'https://example.vercel.app',
+      } as unknown as NodeJS.ProcessEnv,
+      fetchImpl,
+    });
+
+    const headers = (fetchImpl.mock.calls[0][1] as { headers: Record<string, string> }).headers;
+    expect(headers.Referer).toBe('https://example.vercel.app/');
+  });
+
+  /** 末尾のスラッシュが二重にならないこと。登録した住所の形に合わせる。 */
+  it('末尾のスラッシュは重ねない', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: { ...env, NEXT_PUBLIC_SITE_URL: 'https://example.vercel.app/' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl,
+    });
+
+    const headers = (fetchImpl.mock.calls[0][1] as { headers: Record<string, string> }).headers;
+    expect(headers.Referer).toBe('https://example.vercel.app/');
+  });
+
+  /** 楽天だけ別の住所で名乗りたい時のための逃げ道。 */
+  it('RAKUTEN_REFERER があれば、そちらを優先する', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: {
+        ...env,
+        NEXT_PUBLIC_SITE_URL: 'https://example.vercel.app',
+        RAKUTEN_REFERER: 'https://runcoach.example.com',
+      } as unknown as NodeJS.ProcessEnv,
+      fetchImpl,
+    });
+
+    const headers = (fetchImpl.mock.calls[0][1] as { headers: Record<string, string> }).headers;
+    expect(headers.Referer).toBe('https://runcoach.example.com/');
+  });
+
+  /** 名乗る住所が無ければ、空で名乗らない。何を足せばいいかは、記録のほうで伝える。 */
+  it('住所が無ければ、そのヘッダごと送らない', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', { env, fetchImpl });
+    const headers = (fetchImpl.mock.calls[0][1] as { headers: Record<string, string> }).headers;
+    expect(headers.Referer).toBeUndefined();
+  });
+
+  it('住所が無いまま弾かれたら、そこを名指しする', async () => {
+    const report = vi.fn();
+    const failing = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => '{"errors":{"errorCode":403,"errorMessage":"REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING"}}',
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: { ...env, RAKUTEN_ACCESS_KEY: 'pk_secret' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl: failing,
+      report,
+    });
+
+    expect(String(report.mock.calls[0][0])).toContain('NEXT_PUBLIC_SITE_URL');
+  });
+
+  /**
    * **鍵の有無で、窓口そのものが変わる。**
    *
    * 楽天は新しい方式（UUID のアプリID ＋ Access Key）を別のホスト・別のパス・

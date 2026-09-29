@@ -31,6 +31,21 @@ function endpointFor(config: CatalogConfig): string {
   return config.accessKey ? ENDPOINT_WITH_KEY : ENDPOINT_LEGACY;
 }
 
+/**
+ * 弾かれた理由のうち、**こちらの設定漏れで説明がつくもの**を名指しする。
+ * 「wrong_parameter」だけでは、何を足せばいいのか分からない。
+ */
+function missingSetupHint(config: CatalogConfig, status: number): string {
+  if (status !== 400 && status !== 401 && status !== 403) return '';
+  if (!config.accessKey) {
+    return '（RAKUTEN_ACCESS_KEY が未設定です。新しい方式のアプリIDには鍵が要ります）';
+  }
+  if (!config.referer) {
+    return '（NEXT_PUBLIC_SITE_URL が未設定です。新しい窓口は、どのサイトから呼んでいるかを求めます）';
+  }
+  return '';
+}
+
 /** 1回の呼び出しで取る件数。この中から絞り込む。 */
 const FETCH_HITS = 20;
 
@@ -59,6 +74,14 @@ export interface ProductCandidate {
 export interface CatalogConfig {
   appId?: string;
   /**
+   * どのサイトから呼んでいるか。**新しい窓口はこれが無いと 403 を返す。**
+   *
+   * 楽天のアプリ登録で入れた「Allowed websites」と突き合わされる。
+   * ブラウザなら勝手に付くが、**こちらはサーバーから呼んでいるので付かない。**
+   * 自分で名乗る必要がある。
+   */
+  referer?: string;
+  /**
    * 新しい方式のアプリに付いてくる秘密の鍵（pk_ で始まる）。
    *
    * **アプリIDだけでは通らなくなった。** 楽天の管理画面で発行されるIDが
@@ -77,6 +100,8 @@ export function catalogConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Cata
   return {
     appId: clean(env.RAKUTEN_APP_ID),
     accessKey: clean(env.RAKUTEN_ACCESS_KEY),
+    // 楽天用に別途決めたい時だけ RAKUTEN_REFERER。ふだんはアプリ自身の住所でよい。
+    referer: clean(env.RAKUTEN_REFERER) ?? clean(env.NEXT_PUBLIC_SITE_URL),
     // アフィリエイトIDは楽天の管理画面の形式に合わせて、そのまま渡す。
     affiliateId: clean(env.RAKUTEN_AFFILIATE_ID),
   };
@@ -286,17 +311,18 @@ export async function searchCatalog(
   try {
     const response = await fetchImpl(`${endpointFor(config)}?${params.toString()}`, {
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        // 名乗らないと新しい窓口は通さない。末尾の / まで含めて、登録した住所の形に合わせる。
+        ...(config.referer ? { Referer: `${config.referer.replace(/\/$/, '')}/` } : {}),
+      },
     });
     if (!response.ok) {
       // 本文まで残す。楽天は理由（wrong_parameter など）を本文で返すので、
       // 状態番号だけでは「IDが違うのか、混んでいるのか」が切り分けられない。
       const body = await response.text().catch(() => '');
       // 鍵が要る方式なのに入れていない、がいちばん起きやすい。名指しで書く。
-      const hint =
-        !config.accessKey && (response.status === 400 || response.status === 401 || response.status === 403)
-          ? '（RAKUTEN_ACCESS_KEY が未設定です。新しい方式のアプリIDには鍵が要ります）'
-          : '';
+      const hint = missingSetupHint(config, response.status);
       console.warn(`[coach] 商品検索が ${response.status} を返しました${hint}: ${body.slice(0, 200)}`);
       /*
         **黙って落ちると、いちばん気づけない壊れ方になる。**
