@@ -167,6 +167,47 @@ describe('商品検索', () => {
     expect(String(fetchImpl.mock.calls[0][0])).not.toContain('accessKey');
   });
 
+  /**
+   * **黙って落ちるのが、いちばん気づけない壊れ方。**
+   * 商品が取れない時はカテゴリの検索リンクに落ちて会話は続くので、
+   * 利用者から見れば普通に動いている。紹介が成り立っていないことに
+   * 誰も気づかないまま日が過ぎる。運営の画面に残す。
+   */
+  it('モール側が失敗したら、運営の画面に残す', async () => {
+    const report = vi.fn();
+    const failing = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":"wrong_parameter"}',
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', { env, fetchImpl: failing, report });
+
+    expect(report).toHaveBeenCalledOnce();
+    const [message, extra] = report.mock.calls[0];
+    expect(message).toContain('400');
+    // 鍵が未設定のまま弾かれた時は、そこを名指しする。
+    expect(message).toContain('RAKUTEN_ACCESS_KEY');
+    expect(extra).toMatchObject({ status: 400, hasAccessKey: false });
+  });
+
+  it('鍵があるのに弾かれた時は、鍵のせいにしない', async () => {
+    const report = vi.fn();
+    const failing = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":"wrong_parameter"}',
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: { ...env, RAKUTEN_ACCESS_KEY: 'pk_secret' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl: failing,
+      report,
+    });
+
+    expect(String(report.mock.calls[0][0])).not.toContain('RAKUTEN_ACCESS_KEY');
+  });
+
   it('モール側が失敗しても、対話を止めない', async () => {
     const failing = vi.fn().mockResolvedValue({
       ok: false,
