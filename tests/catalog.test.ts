@@ -136,6 +136,57 @@ describe('商品検索', () => {
   });
 
   /**
+   * **鍵の有無で、窓口そのものが変わる。**
+   *
+   * 楽天は新しい方式（UUID のアプリID ＋ Access Key）を別のホスト・別のパス・
+   * 別の版に置いた。古い窓口に新しい鍵を持っていくと 400 で弾かれる。
+   * 鍵を送るようにしただけでは直らず、商品が1件も出ない状態が続いた。
+   */
+  it('鍵があれば、新しい窓口へ行く', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', {
+      env: { ...env, RAKUTEN_ACCESS_KEY: 'pk_secret' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl,
+    });
+
+    const url = String(fetchImpl.mock.calls[0][0]);
+    expect(url).toContain('openapi.rakuten.co.jp');
+    expect(url).toContain('/ichibams/api/IchibaItem/Search/20260701');
+  });
+
+  /** 数字だけの古いアプリIDは、古い窓口のままで通る。動いているものを壊さない。 */
+  it('鍵が無ければ、古い窓口のまま', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [{ Item: item() }] }),
+    } as unknown as Response);
+
+    await searchCatalog('シューズ', { env, fetchImpl });
+
+    const url = String(fetchImpl.mock.calls[0][0]);
+    expect(url).toContain('app.rakuten.co.jp');
+    expect(url).toContain('/services/api/IchibaItem/Search/20220601');
+  });
+
+  /** 新しい窓口が入れ子をやめても読めること。どちらの形でも取り出す。 */
+  it('入れ子でもそうでなくても、商品を取り出す', async () => {
+    const flat = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Items: [item()] }),
+    } as unknown as Response);
+
+    const found = await searchCatalog('シューズ', {
+      env: { ...env, RAKUTEN_ACCESS_KEY: 'pk_secret' } as unknown as NodeJS.ProcessEnv,
+      fetchImpl: flat,
+    });
+    expect(found[0].name).toBe('ランニングシューズ A1');
+  });
+
+  /**
    * 新しい方式のアプリは、アプリIDだけでは通らない。
    *
    * 楽天の管理画面で発行されるIDが数字の羅列から UUID の形に変わり、
@@ -189,6 +240,9 @@ describe('商品検索', () => {
     // 鍵が未設定のまま弾かれた時は、そこを名指しする。
     expect(message).toContain('RAKUTEN_ACCESS_KEY');
     expect(extra).toMatchObject({ status: 400, hasAccessKey: false });
+    // **どの窓口に何を言われたのかまで残す。** 状態番号だけでは切り分けられない。
+    expect(String((extra as { detail: string }).detail)).toContain('wrong_parameter');
+    expect(String((extra as { detail: string }).detail)).toContain('rakuten.co.jp');
   });
 
   it('鍵があるのに弾かれた時は、鍵のせいにしない', async () => {

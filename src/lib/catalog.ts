@@ -17,7 +17,19 @@
 
 import { reportError } from './ops';
 
-const ENDPOINT = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601';
+/**
+ * 商品検索の窓口。**鍵の有無で変わる。**
+ *
+ * 楽天は新しい方式（UUID のアプリID ＋ Access Key）を別の窓口に置いた。
+ * 古い窓口に新しい鍵を持っていっても 400 で弾かれる。
+ * 逆に、数字だけの古いアプリIDは古い窓口のままで通る。
+ */
+const ENDPOINT_WITH_KEY = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+const ENDPOINT_LEGACY = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601';
+
+function endpointFor(config: CatalogConfig): string {
+  return config.accessKey ? ENDPOINT_WITH_KEY : ENDPOINT_LEGACY;
+}
 
 /** 1回の呼び出しで取る件数。この中から絞り込む。 */
 const FETCH_HITS = 20;
@@ -272,7 +284,7 @@ export async function searchCatalog(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(`${ENDPOINT}?${params.toString()}`, {
+    const response = await fetchImpl(`${endpointFor(config)}?${params.toString()}`, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
@@ -293,8 +305,9 @@ export async function searchCatalog(
         誰も気づかないまま日が過ぎる。運営の画面に出す。
       */
       void report(`商品検索が ${response.status} を返しました${hint}`, {
+        // detail という名前で渡す。運営の画面がこの名前しか描かない。
+        detail: `${endpointFor(config)} → ${body.slice(0, 300)}`,
         status: response.status,
-        body: body.slice(0, 200),
         hasAccessKey: Boolean(config.accessKey),
       });
       return [];
