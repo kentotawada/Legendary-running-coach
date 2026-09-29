@@ -1,5 +1,6 @@
 import { cleanEnv } from './env';
 import { modelName, visionModelName } from './models';
+import { dailyBudget } from './quota';
 
 // これまでどおり build-info から読めるようにしておく。
 export { cleanEnv };
@@ -15,6 +16,14 @@ export interface BuildInfo {
   model: string;
   /** 画像を読む時だけ使うモデル名。 */
   visionModel: string;
+  /**
+   * アプリ全体で1日に話せる回数（DAILY_TURN_BUDGET）。
+   *
+   * **1日の請求が、どこで止まるかの数字。** 環境変数を直してリデプロイしたのに
+   * 効いていない、という事故がいちばん起きやすい設定なので、ここから確かめられるようにする。
+   * 秘密ではない（上限に当たれば、使っている人には画面で分かる）。
+   */
+  dailyTurnBudget: number;
   thinkingLevel: string;
   /** キーが設定されているか。値そのものは絶対に返さない。 */
   hasApiKey: boolean;
@@ -55,6 +64,7 @@ export function getBuildInfo(): BuildInfo {
     commit: commit ? commit.slice(0, 7) : 'local',
     model: modelName(),
     visionModel: visionModelName(),
+    dailyTurnBudget: dailyBudget(),
     thinkingLevel: (cleanEnv(process.env.GEMINI_THINKING_LEVEL) || 'LOW').toUpperCase(),
     hasApiKey: key.length > 0,
     // 特定の接頭辞を求めない。空白混入と短すぎる値だけを弾く。

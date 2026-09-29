@@ -16,7 +16,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { cleanEnv } from './build-info';
+import { cleanEnv } from './env';
 import { coachDate } from './day';
 
 /** どの枠で使っているか。有料の枠は、ここに足せば入る。 */
