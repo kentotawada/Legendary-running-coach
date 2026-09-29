@@ -1,4 +1,5 @@
 import { getBuildInfo } from '@/lib/build-info';
+import { pendingSetup } from '@/lib/setup';
 import { createSupabaseAdminClient } from '@/lib/supabase';
 import { storageHint } from '@/lib/storage-error';
 
@@ -53,7 +54,15 @@ export async function GET() {
   const [database, usage] = await Promise.all([checkDatabase(), checkUsage()]);
 
   return Response.json(
-    { ok: true, checkedAt: new Date().toISOString(), ...getBuildInfo(), ...database, ...usage },
+    {
+      ok: true,
+      checkedAt: new Date().toISOString(),
+      ...getBuildInfo(),
+      ...database,
+      ...usage,
+      // **まだ足りないもの。** 名前だけで、値は返さない。
+      pending: pendingSetup(),
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
