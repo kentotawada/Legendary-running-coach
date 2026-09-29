@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AttachmentGroup, CoachState, RunnerProfile } from './types';
 import { createDefaultProfile } from './types';
+import { dedupeActivities } from './profile';
 import type { Content, Part } from '@google/genai';
 import { imagePlaceholder } from './markers';
 import { createSupabaseAdminClient } from './supabase';
@@ -417,7 +418,20 @@ export async function loadForSession(session: {
     }
   }
 
-  return current.load(session.userId);
+  const state = await current.load(session.userId);
+  /*
+    読み込んだ時点でも、二重になっている練習をまとめ直す。
+
+    **これまでは取り込みの時にしか通していなかった。**
+    入口を直しても、それより前に二重で入った分は残ったままで、
+    その人がもう一度ファイルを取り込むまで直らない。
+    同じ1本が2件あると、その週の走行距離が狂い、コーチの判断まで狂う。
+    「距離が伸びましたね」と言われても、実際は伸びていない。
+
+    まとめるのは中身を足し合わせるだけなので、何度通しても結果は同じ。
+    変わらなければ、元のものをそのまま返す。
+  */
+  return { ...state, profile: dedupeActivities(state.profile) };
 }
 
 /** テスト用。 */
