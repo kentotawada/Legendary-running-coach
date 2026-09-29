@@ -284,6 +284,31 @@ describe('describeGeminiError', () => {
     expect(describeGeminiError(apiError('internal', 503), 'm').message).toContain('一時的な問題');
   });
 
+  /**
+   * 支払いで止まっているのを「使いすぎ」と言わない。
+   *
+   * **待っても直らないものに「少し時間をおいて」と案内すると、誰も原因にたどり着けない。**
+   * 実際に一度そうなった。残高が切れた日、1通目から止まっているのに
+   * 「利用上限に達しました」と出ていたので、割り当ての設定を疑って半日探した。
+   * Google は支払いの問題も RESOURCE_EXHAUSTED として返してくるので、先に見分ける。
+   */
+  it('支払いで止まっているのは、使いすぎと区別する', () => {
+    const real =
+      '{"error":{"code":402,"message":"Your prepayment credits are depleted. Please go to AI Studio",' +
+      '"status":"RESOURCE_EXHAUSTED"}}';
+
+    const error = describeGeminiError(apiError(real, 402), 'm');
+    expect(error.message).toContain('支払い');
+    expect(error.message).toContain('時間をおいても直りません');
+    expect(error.message).not.toContain('利用上限');
+  });
+
+  /** 状態番号が付いてこなくても、文面から見分ける。 */
+  it('番号が無くても、前払い残高切れと分かる', () => {
+    const error = describeGeminiError(apiError('Your prepayment credits are depleted.'), 'm');
+    expect(error.message).toContain('支払い');
+  });
+
   it('メッセージに API キーが混ざっていても外へ出さない', () => {
     const error = describeGeminiError(apiError('bad key AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q'), 'm');
     expect(error.detail).not.toContain('AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
