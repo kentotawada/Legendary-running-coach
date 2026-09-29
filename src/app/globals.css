@@ -174,8 +174,14 @@ select {
   padding-top: max(env(safe-area-inset-top), 0.5rem);
 }
 
+/*
+  下の余白は、ホームバーを避けるためのもの。
+  **キーボードが出ている間は要らない。** 避ける相手はキーボードが覆っているのに
+  余白だけ残ると、入力欄とキーボードのあいだに何も無い帯ができる。
+  キーボードで覆われた分を引けば、出ている時だけ自然に消える。
+*/
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  padding-bottom: max(calc(env(safe-area-inset-bottom) - var(--keyboard-inset, 0px)), 0.5rem);
 }
 
 @keyframes coach-rise {

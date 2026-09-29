@@ -95,6 +95,15 @@ export function describeGeminiError(error: unknown, model: string): CoachApiErro
       'この API キーでは Gemini API を呼び出せません。キーに制限（HTTPリファラ / IP）がかかっていないか、Generative Language API が有効かを確認してください。';
   } else if (isModelUnavailable(error)) {
     message = `モデル「${model}」がこのキーでは利用できません。環境変数 GEMINI_MODEL に、使えるモデル名を設定してください。`;
+  } else if (status === 402 || /prepayment|PAYMENT_REQUIRED|billing/i.test(raw)) {
+    /*
+      支払いの問題は、使いすぎとは別もの。**待っても直らない。**
+      Google はこれを RESOURCE_EXHAUSTED としても返してくるので、
+      先に見分けないと「少し時間をおいてから」と案内してしまい、
+      残高が切れていることに誰も気づけないまま、その日ずっと止まる。
+    */
+    message =
+      'Gemini API の支払いで止まっています（前払い残高切れなど）。時間をおいても直りません。Google AI Studio の請求画面で残高を確かめてください。';
   } else if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(raw)) {
     message = 'Gemini API の利用上限に達しました。少し時間をおいてから、もう一度話しかけてください。';
   } else if (status !== undefined && status >= 500) {
