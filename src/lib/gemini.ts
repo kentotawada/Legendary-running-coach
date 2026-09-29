@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import type { Content, GenerateContentConfig, Part } from '@google/genai';
+import type { Content, FunctionDeclaration, GenerateContentConfig, Part } from '@google/genai';
 import type { CoachState, ImageAttachment, RunnerProfile, TimedContent } from './types';
-import { coachTools, executeTool } from './tools';
+import { executeTool, toolsFor } from './tools';
 import { FIND_GEAR, runFindGear } from './gear-tool';
 import { emptyBasket, resolveProductBlocks } from './products';
 import { resolveChecklistBlocks } from './checklist';
@@ -19,7 +19,7 @@ import {
   redFlagNotice,
   redFlagRetryDirective,
 } from './red-flags';
-import { stripInlineData, trimHistory } from './store';
+import { compactHistory, stripInlineData, trimHistory } from './store';
 import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
 import { modelName, visionModelName } from './models';
@@ -135,11 +135,15 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
-function baseConfig(systemInstruction: string, model: string): GenerateContentConfig {
+function baseConfig(
+  systemInstruction: string,
+  model: string,
+  tools: FunctionDeclaration[],
+): GenerateContentConfig {
   const config: GenerateContentConfig = {
     systemInstruction,
     temperature: 0.8,
-    tools: [{ functionDeclarations: coachTools }],
+    tools: [{ functionDeclarations: tools }],
   };
 
   // thinkingLevel は Gemini 3 系のパラメータ。それ以外のモデルには送らない。
@@ -157,7 +161,7 @@ interface StepResult {
   text: string;
   calls: { name: string; args: unknown; id?: string }[];
   /** この1回で使った量。値段を決めるための実測に使う。 */
-  usage: { input: number; output: number };
+  usage: { input: number; output: number; cached: number };
 }
 
 /**
@@ -168,6 +172,7 @@ async function streamOnce(
   model: string,
   contents: Content[],
   systemInstruction: string,
+  tools: FunctionDeclaration[],
   emitted: { value: boolean },
   onDelta?: (delta: string) => void,
 ): Promise<StepResult> {
@@ -175,14 +180,14 @@ async function streamOnce(
     model,
     // 時刻はこちらの都合で足したもの。**Content に無い項目なので、送る前に外す。**
     contents: contents.map(({ role, parts }) => ({ role, parts })),
-    config: baseConfig(systemInstruction, model),
+    config: baseConfig(systemInstruction, model, tools),
   });
 
   const parts: Part[] = [];
   const calls: StepResult['calls'] = [];
   let text = '';
   // 使った量は、流れてくるたびに「ここまでの合計」で届く。最後に届いたものが全体。
-  const usage = { input: 0, output: 0 };
+  const usage = { input: 0, output: 0, cached: 0 };
 
   for await (const chunk of stream) {
     const metadata = chunk.usageMetadata;
@@ -190,6 +195,12 @@ async function streamOnce(
       usage.input = metadata.promptTokenCount ?? usage.input;
       // 考えた分も、書いた分と同じく課金される。
       usage.output = (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0) || usage.output;
+      /*
+        送った量のうち、前置きの使い回しが効いた分。
+        **効いているかどうかは、ここでしか分からない。** 指示文の並べ替えが
+        本当に効いたのかを、勘ではなく数で確かめるために数える。
+      */
+      usage.cached = metadata.cachedContentTokenCount ?? usage.cached;
     }
     const chunkParts = chunk.candidates?.[0]?.content?.parts ?? [];
     for (const part of chunkParts) {
@@ -235,6 +246,7 @@ async function streamOnce(
 async function generateStep(
   contents: Content[],
   systemInstruction: string,
+  tools: FunctionDeclaration[],
   vision: boolean,
   onDelta?: (delta: string) => void,
 ): Promise<StepResult> {
@@ -244,7 +256,7 @@ async function generateStep(
   for (let index = 0; index < models.length; index += 1) {
     const model = models[index];
     try {
-      return await streamOnce(model, contents, systemInstruction, emitted, onDelta);
+      return await streamOnce(model, contents, systemInstruction, tools, emitted, onDelta);
     } catch (error) {
       // キー未設定はモデルの問題ではない。翻訳せず、そのまま理由を伝える。
       if (error instanceof MissingApiKeyError) throw error;
@@ -341,7 +353,7 @@ export async function runCoachTurn({
   const history: TimedContent[] = [...state.history, { role: 'user', parts: userParts, at: stamp }];
 
   const usedTools: string[] = [];
-  const usage: Usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
+  const usage: Usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, calls: 0 };
   let rewrites = 0;
   let retryDirective: string | null = null;
   let finalText = '';
@@ -375,9 +387,21 @@ export async function runCoachTurn({
       ? `${buildSystemInstruction(profile, now)}\n\n${retryDirective}`
       : buildSystemInstruction(profile, now);
 
-    const result = await generateStep(history, systemInstruction, vision, strict ? undefined : onDelta);
+    /*
+      使いようのない道具は、毎回送らない。**説明は呼び出しごとに買い直している。**
+      カルテは道具を使うたびに変わるので、その時の状態で組み立て直す。
+    */
+    const tools = toolsFor(profile, now);
+    const result = await generateStep(
+      history,
+      systemInstruction,
+      tools,
+      vision,
+      strict ? undefined : onDelta,
+    );
     usage.inputTokens += result.usage.input;
     usage.outputTokens += result.usage.output;
+    usage.cachedTokens += result.usage.cached;
     usage.calls += 1;
 
     if (result.calls.length > 0) {
@@ -473,7 +497,15 @@ export async function runCoachTurn({
 
   return {
     // 画像の本体は保存しない。読み取った数値はカルテ側に残る。
-    state: { profile, history: stripInlineData(trimHistory(history), attachmentGroupId) },
+    /*
+      保存する時点で、古いやり取りから道具の配管を抜く。
+      **次に送るのは、ここで保存したもの。** 保存を軽くすることが、そのまま入力を軽くする。
+      直近のやり取りは残るので、いま進んでいる話の続きは失われない。
+    */
+    state: {
+      profile,
+      history: stripInlineData(compactHistory(trimHistory(history)), attachmentGroupId),
+    },
     text: finalText,
     rewrites,
     usedTools,

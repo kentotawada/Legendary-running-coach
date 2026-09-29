@@ -50,6 +50,82 @@ export function trimHistory(history: Content[], max: number = MAX_HISTORY_CONTEN
 }
 
 /**
+ * 直近これだけのやり取りは、道具の呼び出しごとそのまま残す。
+ * いま進んでいる話の続きに要るのは、この範囲。
+ */
+const KEEP_VERBATIM = 12;
+
+/** 画面にも出ない、人が読めないパート（道具の呼び出しと、その結果）。 */
+function isToolPart(part: Part): boolean {
+  return Boolean(part.functionCall || part.functionResponse);
+}
+
+/** 本物の発言（道具の結果を返しているだけの user ではない）。 */
+function isSpokenTurn(content: Content): boolean {
+  const parts = content.parts ?? [];
+  return content.role === 'user' && !parts.some((part) => part.functionResponse);
+}
+
+/**
+ * 道具のやり取りを落として、人が読める本文だけ残す。
+ *
+ * **画像の本体には手を触れない。** 落とすのは stripInlineData の仕事で、
+ * あちらは代わりに「添付があった」跡を残す。ここで先に消してしまうと、
+ * 道具をたくさん使ったターンで画像が境目の外へ押し出された時に、
+ * 跡を残さないまま消える。**見返せるはずの写真が、黙って消える。**
+ */
+function spokenOnly(content: Content): Content {
+  const parts = (content.parts ?? []).filter((part) => {
+    if (isToolPart(part) || part.thought) return false;
+    if (part.inlineData) return true;
+    return typeof part.text === 'string' && part.text.length > 0;
+  });
+  return { ...content, parts };
+}
+
+/**
+ * 古いやり取りから、道具の配管を抜く。
+ *
+ * **入力の半分が履歴になっていた。** 1回の呼び出しで約27,000トークン、
+ * うち14,000が過去のやり取り。その多くは「log_activity を呼んだ」「記録した」という
+ * 機械どうしの往復で、**中身はすでにカルテに入っている**。
+ * 指示文にカルテの要約が毎回載るので、同じことを二度送っていた。
+ *
+ * 人が話した言葉は残す。コーチが「先週こう言った」を思い出せなくなると、
+ * 会話の連続性そのものが失われる。**落とすのは配管だけ。**
+ *
+ * 直近 keepVerbatim 件はそのまま。いま進んでいる話の途中で配管を抜くと、
+ * 呼び出しと結果が片方だけ残って API に弾かれる。
+ * 切れ目は必ず「本物の発言」の位置まで下げるので、対が割れることはない。
+ */
+export function compactHistory<T extends Content>(history: T[], keepVerbatim = KEEP_VERBATIM): T[] {
+  if (history.length <= keepVerbatim) return history;
+
+  let cut = history.length - keepVerbatim;
+  while (cut < history.length && !isSpokenTurn(history[cut])) cut += 1;
+  // 切れる場所が無い（ずっと道具のやり取りが続いている）なら、何もしない。
+  if (cut >= history.length) return history;
+
+  const older: T[] = [];
+  for (const content of history.slice(0, cut)) {
+    const stripped = spokenOnly(content) as T;
+    if ((stripped.parts ?? []).length === 0) continue;
+    // 配管を抜いた結果、同じ役割が続くことがある。つなげて1つにする。
+    const last = older[older.length - 1];
+    if (last && last.role === stripped.role) {
+      older[older.length - 1] = {
+        ...last,
+        parts: [...(last.parts ?? []), ...(stripped.parts ?? [])],
+      } as T;
+      continue;
+    }
+    older.push(stripped);
+  }
+
+  return [...older, ...history.slice(cut)];
+}
+
+/**
  * 保存する履歴から画像の本体を落とす。
  * base64 を抱えたまま保存すると、保存先がすぐに膨れ上がる。
  * 読み取った数値はカルテに残っているので、ここでは「添付があった」跡だけを残す。

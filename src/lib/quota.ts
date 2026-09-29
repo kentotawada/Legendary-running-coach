@@ -75,6 +75,14 @@ export interface Usage {
   inputTokens: number;
   /** モデルが書いた量（考えた分も含む。どちらも課金される）。 */
   outputTokens: number;
+  /**
+   * 送った量のうち、前置きの使い回しが効いた分。
+   *
+   * **効いているかどうかは、数でしか分からない。** 指示文のうち
+   * 誰にとっても同じ部分を先頭に寄せてあるが、本当に使い回されているかは
+   * モデル側が返す数を見るまで確かめようがない。
+   */
+  cachedTokens: number;
   /** モデルを呼んだ回数。道具を使うと、1回の返事で何度も呼ぶ。 */
   calls: number;
 }
@@ -249,6 +257,7 @@ export async function recordUsage(counter: UsageCounter, usage: Usage, now: Date
   const entries: [string, number][] = [
     [`tokens-in:${day}`, usage.inputTokens],
     [`tokens-out:${day}`, usage.outputTokens],
+    [`tokens-cached:${day}`, usage.cachedTokens],
     [`calls:${day}`, usage.calls],
   ];
   await Promise.allSettled(

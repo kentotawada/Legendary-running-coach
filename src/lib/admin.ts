@@ -57,6 +57,7 @@ export function keysForDay(day: string): string[] {
     `turns:${day}:all`,
     `tokens-in:${day}`,
     `tokens-out:${day}`,
+    `tokens-cached:${day}`,
     `calls:${day}`,
     `event:${day}:signup`,
     `event:${day}:consent`,
@@ -87,6 +88,13 @@ export interface DayRow {
   callsPerTurn: number | null;
   inputTokens: number;
   outputTokens: number;
+  /** 送った量のうち、前置きの使い回しが効いた分。 */
+  cachedTokens: number;
+  /**
+   * 送った量のうち、使い回せた割合。
+   * **指示文の並べ替えが効いたかどうかは、この数でしか分からない。**
+   */
+  cachedRatio: number | null;
   /** 概算の費用（円）。単価が入っていなければ null。 */
   yen: number | null;
   /** 1人あたりの費用（円）。 */
@@ -102,6 +110,7 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
   const read = (key: string) => counts[key] ?? 0;
   const inputTokens = read(`tokens-in:${day}`);
   const outputTokens = read(`tokens-out:${day}`);
+  const cachedTokens = read(`tokens-cached:${day}`);
   const users = read(`users:${day}`);
   const turns = read(`turns:${day}:all`);
   const calls = read(`calls:${day}`);
@@ -117,6 +126,8 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
     callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
     inputTokens,
     outputTokens,
+    cachedTokens,
+    cachedRatio: inputTokens > 0 ? cachedTokens / inputTokens : null,
     yen,
     yenPerUser: yen !== null && users > 0 ? yen / users : null,
     imports: read(`event:${day}:import`),
@@ -136,6 +147,8 @@ export interface Totals {
   yen: number | null;
   /** 1回話すあたりの費用（円）。**値段を決める一番の材料。** */
   yenPerTurn: number | null;
+  /** 送った量のうち、前置きの使い回しが効いた割合。 */
+  cachedRatio: number | null;
   limitGuest: number;
   limitMember: number;
 }
@@ -146,6 +159,8 @@ export function totalsOf(rows: DayRow[]): Totals {
   const yen = priced ? sum((row) => row.yen ?? 0) : null;
   const turns = sum((row) => row.turns);
   const calls = sum((row) => row.calls);
+  const inputTokens = sum((row) => row.inputTokens);
+  const cachedTokens = sum((row) => row.cachedTokens);
   return {
     signups: sum((row) => row.signups),
     turns,
@@ -153,6 +168,7 @@ export function totalsOf(rows: DayRow[]): Totals {
     callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
     yen,
     yenPerTurn: yen !== null && turns > 0 ? yen / turns : null,
+    cachedRatio: inputTokens > 0 ? cachedTokens / inputTokens : null,
     limitGuest: sum((row) => row.limitGuest),
     limitMember: sum((row) => row.limitMember),
   };
