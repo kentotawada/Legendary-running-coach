@@ -19,7 +19,7 @@ import {
   redFlagNotice,
   redFlagRetryDirective,
 } from './red-flags';
-import { compactHistory, stripInlineData, trimHistory } from './store';
+import { compactHistory, repairHistory, stripInlineData, trimHistory } from './store';
 import { extractTextToolCalls } from './tool-text';
 import { cleanEnv } from './build-info';
 import { modelName, visionModelName } from './models';
@@ -350,7 +350,16 @@ export async function runCoachTurn({
   const vision = (images ?? []).length > 0;
 
   const stamp = now.toISOString();
-  const history: TimedContent[] = [...state.history, { role: 'user', parts: userParts, at: stamp }];
+  /*
+    送る前に繕う。**壊れた履歴は、その人の会話を永久に止める。**
+    片方だけの呼び出しや結果が残っていると 400 で弾かれ、保存まで進まないので
+    直る機会も来ない。次も、その次も同じ所で落ちる。
+    保存の時だけ整えていては、すでに壊れている人を救えない。
+  */
+  const history: TimedContent[] = [
+    ...repairHistory(state.history),
+    { role: 'user', parts: userParts, at: stamp },
+  ];
 
   const usedTools: string[] = [];
   const usage: Usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, calls: 0 };
@@ -504,7 +513,7 @@ export async function runCoachTurn({
     */
     state: {
       profile,
-      history: stripInlineData(compactHistory(trimHistory(history)), attachmentGroupId),
+      history: repairHistory(stripInlineData(compactHistory(trimHistory(history)), attachmentGroupId)),
     },
     text: finalText,
     rewrites,
