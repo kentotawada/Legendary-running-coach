@@ -93,7 +93,7 @@ export default async function AdminPage() {
           </Notice>
         )}
 
-        <section className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <section className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
           <Stat label="使い始めた人" value={number(totals.signups)} />
           <Stat
             label="話した回数"
@@ -118,18 +118,23 @@ export default async function AdminPage() {
           />
           <Stat
             label="上限に当たった"
-            value={number(totals.limitGuest + totals.limitMember)}
-            note={`ゲスト ${number(totals.limitGuest)} / 会員 ${number(totals.limitMember)}`}
+            value={number(totals.limitGuest + totals.limitMember + totals.limitPremium)}
+            note={`ゲスト ${number(totals.limitGuest)} / 会員 ${number(totals.limitMember)} / 有料 ${number(totals.limitPremium)}`}
+          />
+          <Stat
+            label="有料になった人"
+            value={number(totals.subscribed)}
+            note={totals.unsubscribed > 0 ? `やめた人 ${number(totals.unsubscribed)}` : undefined}
           />
         </section>
 
         <section className="mt-8">
           <h2 className="text-[15px] font-bold">日ごと</h2>
           <div className="mt-2 overflow-x-auto rounded-[14px] border border-line">
-            <table className="w-full min-w-[1000px] border-collapse text-[13px] tabular-nums">
+            <table className="w-full min-w-[1120px] border-collapse text-[13px] tabular-nums">
               <thead className="bg-sunken text-left text-[11px] text-muted">
                 <tr>
-                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員）'].map(
+                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員/有料）', '有料になった人'].map(
                     (label) => (
                       <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">
                         {label}
@@ -159,7 +164,11 @@ export default async function AdminPage() {
                     <td className="px-3 py-2">{number(row.imports)}</td>
                     <td className="px-3 py-2">{number(row.pushSent)}</td>
                     <td className="px-3 py-2">
-                      {number(row.limitGuest)} / {number(row.limitMember)}
+                      {number(row.limitGuest)} / {number(row.limitMember)} / {number(row.limitPremium)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {number(row.subscribed)}
+                      {row.unsubscribed > 0 ? ` / -${number(row.unsubscribed)}` : ''}
                     </td>
                   </tr>
                 ))}
@@ -172,7 +181,7 @@ export default async function AdminPage() {
             <strong>入れてある単価が、このモデルのものか確かめてください。</strong>
             モデルを変えて単価を置き忘れると、ここの金額だけが古いモデルのまま何倍にもなります。
             正確な金額は Google の請求画面で確かめてください。
-            「上限（会員）」が増えてきたら、有料の枠を用意する頃合いです。
+            「上限（会員）」が増えてきたら、有料の枠に人が動く頃合い。<strong>「上限（有料）」が増えるなら、枠か値段が合っていません。</strong>
             <br />
             「1通あたり」は、1通の返事のためにモデルを何回呼んだか。呼ぶたびに固定の指示文と道具の説明を
             送り直しているので、<strong>ここが 1 に近いほど安くなります</strong>。

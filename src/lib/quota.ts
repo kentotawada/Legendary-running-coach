@@ -19,8 +19,8 @@ import { createHash } from 'node:crypto';
 import { cleanEnv } from './env';
 import { coachDate } from './day';
 
-/** どの枠で使っているか。有料の枠は、ここに足せば入る。 */
-export type Plan = 'guest' | 'member' | 'admin';
+/** どの枠で使っているか。 */
+export type Plan = 'guest' | 'member' | 'premium' | 'admin';
 
 export interface PlanLimits {
   /** 1日に話せる回数。 */
@@ -38,6 +38,14 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<Exclude<Plan, 'admin'>, PlanLimits> = {
   guest: { turns: 15, images: 10 },
   member: { turns: 40, images: 40 },
+  /**
+   * 有料の枠。
+   *
+   * **「無制限」にはしない。** 1通あたりの原価が決まっている以上、
+   * 使い切られた時に赤字になる値段は付けられない。それでも、
+   * ふつうに毎日使って届かない幅にしてある（実測で1日平均2〜4回）。
+   */
+  premium: { turns: 60, images: 60 },
 };
 
 /**
@@ -95,12 +103,14 @@ export function adminEmails(env: NodeJS.ProcessEnv = process.env): string[] {
 }
 
 export function planFor(
-  session: { isAuthenticated?: boolean; email?: string },
+  session: { isAuthenticated?: boolean; email?: string; premium?: boolean },
   env: NodeJS.ProcessEnv = process.env,
 ): Plan {
   const email = session.email?.trim().toLowerCase();
   if (session.isAuthenticated && email && adminEmails(env).includes(email)) return 'admin';
-  return session.isAuthenticated ? 'member' : 'guest';
+  if (!session.isAuthenticated) return 'guest';
+  // **お金を払っている人を、ログインの判定だけで member に落とさない。**
+  return session.premium ? 'premium' : 'member';
 }
 
 export function dailyBudget(env: NodeJS.ProcessEnv = process.env): number {

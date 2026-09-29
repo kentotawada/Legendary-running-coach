@@ -838,8 +838,26 @@ export function publicProfile(profile: RunnerProfile): RunnerProfile {
     ? { ...profile, pushSubscriptions: undefined }
     : profile;
 
-  const strava = withoutPush.connections?.strava;
-  if (!strava) return withoutPush;
+  /*
+    契約は、状態だけを渡す。
+    **顧客IDは渡さない。** 他人に渡れば、その人の契約を触る手がかりになる。
+    画面が要るのは「いま有料か」「いつまでか」「解約を押してあるか」だけ。
+  */
+  const base = withoutPush.subscription
+    ? {
+        ...withoutPush,
+        subscription: {
+          customerId: '',
+          status: withoutPush.subscription.status,
+          currentPeriodEnd: withoutPush.subscription.currentPeriodEnd,
+          cancelAtPeriodEnd: withoutPush.subscription.cancelAtPeriodEnd,
+          updatedAt: withoutPush.subscription.updatedAt,
+        },
+      }
+    : withoutPush;
+
+  const strava = base.connections?.strava;
+  if (!strava) return base;
 
   const connections: Connections = {
     strava: {
@@ -852,7 +870,7 @@ export function publicProfile(profile: RunnerProfile): RunnerProfile {
       sources: strava.sources,
     },
   };
-  return { ...withoutPush, connections };
+  return { ...base, connections };
 }
 
 /** 保存している Gemini の Content[] から、画面に出す発言だけを取り出す。 */

@@ -15,6 +15,8 @@ import { clientAddress, planFor, recordUsage, takeQuota } from '@/lib/quota';
 import { CONSENT_REQUIRED_MESSAGE, hasConsent } from '@/lib/legal';
 import { countEvent, counterOf, reportError } from '@/lib/ops';
 import { detectRedFlags, redFlagNoticePlain } from '@/lib/red-flags';
+import { isSubscriptionActive } from '@/lib/billing';
+import type { CoachState } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -94,6 +96,19 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: imageError }, { status: 400 });
   }
 
+  /*
+    枠を数える前に記録を読むのは、**有料の人かどうかがカルテに書いてある**ため。
+    読めなかった時は、ここでは止めない。原因の伝え方は下の流れの中に用意してあり、
+    そちらのほうが利用者に分かる形で出る。
+  */
+  let preloaded: CoachState | null = null;
+  let preloadError: unknown = null;
+  try {
+    preloaded = await loadForSession(session);
+  } catch (error) {
+    preloadError = error;
+  }
+
   /**
    * **モデルを呼ぶ前に、1日の枠を確かめる。**
    * 呼んでから断っても、費用はもうかかっている。
@@ -102,7 +117,7 @@ export async function POST(request: NextRequest) {
   const quota = store.bumpUsage
     ? await takeQuota({
         counter: { bumpUsage: store.bumpUsage.bind(store) },
-        plan: planFor(session),
+        plan: planFor({ ...session, premium: isSubscriptionActive(preloaded?.profile.subscription) }),
         userId,
         address: clientAddress(request.headers),
         images: images.length,
@@ -162,14 +177,12 @@ export async function POST(request: NextRequest) {
         }
       };
 
-      let state;
-      try {
-        state = await loadForSession(session);
-      } catch (error) {
-        sendStorageFailure(error, 'これまでの記録を読み込めませんでした');
+      if (preloadError || !preloaded) {
+        sendStorageFailure(preloadError, 'これまでの記録を読み込めませんでした');
         finish();
         return;
       }
+      let state: CoachState = preloaded;
 
       // 体の情報を預かる前に、同意を確かめる。**会話の中で痛みや体重が記録されるため。**
       if (!hasConsent(state.profile)) {
