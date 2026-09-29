@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getBuildInfo } from '@/lib/build-info';
 import { DEFAULT_MODEL, VISION_MODEL, modelName, visionModelName } from '@/lib/models';
+import { DEFAULT_DAILY_BUDGET } from '@/lib/quota';
 
 /**
  * 画面が名乗るモデルと、実際に呼ぶモデル。
@@ -49,5 +50,32 @@ describe('名乗るモデルと、呼ぶモデル', () => {
   /** 画像の読み取りだけは、安いほうに倒さない。読み違えると助言そのものが狂う。 */
   it('画像の既定は、読み取りの強いモデル', () => {
     expect(VISION_MODEL).not.toBe(DEFAULT_MODEL);
+  });
+});
+
+/**
+ * 1日の上限も、アプリ自身に答えさせる。
+ *
+ * **環境変数を直したのにリデプロイを忘れた、がいちばん起きやすい事故。**
+ * 画面から確かめられないと、効いていないことに気づけない。
+ */
+describe('1日の上限の報告', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('既定では、コードの既定を報告する', () => {
+    expect(getBuildInfo().dailyTurnBudget).toBe(DEFAULT_DAILY_BUDGET);
+  });
+
+  it('環境変数を入れれば、その値を報告する', () => {
+    vi.stubEnv('DAILY_TURN_BUDGET', '60');
+    expect(getBuildInfo().dailyTurnBudget).toBe(60);
+  });
+
+  /** 読めない値で「0回」と報告して、止まっていると誤解させない。 */
+  it('読めない値なら、既定に戻して報告する', () => {
+    vi.stubEnv('DAILY_TURN_BUDGET', 'abc');
+    expect(getBuildInfo().dailyTurnBudget).toBe(DEFAULT_DAILY_BUDGET);
   });
 });
