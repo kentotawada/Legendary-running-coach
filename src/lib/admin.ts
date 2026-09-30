@@ -147,6 +147,36 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
   };
 }
 
+/**
+ * 日ごとの「話した人」から、続いているかを読む。
+ *
+ * **ベータでいちばん知りたいのは、初日の人数ではなく3日目に何人残ったか。**
+ * 20人来て3日目に2人なら、それが答え。3人でも1週間続けば、それは本物。
+ *
+ * 個人を追わずに出す。誰が続けたかは要らない。**何人続いたかが分かればいい。**
+ */
+export interface Retention {
+  /** 直近7日で、1日でも話した人の延べ数（同じ人が別の日に話せば2と数える）。 */
+  activeDays: number;
+  /** 直近7日のうち、誰かが話した日の数。 */
+  daysWithUse: number;
+  /** その期間で最も多かった日の人数。 */
+  peakUsers: number;
+  /** 直近3日に話した人がいるか。**火が消えていないか。** */
+  aliveNow: boolean;
+}
+
+export function retentionOf(rows: DayRow[]): Retention {
+  // rows は新しい順。直近7日だけを見る。
+  const week = rows.slice(0, 7);
+  return {
+    activeDays: week.reduce((sum, row) => sum + row.users, 0),
+    daysWithUse: week.filter((row) => row.users > 0).length,
+    peakUsers: week.reduce((most, row) => Math.max(most, row.users), 0),
+    aliveNow: rows.slice(0, 3).some((row) => row.users > 0),
+  };
+}
+
 export interface Totals {
   signups: number;
   turns: number;

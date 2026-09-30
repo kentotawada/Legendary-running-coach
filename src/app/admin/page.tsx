@@ -1,7 +1,16 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { dayRow, keysForDay, pricesFromEnv, recentDays, totalsOf, USD_TO_JPY, type DayRow } from '@/lib/admin';
+import {
+  dayRow,
+  keysForDay,
+  pricesFromEnv,
+  recentDays,
+  retentionOf,
+  totalsOf,
+  USD_TO_JPY,
+  type DayRow,
+} from '@/lib/admin';
 import { modelName, visionModelName } from '@/lib/models';
 import { getOps, type OpsEvent } from '@/lib/ops';
 import { adminEmails } from '@/lib/quota';
@@ -63,6 +72,7 @@ export default async function AdminPage() {
     countsError = error instanceof Error ? error.message : String(error);
   }
   const totals = totalsOf(rows);
+  const retention = retentionOf(rows);
 
   const read = async (kind: 'error' | 'feedback', limit: number) => {
     try {
@@ -126,6 +136,41 @@ export default async function AdminPage() {
             value={number(totals.subscribed)}
             note={totals.unsubscribed > 0 ? `やめた人 ${number(totals.unsubscribed)}` : undefined}
           />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-[15px] font-bold">続いているか（直近7日）</h2>
+          <p className="mt-1 text-[12px] text-muted">
+            <strong>初日の人数ではなく、3日目・7日目に何人残ったかが答え。</strong>
+            20人来て3日目に2人なら、それが答え。3人でも1週間続けば、それは本物。
+          </p>
+          <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <Stat label="いちばん多かった日" value={`${number(retention.peakUsers)}人`} />
+            <Stat
+              label="誰かが話した日"
+              value={`${number(retention.daysWithUse)} / 7日`}
+              note={retention.daysWithUse >= 5 ? '毎日のように動いています' : undefined}
+            />
+            <Stat
+              label="延べの人数"
+              value={number(retention.activeDays)}
+              note={
+                retention.peakUsers > 0
+                  ? `1人あたり ${(retention.activeDays / retention.peakUsers).toFixed(1)} 日`
+                  : undefined
+              }
+            />
+            <Stat
+              label="いまも動いているか"
+              value={retention.aliveNow ? '動いています' : '3日間ゼロ'}
+              note={retention.aliveNow ? undefined : '火が消えています'}
+            />
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            「延べの人数 ÷ いちばん多かった日」が、ひとりが平均して何日続けたかの目安。
+            <strong>1.0 に近いなら、来た人がその日だけで去っています。</strong>
+            誰が続けたかは追っていません。何人続いたかが分かれば足ります。
+          </p>
         </section>
 
         <section className="mt-8">
