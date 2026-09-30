@@ -57,14 +57,19 @@
 スマホのブラウザで
 `https://legendary-running-coach.vercel.app/api/health`
 
-**見るのはここだけ。**
+**見るのは2か所だけ。**
 
 ```
-"pending": []        ← 空なら、設定はそろっています
+"readyToShare": true          ← true なら、人に配れる状態
+"priceUsdPerMTok": {"in":0.5,"out":3}   ← 0.5 と 3 になっているか
 ```
 
-`pending` に何か名前が並んでいたら、それがまだ入っていない設定です。
-そのまま私に貼ってください。
+- `readyToShare` が **false** なら、`"blocking"` に理由が出ます。そのまま貼ってください
+- `priceUsdPerMTok` が **`{"in":2,"out":12}`** なら、上位モデルの単価のままです。
+  `/admin` の金額が**実際の4倍**になるので、1. に戻して `0.5,3` に直してください
+
+> **`pending` は空になりません。** Strava も Stripe も特商法も「無くてよいもの」で、
+> 使わない限りずっと並びます。**`pending` ではなく `readyToShare` を見てください。**
 
 ---
 

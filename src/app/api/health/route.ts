@@ -1,5 +1,6 @@
 import { getBuildInfo } from '@/lib/build-info';
-import { pendingSetup } from '@/lib/setup';
+import { blockingSetup, pendingSetup, readyToShare } from '@/lib/setup';
+import { pricesFromEnv } from '@/lib/admin';
 import { createSupabaseAdminClient } from '@/lib/supabase';
 import { storageHint } from '@/lib/storage-error';
 
@@ -52,6 +53,7 @@ async function checkUsage(): Promise<{ usage: 'ok' | 'not-configured' | 'error';
 
 export async function GET() {
   const [database, usage] = await Promise.all([checkDatabase(), checkUsage()]);
+  const prices = pricesFromEnv();
 
   return Response.json(
     {
@@ -60,6 +62,22 @@ export async function GET() {
       ...getBuildInfo(),
       ...database,
       ...usage,
+      /*
+        **人に配れる状態か。ここだけ見れば分かるようにする。**
+        pending は Strava も Stripe も含むので、当分ずっと空にならない。
+        それを「まだ足りない」と読むか、並んでいるのを見慣れて
+        本当に足りないものを見落とすか、どちらかになっていた。
+      */
+      readyToShare: readyToShare(),
+      /** 無くては困るのに足りないもの。**空でなければ人に配れない。** */
+      blocking: blockingSetup(),
+      /*
+        単価。**値まで出す。** Google の公開価格なので隠すものではないし、
+        入っているかどうかだけでは「上位モデルの単価（2,12）のまま」を
+        見つけられない。それだと /admin の金額が実際の4倍になり、
+        値付けの判断ごと間違える。
+      */
+      priceUsdPerMTok: prices ? { in: prices.inputPerMTok, out: prices.outputPerMTok } : null,
       // **まだ足りないもの。** 名前だけで、値は返さない。
       pending: pendingSetup(),
     },
