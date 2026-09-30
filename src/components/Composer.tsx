@@ -2,6 +2,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dataUrlToFile, prepareImages, reattachName, type PreparedImage } from '@/lib/downscale';
+import {
+  buildAttachments,
+  emptyAttachments,
+  removeAt,
+  type Attachments,
+} from '@/lib/attachment-slots';
 import { FILE_ACCEPT, MAX_IMAGES, MAX_TOTAL_BYTES, looksLikeAttachment } from '@/lib/images';
 import { useVoiceInput } from '@/hooks/useSpeech';
 
@@ -27,6 +33,10 @@ interface Props {
 
 const MAX_HEIGHT = 140;
 
+type Attached = Attachments<File, PreparedImage>;
+
+const EMPTY: Attached = emptyAttachments<File, PreparedImage>();
+
 export default function Composer({
   onSend,
   onError,
@@ -37,9 +47,24 @@ export default function Composer({
 }: Props) {
   const recordRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
-  // 元のファイルも持っておく。枚数が変わるたびに圧縮率を計算し直すため。
-  const [files, setFiles] = useState<File[]>([]);
-  const [images, setImages] = useState<PreparedImage[]>([]);
+  /**
+   * 添付しているもの。
+   *
+   * **3つを別々の state にしない。** files と images は 1:1 ではない
+   * （縦長の画像は複数枚に切り分けられる）ので、片方だけ更新された瞬間に
+   * 「×を押しても消えない」が起きる。まとめて一度に差し替える。
+   */
+  const [attached, setAttached] = useState<Attached>(EMPTY);
+  const { files, images, slots } = attached;
+  /** 合計が上限を超えているか。**超えていても添付は外せる。** */
+  const [oversize, setOversize] = useState(false);
+  /**
+   * 外した1枚。
+   *
+   * 枚数が変わるたびに全部作り直すので、外したことを覚えていないと
+   * 次に1枚足した瞬間に、外したはずの1枚が戻ってくる。
+   */
+  const dropped = useRef(new Map<File, Set<number>>());
   const [preparing, setPreparing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -150,14 +175,25 @@ export default function Composer({
   const rebuild = async (nextFiles: File[]) => {
     setPreparing(true);
     try {
-      const { images: prepared, failed, accepted } = await prepareImages(nextFiles);
-      const total = prepared.reduce((sum, image) => sum + image.bytes, 0);
+      const { images: prepared, failed, accepted, owners } = await prepareImages(nextFiles);
+
+      // 外した1枚は、作り直しても戻さない。
+      const next = buildAttachments(accepted, prepared, owners, (file, tile) =>
+        Boolean(dropped.current.get(file)?.has(tile)),
+      );
+      setAttached(next);
+
+      /*
+        **合計が上限を超えていても、ここで止めない。**
+        以前は超えた時点で state を更新せずに戻していた。そうすると
+        「×で何枚か外してください」と言いながら、その×が効かなくなる。
+        唯一の逃げ道を塞いでいた。反映はして、送信だけを止める。
+      */
+      const total = next.images.reduce((sum, image) => sum + image.bytes, 0);
+      setOversize(total > MAX_TOTAL_BYTES);
       if (total > MAX_TOTAL_BYTES) {
-        onError('画像の合計サイズが大きすぎます。枚数を減らすか、何回かに分けて送ってください。');
-        return;
+        onError('画像の合計サイズが大きすぎます。× で何枚か外してください。');
       }
-      setFiles(accepted);
-      setImages(prepared);
       if (failed.length > 0) {
         onError(
           `${failed.join('、')} は、この端末で開けない形式でした。` +
@@ -170,6 +206,29 @@ export default function Composer({
       setPreparing(false);
       if (fileRef.current) fileRef.current.value = '';
     }
+  };
+
+  /**
+   * 1枚だけ外す。
+   *
+   * **作り直さずに、その場で外す。** 作り直すと圧縮し直しになって一瞬止まるし、
+   * 合計は必ず減るので作り直す理由が無い。押した瞬間に消えることが大事。
+   */
+  const removeImage = (index: number) => {
+    const { next, file, tile, fileRemoved } = removeAt(attached, index);
+    if (!file) return;
+
+    // 次に作り直した時も、この1枚だけを外し続ける。
+    if (fileRemoved) {
+      dropped.current.delete(file);
+    } else {
+      const marks = dropped.current.get(file) ?? new Set<number>();
+      marks.add(tile);
+      dropped.current.set(file, marks);
+    }
+
+    setAttached(next);
+    setOversize(next.images.reduce((sum, image) => sum + image.bytes, 0) > MAX_TOTAL_BYTES);
   };
 
   /**
@@ -210,13 +269,16 @@ export default function Composer({
     const text = value.trim();
     if (disabled || preparing) return;
     if (!text && images.length === 0) return;
+    if (oversize) return;
     setValue('');
-    setFiles([]);
-    setImages([]);
+    setAttached(EMPTY);
+    setOversize(false);
+    dropped.current.clear();
     onSend(text, images);
   };
 
-  const canSend = !disabled && !preparing && (value.trim().length > 0 || images.length > 0);
+  const canSend =
+    !disabled && !preparing && !oversize && (value.trim().length > 0 || images.length > 0);
 
   return (
     <div
@@ -245,14 +307,32 @@ export default function Composer({
       )}
       {images.length > 0 && (
         <p className="mb-1.5 text-[12px] text-muted">
-          {images.length} / {MAX_IMAGES} 枚
+          {files.length} / {MAX_IMAGES} 枚
+          {/*
+            切り分けた時は、送る枚数が添付した枚数より多くなる。
+            黙って増えていると「勝手に増えた」に見えるので、理由ごと出す。
+          */}
+          {images.length > files.length && (
+            <span>（縦長のため、送るのは {images.length} 枚に分かれます）</span>
+          )}
+        </p>
+      )}
+
+      {oversize && (
+        <p className="mb-2 rounded-xl bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn">
+          画像の合計が大きすぎます。<strong className="font-semibold">× で何枚か外してください。</strong>
         </p>
       )}
 
       {images.length > 0 && (
         <div className="scroll-area mb-2 flex gap-2 overflow-x-auto pt-1.5">
           {images.map((image, index) => (
-            <div key={image.preview.slice(-24)} className="relative shrink-0">
+            /*
+              key は中身ではなく出どころで作る。**同じ画像を2回添付できる**
+              （「画像をもう一度使う」を2回押す）ので、data URL を key にすると
+              まったく同じ key が2つ並ぶ。そうなると押した×と消える1枚がずれる。
+            */
+            <div key={`${slots[index]?.owner}-${slots[index]?.tile}`} className="relative shrink-0">
               {/* 縮小済みの data URL を出すだけなので next/image は使わない */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -263,7 +343,7 @@ export default function Composer({
               <button
                 type="button"
                 aria-label={`添付画像 ${index + 1} を外す`}
-                onClick={() => void rebuild(files.filter((_, i) => i !== index))}
+                onClick={() => removeImage(index)}
                 className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--user-bubble)] text-[13px] text-[var(--user-bubble-fg)]"
               >
                 ×

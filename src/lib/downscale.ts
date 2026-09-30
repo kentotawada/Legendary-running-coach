@@ -209,6 +209,15 @@ export interface PrepareResult {
   failed: string[];
   /** 実際に使えたファイル。添付欄の並びをここに合わせる。 */
   accepted: File[];
+  /**
+   * images[i] が accepted の何番目から出たか。
+   *
+   * **images と accepted は 1:1 にならない。** 縦に長い画像は読める大きさを
+   * 保つために複数枚へ切り分けるので、1ファイルから最大6枚が出る。
+   * ここが無いと、添付欄で「3枚目を外す」を押した時に
+   * files の3番目（存在しない）を外そうとして、何も起きない。
+   */
+  owners: number[];
 }
 
 /**
@@ -221,12 +230,18 @@ export async function prepareImages(files: File[]): Promise<PrepareResult> {
   const budget = budgetForCount(files.length);
   const images: PreparedImage[] = [];
   const accepted: File[] = [];
+  const owners: number[] = [];
   const failed: string[] = [];
 
   for (const file of files) {
     try {
-      images.push(...(await prepareFile(file, budget)));
+      const produced = await prepareFile(file, budget);
       accepted.push(file);
+      // 切り分けた分だけ、出どころを控える。読めなかったファイルは番号を進めない。
+      for (const image of produced) {
+        images.push(image);
+        owners.push(accepted.length - 1);
+      }
     } catch (error) {
       failed.push(
         error instanceof Error && error.message
@@ -236,7 +251,7 @@ export async function prepareImages(files: File[]): Promise<PrepareResult> {
     }
   }
 
-  return { images, failed, accepted };
+  return { images, failed, accepted, owners };
 }
 
 /**
