@@ -110,6 +110,54 @@ describe('日ごとの数', () => {
     }
   });
 
+  /**
+   * **本人の上限と、アプリ全体の上限を混ぜない。**
+   *
+   * 混ざっていると「会員が上限に当たった＝有料枠の出番」と読むところが、
+   * 実際は「全体の財布が尽きて、全員まとめて止まった」かもしれない。
+   * 打つ手が正反対（値段を付ける ↔ 予算を上げる）なので、ここは分けて数える。
+   */
+  describe('上限に当たった数', () => {
+    const counts = {
+      [`event:${day}:limit:turns:member`]: 3,
+      [`event:${day}:limit:images:member`]: 1,
+      [`event:${day}:limit:place:guest`]: 2,
+      [`event:${day}:limit:busy:member`]: 7,
+      [`event:${day}:limit:busy:guest`]: 5,
+    };
+
+    it('本人の上限だけを、枠ごとに数える', () => {
+      const row = dayRow(day, counts, null);
+      expect(row.limitMember).toBe(4); // turns 3 + images 1。busy は入れない
+      expect(row.limitGuest).toBe(2); // place 2 のみ
+      expect(row.limitPremium).toBe(0);
+    });
+
+    it('アプリ全体の上限は、枠をまたいで合計する', () => {
+      // 全体の枠で止まった人に、ゲストも会員も関係ない。
+      expect(dayRow(day, counts, null).limitShared).toBe(12);
+    });
+
+    it('全体の上限で止まった分が、本人の上限に混ざらない', () => {
+      const row = dayRow(day, counts, null);
+      const personal = row.limitGuest + row.limitMember + row.limitPremium;
+      expect(personal).toBe(6);
+      expect(personal + row.limitShared).toBe(18);
+    });
+
+    it('合計にも、分けたまま積み上がる', () => {
+      const totals = totalsOf([dayRow(day, counts, null), dayRow(day, counts, null)]);
+      expect(totals.limitShared).toBe(24);
+      expect(totals.limitMember).toBe(8);
+    });
+
+    it('誰も当たっていない日は 0', () => {
+      const row = dayRow(day, {}, null);
+      expect(row.limitShared).toBe(0);
+      expect(row.limitMember).toBe(0);
+    });
+  });
+
   it('日付は、アプリと同じく深夜2時で区切る', () => {
     // 9/29 の 1時半は、まだ 9/28。
     const days = recentDays(3, new Date('2026-09-29T01:30:00+09:00'));

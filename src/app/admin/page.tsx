@@ -13,7 +13,7 @@ import {
 } from '@/lib/admin';
 import { modelName, visionModelName } from '@/lib/models';
 import { getOps, type OpsEvent } from '@/lib/ops';
-import { adminEmails } from '@/lib/quota';
+import { adminEmails, dailyBudget } from '@/lib/quota';
 import { createSupabaseServerClient } from '@/lib/supabase';
 
 export const metadata: Metadata = {
@@ -74,6 +74,10 @@ export default async function AdminPage() {
   const totals = totalsOf(rows);
   const retention = retentionOf(rows);
 
+  // 今日どこまで使ったか。**止まってから気づくのでは遅い。**
+  const budget = dailyBudget();
+  const today = rows[0] ?? null;
+
   const read = async (kind: 'error' | 'feedback', limit: number) => {
     try {
       return { items: await ops.recent(kind, limit), error: null };
@@ -104,7 +108,11 @@ export default async function AdminPage() {
         )}
 
         <section className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-          <Stat label="使い始めた人" value={number(totals.signups)} />
+          <Stat
+            label="はじめて開いた人"
+            value={number(totals.opens)}
+            note={`うち ${number(totals.firstTurns)} 人が話した`}
+          />
           <Stat
             label="話した回数"
             value={number(totals.turns)}
@@ -127,7 +135,7 @@ export default async function AdminPage() {
               .join(' / ')}
           />
           <Stat
-            label="上限に当たった"
+            label="本人の上限に当たった"
             value={number(totals.limitGuest + totals.limitMember + totals.limitPremium)}
             note={`ゲスト ${number(totals.limitGuest)} / 会員 ${number(totals.limitMember)} / 有料 ${number(totals.limitPremium)}`}
           />
@@ -136,6 +144,78 @@ export default async function AdminPage() {
             value={number(totals.subscribed)}
             note={totals.unsubscribed > 0 ? `やめた人 ${number(totals.unsubscribed)}` : undefined}
           />
+        </section>
+
+        {/*
+          **入口で何割落ちているか。**
+          ここを見ずに入口の言葉だけ直しても、効いたかどうかが分からない。
+          分母は「はじめて開いた人」。選んだ人から数えはじめると、
+          開いて閉じた人が最初から居なかったことになる。
+        */}
+        <section className="mt-8">
+          <h2 className="text-[15px] font-bold">入口（直近{DAYS}日）</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+            <strong className="font-semibold text-fg">落ちている段が、いちばん直しがいのある所。</strong>
+            開いたのに選ばない人が多いなら、コーチの並びか最初の言葉。
+            選んだのに話さない人が多いなら、最初の1通を打つ手前で止まっている。
+          </p>
+
+          <div className="mt-3 grid grid-cols-3 gap-2.5">
+            <Funnel label="開いた" value={totals.opens} of={totals.opens} />
+            <Funnel label="コーチを選んだ" value={totals.signups} of={totals.opens} />
+            <Funnel label="1通目を送った" value={totals.firstTurns} of={totals.opens} />
+          </div>
+
+          {totals.opens === 0 && (
+            <p className="mt-2 text-[12px] text-muted">
+              まだ誰も開いていません（数えはじめた日より前に開いた人は、ここに出ません）。
+            </p>
+          )}
+        </section>
+
+        {/*
+          **アプリ全体の上限は、本人の上限と別に見せる。**
+          混ざっていると「会員が上限に当たった＝有料枠の出番」と読むところが、
+          実際は「全体の財布が尽きて全員まとめて止まった」かもしれない。
+          打つ手が正反対（値段を付ける ↔ 予算を上げる）なので、必ず分ける。
+        */}
+        <section className="mt-8">
+          <h2 className="text-[15px] font-bold">今日の全体の残り</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+            アプリ全体で1日に話せる回数（<span className="font-mono">DAILY_TURN_BUDGET</span>）。
+            <strong className="font-semibold text-fg">
+              ここを使い切ると、まだ一度も使っていない人まで全員止まります。
+            </strong>
+          </p>
+
+          <div className="mt-3 rounded-[16px] border border-line p-4">
+            <p className="text-[24px] font-bold tabular-nums">
+              {number(today?.turns ?? 0)}
+              <span className="text-[15px] font-medium text-muted"> / {number(budget)} 回</span>
+            </p>
+            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-sunken">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.min(100, Math.round(((today?.turns ?? 0) / Math.max(1, budget)) * 100))}%`,
+                  background:
+                    (today?.turns ?? 0) / Math.max(1, budget) >= 0.8
+                      ? 'var(--warn)'
+                      : 'var(--accent)',
+                }}
+              />
+            </div>
+            <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
+              {totals.limitShared > 0 ? (
+                <strong className="font-semibold text-warn">
+                  直近{DAYS}日で {number(totals.limitShared)} 回、全体の上限で止まっています。
+                  予算を上げてください（値段の話ではありません）。
+                </strong>
+              ) : (
+                '全体の上限で止まった人は、まだいません。'
+              )}
+            </p>
+          </div>
         </section>
 
         <section className="mt-8">
@@ -179,7 +259,7 @@ export default async function AdminPage() {
             <table className="w-full min-w-[1120px] border-collapse text-[13px] tabular-nums">
               <thead className="bg-sunken text-left text-[11px] text-muted">
                 <tr>
-                  {['日付', '話した人', '使い始めた', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '上限（ゲスト/会員/有料）', '有料になった人'].map(
+                  {['日付', '開いた', '使い始めた', '1通目', '話した人', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '本人の上限（ゲスト/会員/有料）', '全体の上限', '有料になった人'].map(
                     (label) => (
                       <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">
                         {label}
@@ -192,8 +272,10 @@ export default async function AdminPage() {
                 {rows.map((row) => (
                   <tr key={row.day} className="whitespace-nowrap border-t border-line">
                     <td className="px-3 py-2 font-medium">{row.day.slice(5)}</td>
-                    <td className="px-3 py-2">{number(row.users)}</td>
+                    <td className="px-3 py-2">{number(row.opens)}</td>
                     <td className="px-3 py-2">{number(row.signups)}</td>
+                    <td className="px-3 py-2">{number(row.firstTurns)}</td>
+                    <td className="px-3 py-2">{number(row.users)}</td>
                     <td className="px-3 py-2">{number(row.turns)}</td>
                     <td className="px-3 py-2">{number(row.calls)}</td>
                     <td className="px-3 py-2">
@@ -210,6 +292,9 @@ export default async function AdminPage() {
                     <td className="px-3 py-2">{number(row.pushSent)}</td>
                     <td className="px-3 py-2">
                       {number(row.limitGuest)} / {number(row.limitMember)} / {number(row.limitPremium)}
+                    </td>
+                    <td className={`px-3 py-2 ${row.limitShared > 0 ? 'font-bold text-warn' : ''}`}>
+                      {number(row.limitShared)}
                     </td>
                     <td className="px-3 py-2">
                       {number(row.subscribed)}
@@ -295,6 +380,22 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
       <p className="text-[11px] text-muted">{label}</p>
       <p className="mt-1 text-[22px] font-bold tabular-nums">{value}</p>
       {note && <p className="mt-0.5 text-[11px] text-muted">{note}</p>}
+    </div>
+  );
+}
+
+/**
+ * 入口の1段。
+ *
+ * **割合を添える。** 生の数だけでは、多いのか少ないのかが決められない。
+ */
+function Funnel({ label, value, of }: { label: string; value: number; of: number }) {
+  const share = of > 0 ? Math.round((value / of) * 100) : null;
+  return (
+    <div className="rounded-[16px] border border-line p-3.5">
+      <p className="text-[11px] text-muted">{label}</p>
+      <p className="mt-1 text-[22px] font-bold tabular-nums">{value.toLocaleString('ja-JP')}</p>
+      <p className="mt-0.5 text-[11px] text-muted">{share === null ? '—' : `${share}%`}</p>
     </div>
   );
 }

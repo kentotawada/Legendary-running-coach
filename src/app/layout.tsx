@@ -24,8 +24,9 @@ import ErrorReporter from '@/components/ErrorReporter';
 
 export const metadata: Metadata = {
   title: 'RUNCOACH',
+  // **リンクを貼った時に、ここが出る。** 入口の言葉と食い違わせない。
   description:
-    '走るあなたに、専属のコーチを。練習の記録を見て、その日その日で言葉をかけます。痛みがある日は、絶対に走らせません。',
+    '歩くところから、大会まで。あなたに、専属のコーチを。記録を見て、その日その日で言葉をかけます。痛みがある日は、誰を選んでも絶対に走らせません。',
   manifest: '/manifest.webmanifest',
   // iOS はホーム画面の追加に PNG を求める。置けないと通知も使えない。
   icons: {

@@ -14,8 +14,17 @@ import { coachDate } from './day';
 /** 円に直す時の目安。**概算であることを画面にも書く。** 正確な費用は Google の請求画面で見る。 */
 export const USD_TO_JPY = 150;
 
-/** 上限に当たった理由と枠の組み合わせ（quota.ts の QuotaReason × Plan）。 */
-const LIMIT_REASONS = ['turns', 'images', 'place', 'busy'] as const;
+/**
+ * 上限に当たった理由と枠の組み合わせ（quota.ts の QuotaReason × Plan）。
+ *
+ * **本人の上限と、アプリ全体の上限を混ぜないこと。**
+ * 混ぜると「会員が上限に当たった＝有料枠の出番」と読むところが、
+ * 実際は「全体の財布が尽きて、全員まとめて止まった」かもしれない。
+ * 打つ手が正反対（値段を付ける ↔ 予算を上げる）なので、必ず分ける。
+ */
+const PERSONAL_REASONS = ['turns', 'images', 'place'] as const;
+/** アプリ全体の1日の上限（DAILY_TURN_BUDGET）。**当たった人に落ち度は無い。** */
+const SHARED_REASON = 'busy';
 const LIMIT_PLANS = ['guest', 'member', 'premium'] as const;
 
 export interface Prices {
@@ -59,14 +68,18 @@ export function keysForDay(day: string): string[] {
     `tokens-out:${day}`,
     `tokens-cached:${day}`,
     `calls:${day}`,
+    `event:${day}:open`,
     `event:${day}:signup`,
+    `event:${day}:first_turn`,
     `event:${day}:consent`,
     `event:${day}:import`,
     `event:${day}:push_on`,
     `event:${day}:push_sent`,
     `event:${day}:subscribe`,
     `event:${day}:unsubscribe`,
-    ...LIMIT_REASONS.flatMap((reason) => LIMIT_PLANS.map((plan) => `event:${day}:limit:${reason}:${plan}`)),
+    ...[...PERSONAL_REASONS, SHARED_REASON].flatMap((reason) =>
+      LIMIT_PLANS.map((plan) => `event:${day}:limit:${reason}:${plan}`),
+    ),
   ];
 }
 
@@ -74,8 +87,15 @@ export interface DayRow {
   day: string;
   /** その日に1回以上話した人。 */
   users: number;
+  /**
+   * その日に**はじめて開いた人**。入口の分母。
+   * これが無いと「選んだ人」からしか数えられず、開いて閉じた人が残らない。
+   */
+  opens: number;
   /** その日に使い始めた人（はじめてコーチを選んだ人）。 */
   signups: number;
+  /** その日に**はじめての1通**を送った人。ここまで来て、はじめて使ったことになる。 */
+  firstTurns: number;
   /** 話した回数。 */
   turns: number;
   /** モデルを呼んだ回数。道具を使うと、1通の返事で何度も呼ぶ。 */
@@ -103,11 +123,21 @@ export interface DayRow {
   yenPerUser: number | null;
   imports: number;
   pushSent: number;
-  /** 上限に当たった回数。ゲストと会員を分ける（会員が当たるなら、有料枠の出番）。 */
+  /**
+   * **本人の上限**に当たった回数。ゲストと会員を分ける（会員が当たるなら、有料枠の出番）。
+   * アプリ全体の上限で止まった分は、ここに入れない（下の limitShared）。
+   */
   limitGuest: number;
   limitMember: number;
   /** 有料の人が上限に当たった数。**ここが増えるなら、枠か値段が合っていない。** */
   limitPremium: number;
+  /**
+   * **アプリ全体の上限**で止まった回数（DAILY_TURN_BUDGET）。
+   *
+   * ここが 0 でない日は、**まだ一度も使っていない人まで巻き添えで止まっている。**
+   * 打つ手は「値段を付ける」ではなく「予算を上げる」。読み違えるといちばん高くつく。
+   */
+  limitShared: number;
   /** その日に有料になった人 / やめた人。 */
   subscribed: number;
   unsubscribed: number;
@@ -123,11 +153,13 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
   const calls = read(`calls:${day}`);
   const yen = prices ? costYen(inputTokens, outputTokens, prices) : null;
   const limit = (plan: (typeof LIMIT_PLANS)[number]) =>
-    LIMIT_REASONS.reduce((sum, reason) => sum + read(`event:${day}:limit:${reason}:${plan}`), 0);
+    PERSONAL_REASONS.reduce((sum, reason) => sum + read(`event:${day}:limit:${reason}:${plan}`), 0);
   return {
     day,
     users,
+    opens: read(`event:${day}:open`),
     signups: read(`event:${day}:signup`),
+    firstTurns: read(`event:${day}:first_turn`),
     turns,
     calls,
     callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
@@ -142,6 +174,10 @@ export function dayRow(day: string, counts: Record<string, number>, prices: Pric
     limitGuest: limit('guest'),
     limitMember: limit('member'),
     limitPremium: limit('premium'),
+    limitShared: LIMIT_PLANS.reduce(
+      (sum, plan) => sum + read(`event:${day}:limit:${SHARED_REASON}:${plan}`),
+      0,
+    ),
     subscribed: read(`event:${day}:subscribe`),
     unsubscribed: read(`event:${day}:unsubscribe`),
   };
@@ -178,7 +214,11 @@ export function retentionOf(rows: DayRow[]): Retention {
 }
 
 export interface Totals {
+  /** はじめて開いた人。入口の分母。 */
+  opens: number;
   signups: number;
+  /** はじめての1通を送った人。 */
+  firstTurns: number;
   turns: number;
   /** モデルを呼んだ回数の合計。 */
   calls: number;
@@ -192,6 +232,8 @@ export interface Totals {
   limitGuest: number;
   limitMember: number;
   limitPremium: number;
+  /** アプリ全体の上限で止まった回数。**0 でない日は、予算が足りていない。** */
+  limitShared: number;
   /** その期間に有料になった人 / やめた人。 */
   subscribed: number;
   unsubscribed: number;
@@ -206,7 +248,9 @@ export function totalsOf(rows: DayRow[]): Totals {
   const inputTokens = sum((row) => row.inputTokens);
   const cachedTokens = sum((row) => row.cachedTokens);
   return {
+    opens: sum((row) => row.opens),
     signups: sum((row) => row.signups),
+    firstTurns: sum((row) => row.firstTurns),
     turns,
     calls,
     callsPerTurn: turns > 0 && calls > 0 ? calls / turns : null,
@@ -216,6 +260,7 @@ export function totalsOf(rows: DayRow[]): Totals {
     limitGuest: sum((row) => row.limitGuest),
     limitMember: sum((row) => row.limitMember),
     limitPremium: sum((row) => row.limitPremium),
+    limitShared: sum((row) => row.limitShared),
     subscribed: sum((row) => row.subscribed),
     unsubscribed: sum((row) => row.unsubscribed),
   };

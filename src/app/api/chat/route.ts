@@ -42,6 +42,19 @@ export async function GET(request: NextRequest) {
     return storageErrorResponse(error, 'これまでの記録を読み込めませんでした');
   }
 
+  /*
+    **はじめて開いた人を数える。**
+
+    これが無いと、数えはじめが「コーチを選んだ人（signup）」からになり、
+    開いたのに選ばずに閉じた人が、どこにも残らない。
+    入口をどれだけ直しても、効いたかどうかが分からないままになる。
+
+    isNew は、この人の目印をいま作ったという意味。**ここが唯一の、
+    費用のかからない「はじめて」の合図**で、別に印を持つ必要が無い。
+    目印を消してから開き直した人は、もう一度数えられる。それは許す。
+  */
+  if (isNew) void countEvent(counterOf(getStore()), 'open');
+
   const build = getBuildInfo();
   return Response.json(
     {
@@ -283,6 +296,17 @@ export async function POST(request: NextRequest) {
 
       // ここで返事は出来ている。この1回は、使ったものとして数える。
       delivered = true;
+
+      /*
+        **その人にとっての最初の1通だけを数える。**
+        「開いた → 選んだ → 話した」の最後の段。ここまで来て
+        はじめて、このアプリを使ったことになる。
+        preloaded は、この1通を足す前の状態。
+      */
+      if (preloaded && preloaded.history.length === 0) {
+        void countEvent(counterOf(store), 'first_turn');
+      }
+
       if (store.bumpUsage) {
         void recordUsage({ bumpUsage: store.bumpUsage.bind(store) }, result.usage);
       }

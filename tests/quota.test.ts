@@ -8,6 +8,7 @@ import {
   dailyBudget,
   placeId,
   planFor,
+  quotaMessage,
   recordUsage,
   takeQuota,
   type Plan,
@@ -139,6 +140,46 @@ describe('アプリ全体の上限', () => {
     const last = results[5];
     expect(last.ok).toBe(false);
     if (!last.ok) expect(last.reason).toBe('busy');
+  });
+
+  /**
+   * **当たった人に落ち度は無い。**
+   *
+   * 全体の枠を使い切った状態では、まだ一度も話していない人にも同じ文が出る。
+   * 「使いすぎです」と読める文面だと、自分のせいだと思って静かに離れる。
+   * 本人の上限の文面と、はっきり書き分ける。
+   */
+  describe('止まった時の文面', () => {
+    const shared = quotaMessage('busy', 'member');
+
+    it('本人の上限ではないと、はっきり言う', () => {
+      expect(shared).toContain('こちらの都合');
+      expect(shared).toContain('あなたの回数はまだ残っています');
+    });
+
+    it('使いすぎだと読める言い方をしない', () => {
+      expect(shared).not.toContain('ここまでにしましょう');
+      expect(shared).not.toMatch(/使いすぎ|上限です/);
+    });
+
+    it('記録が無事なことを添える（消えたと思わせない）', () => {
+      expect(shared).toContain('記録は消えていない');
+    });
+
+    it('いつ戻れるかを言う', () => {
+      expect(shared).toContain('深夜2時');
+    });
+
+    it('どの枠の人にも、同じ文が出る（全体の枠なので）', () => {
+      for (const plan of ['guest', 'member', 'premium'] as Plan[]) {
+        expect(quotaMessage('busy', plan)).toBe(shared);
+      }
+    });
+
+    it('本人の上限とは、別の文になっている', () => {
+      expect(quotaMessage('turns', 'member')).not.toBe(shared);
+      expect(quotaMessage('turns', 'member')).toContain('ここまでにしましょう');
+    });
   });
 
   it('設定が無ければ既定値、おかしな値でも既定値', () => {
