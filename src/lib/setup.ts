@@ -93,3 +93,22 @@ export function setupStatus(env: NodeJS.ProcessEnv = process.env): FeatureStatus
 export function pendingSetup(env: NodeJS.ProcessEnv = process.env): FeatureStatus[] {
   return setupStatus(env).filter((status) => !status.ready);
 }
+
+/**
+ * 人に配れる状態か。
+ *
+ * **「pending が空か」では判断できない。** Strava も Stripe も特商法も
+ * 無くてよいものなので、pending は当分ずっと空にならない。
+ * それを見て「まだ何か足りない」と読むか、逆に並んでいるのを見慣れて
+ * **本当に足りないものを見落とすか**、どちらかになる。
+ *
+ * 無くては困るものだけを見て、ひとことで答える。
+ */
+export function readyToShare(env: NodeJS.ProcessEnv = process.env): boolean {
+  return setupStatus(env).every((status) => status.optional || status.ready);
+}
+
+/** 無くては困るのに足りないもの。**ここが空でなければ、人に配れない。** */
+export function blockingSetup(env: NodeJS.ProcessEnv = process.env): FeatureStatus[] {
+  return pendingSetup(env).filter((status) => !status.optional);
+}

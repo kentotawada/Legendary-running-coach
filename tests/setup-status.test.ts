@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pendingSetup, setupStatus } from '@/lib/setup';
+import { blockingSetup, pendingSetup, readyToShare, setupStatus } from '@/lib/setup';
 
 /**
  * 何が足りないかを、アプリ自身に答えさせる。
@@ -90,5 +90,65 @@ describe('足りないものを名指しする', () => {
       LEGAL_PRICE_TEXT: '月額1,480円',
     });
     expect(pendingSetup(everything)).toEqual([]);
+  });
+});
+
+
+/**
+ * 人に配れる状態か。
+ *
+ * **「pending が空か」では判断できない。** Strava も Stripe も特商法も
+ * 無くてよいものなので、pending は当分ずっと空にならない。
+ * それを見て「まだ足りない」と読むか、並んでいるのを見慣れて
+ * 本当に足りないものを見落とすか、どちらかになる。
+ */
+describe('人に配れる状態か', () => {
+  /** 無くては困るものだけを、ひと揃い入れた環境。 */
+  const essentials = {
+    GEMINI_API_KEY: 'k',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
+    SUPABASE_SERVICE_ROLE_KEY: 'service',
+    LEGAL_OPERATOR_NAME: '運営者',
+    LEGAL_CONTACT_EMAIL: 'a@example.com',
+  };
+
+  it('無くては困るものがそろえば、任意のものが無くても配れる', () => {
+    const env = envOf(essentials);
+    expect(readyToShare(env)).toBe(true);
+    expect(blockingSetup(env)).toEqual([]);
+    // Strava も Stripe も入れていないので、pending は空ではない。
+    expect(pendingSetup(env).length).toBeGreaterThan(0);
+    expect(pendingSetup(env).every((status) => status.optional)).toBe(true);
+  });
+
+  it('任意のものが全部そろっていなくても、判断は変わらない', () => {
+    // ここが「pending が空か」で判断していた時に間違えていたところ。
+    const env = envOf({ ...essentials, STRAVA_CLIENT_ID: 'id' });
+    expect(readyToShare(env)).toBe(true);
+  });
+
+  it('無くては困るものが1つでも欠けたら、配れない', () => {
+    for (const name of Object.keys(essentials)) {
+      const env = envOf(Object.fromEntries(Object.entries(essentials).filter(([key]) => key !== name)));
+      // どれか1つでよい組は、片方を抜いても成立することがある。
+      const blocking = blockingSetup(env);
+      if (blocking.length === 0) {
+        expect(readyToShare(env), `${name} を抜いた時`).toBe(true);
+        continue;
+      }
+      expect(readyToShare(env), `${name} を抜いた時`).toBe(false);
+      expect(blocking.every((status) => !status.optional)).toBe(true);
+    }
+  });
+
+  it('何も入れていなければ、当然配れない', () => {
+    expect(readyToShare(envOf({}))).toBe(false);
+    expect(blockingSetup(envOf({})).length).toBeGreaterThan(0);
+  });
+
+  it('足りないものを挙げる時も、値は返さない', () => {
+    const shown = JSON.stringify(blockingSetup(envOf({ GEMINI_API_KEY: 'ひみつの鍵' })));
+    expect(shown).not.toContain('ひみつの鍵');
   });
 });
