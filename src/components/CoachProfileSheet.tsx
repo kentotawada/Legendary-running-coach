@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { COACH_CHARACTERS, GENDER_LABEL, findCharacter, type CoachCharacter } from '@/lib/characters';
+import {
+  COACH_CHARACTERS,
+  GENDER_LABEL,
+  findCharacter,
+  levelInfo,
+  type CoachCharacter,
+} from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import Sheet from './Sheet';
 
@@ -82,12 +88,26 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
             >
               {coach.title}
             </span>
+            <span
+              className="rounded-full px-2 py-0.5 font-semibold"
+              style={{
+                background: `${levelInfo(coach.level).color}1f`,
+                color: levelInfo(coach.level).color,
+              }}
+            >
+              {levelInfo(coach.level).label}
+            </span>
             <span className="text-muted">
               {GENDER_LABEL[coach.gender]}・{coach.age}
             </span>
           </p>
         </div>
       </div>
+
+      <p className="mt-2 text-[12px] leading-relaxed text-muted">
+        「{levelInfo(coach.level).label}」は{levelInfo(coach.level).demand}
+        。{levelInfo(coach.level).who}
+      </p>
 
       <p className="mt-4 text-[15px] leading-relaxed">{coach.description}</p>
 
