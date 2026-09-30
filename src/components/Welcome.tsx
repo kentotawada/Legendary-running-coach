@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { COACH_CHARACTERS } from '@/lib/characters';
+import { COACH_CHARACTERS, charactersByLevel, levelInfo } from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import ConsentCheck from './ConsentCheck';
 
@@ -58,13 +58,19 @@ export default function Welcome({
           <span className="text-[15px] font-bold tracking-[0.12em]">RUNCOACH</span>
         </div>
 
+        {/*
+          **「走るあなたに」で始めない。** まだ走っていない人は、その一語で
+          自分向けではないと判断して閉じる。いちばん軽い入口（歩くところ）を
+          先に置いて、いちばん重いところ（大会）まで幅があることを一行で見せる。
+        */}
         <h1 className="text-[22px] font-bold leading-snug">
-          走るあなたに、
+          歩くところから、大会まで。
           <br />
-          専属のコーチを。
+          あなたに、専属のコーチを。
         </h1>
         <p className="mt-2.5 text-[13px] leading-relaxed text-muted">
-          練習の記録を見て、その日その日で言葉をかけます。
+          これから走ってみようかな、という人も。目標タイムがある人も。
+          記録を見て、その日その日で言葉をかけます。
           <strong className="font-semibold text-fg">
             痛みがある日は、誰を選んでも絶対に走らせません。
           </strong>
@@ -72,40 +78,81 @@ export default function Welcome({
 
         <h2 className="mt-7 text-[15px] font-bold">まず、誰に見てもらいますか</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-muted">
-          変わるのは話し方だけです。指導の中身と安全のルールは同じ。あとからいつでも変えられます。
+          上の段ほど、求められることが軽いです。変わるのは話し方と求める量だけで、
+          安全のルールは全員同じ。あとからいつでも変えられます。
         </p>
 
-        <ul className="mt-3 grid grid-cols-2 gap-2.5">
-          {COACH_CHARACTERS.map((character) => {
-            const active = picked === character.id;
-            return (
-              <li key={character.id}>
-                <button
-                  type="button"
-                  onClick={() => setPicked(character.id)}
-                  aria-pressed={active}
-                  className={[
-                    'flex h-full w-full flex-col items-center gap-2 rounded-[16px] border p-3 text-center transition active:scale-[0.98]',
-                    active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
-                  ].join(' ')}
+        {/*
+          **難易度で段を分ける。** 8人の顔をただ並べると、いちばん上に出た人の
+          一言で「自分向けか」が決まってしまう。「まず数字を見ます」の隣に
+          走り始めたい人を立たせないために、段を先に見せて、軽いほうから並べる。
+        */}
+        <div className="mt-4 space-y-5">
+          {charactersByLevel().map(({ level, characters }) => (
+            <section key={level.id}>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-[12px] font-bold"
+                  style={{ background: `${level.color}1f`, color: level.color }}
                 >
-                  <CoachAvatar character={character} size={64} />
-                  <span className={`text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
-                    {character.name}
-                  </span>
-                  {/* 顔の下は、肩書きではなく本人が言いそうな一言。 */}
-                  <span className="text-[11px] leading-snug text-muted">{character.tagline}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  {level.label}
+                </span>
+                <span className="text-[11px] font-semibold text-fg">{level.demand}</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">{level.who}</p>
+
+              <ul className="mt-2.5 grid grid-cols-2 gap-2.5">
+                {characters.map((character) => {
+                  const active = picked === character.id;
+                  return (
+                    <li key={character.id}>
+                      <button
+                        type="button"
+                        onClick={() => setPicked(character.id)}
+                        aria-pressed={active}
+                        className={[
+                          'flex h-full w-full flex-col items-center gap-2 rounded-[16px] border p-3 text-center transition active:scale-[0.98]',
+                          active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                        ].join(' ')}
+                      >
+                        <CoachAvatar character={character} size={64} />
+                        <span className={`text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
+                          {character.name}
+                        </span>
+                        {/* 顔の下は、肩書きではなく本人が言いそうな一言。 */}
+                        <span className="text-[11px] leading-snug text-muted">
+                          {character.tagline}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
 
         {chosen && (
           <div ref={afterPick}>
-            <p className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3 text-[12px] leading-relaxed text-muted">
-              {chosen.description}
-            </p>
+            {/*
+              難易度をもう一度出す。選ぶと afterPick で下まで送るので、
+              その時には上の段の見出しが画面の外にある。
+            */}
+            <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
+              <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px]">
+                <span
+                  className="rounded-full px-2 py-0.5 font-bold"
+                  style={{
+                    background: `${levelInfo(chosen.level).color}1f`,
+                    color: levelInfo(chosen.level).color,
+                  }}
+                >
+                  {levelInfo(chosen.level).label}
+                </span>
+                <span className="font-semibold text-fg">{levelInfo(chosen.level).demand}</span>
+              </p>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">{chosen.description}</p>
+            </div>
 
             {/*
               名前は、**選んだあとにだけ出す。**

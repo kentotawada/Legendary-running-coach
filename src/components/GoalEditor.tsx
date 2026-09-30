@@ -3,7 +3,13 @@
 import { useMemo, useState } from 'react';
 import type { GoalKind, RacePriority, RunnerProfile } from '@/lib/types';
 import { RACE_PRIORITY_HINT, RACE_PRIORITY_LABEL, daysUntil, racesOf } from '@/lib/races';
-import { COACH_CHARACTERS, DEFAULT_CHARACTER_ID, GENDER_LABEL, findCharacter } from '@/lib/characters';
+import {
+  COACH_CHARACTERS,
+  DEFAULT_CHARACTER_ID,
+  GENDER_LABEL,
+  findCharacter,
+  levelInfo,
+} from '@/lib/characters';
 import CoachAvatar from './CoachAvatar';
 import {
   formatDuration,
@@ -425,7 +431,11 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
-      <Field label="コーチのキャラクター" required={false} hint="話し方だけが変わります。指導の中身と安全のルールは同じです">
+      <Field
+        label="コーチのキャラクター"
+        required={false}
+        hint="変わるのは話し方と求める量だけです。指導の中身と安全のルールは同じです"
+      >
         <div className="grid grid-cols-2 gap-2">
           {COACH_CHARACTERS.map((character) => {
             const active = characterId === character.id;
@@ -445,6 +455,15 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
                     {character.name}
                     <span className="ml-1 align-middle text-[10px] font-normal text-muted">
                       {GENDER_LABEL[character.gender]}
+                    </span>
+                    <span
+                      className="ml-1 rounded-full px-1.5 py-px align-middle text-[10px] font-bold"
+                      style={{
+                        background: `${levelInfo(character.level).color}1f`,
+                        color: levelInfo(character.level).color,
+                      }}
+                    >
+                      {levelInfo(character.level).label}
                     </span>
                   </span>
                   <span className="block text-[11px] leading-snug text-muted">{character.tagline}</span>

@@ -11,6 +11,20 @@
 /** 表示のためだけに持つ。指導内容には一切影響しない。 */
 export type CoachGender = 'male' | 'female';
 
+/**
+ * そのコーチが、どのくらい走る人を想定しているか。
+ *
+ * **これは「求められる量」の目安で、コーチの優劣ではない。**
+ * 入口に8人の顔だけを並べると、いちばん上に出た人の一言で
+ * 「自分向けではなさそうだ」と決まってしまう。走り始めたい人が
+ * 「まず数字を見ます」と言う人の隣で迷わないよう、難易度を先に見せる。
+ *
+ * **指導の中身には一切影響しない。** プロンプトにも渡さない。
+ * ここを渡すと「かんたん」のコーチが本気の相談を断りはじめる。
+ * 走る量を決めるのは、選んだラベルではなく、その人の記録と段階（phase）。
+ */
+export type CoachLevel = 'easy' | 'normal' | 'hard' | 'oni';
+
 export interface CoachCharacter {
   id: string;
   /** 姓名。 */
@@ -28,6 +42,8 @@ export interface CoachCharacter {
    * 一人称で、口に出して言う形で書く。20字前後（2行に収まる長さ）。
    */
   tagline: string;
+  /** 想定している走る人の段階。**表示だけに使う。** */
+  level: CoachLevel;
   gender: CoachGender;
   age: string;
   /**
@@ -110,6 +126,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'しらいし りょう',
     title: 'データ分析型コーチ',
     tagline: 'まず数字を見ます。話はそれからです',
+    level: 'hard',
     gender: 'male',
     age: '30代',
     photo: '/coaches/logic.webp',
@@ -165,6 +182,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'いわい たいが',
     title: '鼓舞型コーチ',
     tagline: '迷ってる時間がもったいない。行くぞ',
+    level: 'hard',
     gender: 'male',
     age: '40代',
     photo: '/coaches/blaze.webp',
@@ -220,6 +238,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'もり けんぞう',
     title: '名伯楽',
     tagline: '急がなくていい。来年も走れていれば',
+    level: 'normal',
     gender: 'male',
     age: '60代',
     photo: '/coaches/veteran.webp',
@@ -276,6 +295,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'くろさわ れいこ',
     title: '戦略家',
     tagline: '本番から逆算します。今日はその一日',
+    level: 'oni',
     gender: 'female',
     age: '40代',
     photo: '/coaches/sage.webp',
@@ -331,6 +351,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'とうどう あおい',
     title: '元トップ選手',
     tagline: '30kmで何が起きるか、知っています',
+    level: 'oni',
     gender: 'female',
     age: '30代',
     photo: '/coaches/ace.webp',
@@ -386,6 +407,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'みうら なぎさ',
     title: '伴走型コーチ',
     tagline: '走れなかった日の話を、聞かせて',
+    level: 'easy',
     gender: 'female',
     age: '30代',
     photo: '/coaches/warm.webp',
@@ -441,6 +463,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'ほんだ はるな',
     title: '習慣づくりの伴走者',
     tagline: '外に出た。それだけで今日は十分です',
+    level: 'easy',
     gender: 'female',
     age: '20代',
     photo: '/coaches/spark.webp',
@@ -496,6 +519,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
     reading: 'あやせ ちなつ',
     title: '甘やかし上手',
     tagline: 'ふふ。ちゃんと見てるから',
+    level: 'normal',
     gender: 'female',
     age: '30代',
     photo: '/coaches/allure.webp',
@@ -556,6 +580,89 @@ export const GENDER_LABEL: Record<CoachGender, string> = {
   male: '男性',
   female: '女性',
 };
+
+/**
+ * 難易度の見せ方。
+ *
+ * **「初級・中級・上級」とは書かない。** 自分を初級と名乗るのは、
+ * それだけで少し恥ずかしい。走ったことがない人が「初級者向け」の札を
+ * 選ぶのは、自分に札を貼る行為になってしまう。
+ *
+ * ゲームの難易度選択の言い方を借りる。選ぶのは自分のラベルではなく、
+ * 「今日どのくらい求められたいか」。あとから変えられるので、
+ * いちばん軽いところから始めても何も失わない。
+ *
+ * label は短く、who は「思い当たる場面」で書く。
+ * 「上級者向け」のような抽象語は、読んだ人が自分のことだと判断できない。
+ */
+export interface CoachLevelInfo {
+  id: CoachLevel;
+  /** 難易度の名前。 */
+  label: string;
+  /** どのくらい求められるか。一行で。 */
+  demand: string;
+  /** こういう人向け。場面で書く。 */
+  who: string;
+  color: string;
+}
+
+/** **軽いほうから並べる。** 入口でいちばん最初に目に入るところが、いちばん軽い。 */
+export const COACH_LEVELS: CoachLevelInfo[] = [
+  {
+    id: 'easy',
+    label: 'かんたん',
+    demand: 'ノルマも数字も出しません',
+    who: 'これから走ってみようかな、という人へ。歩いた日も、外に出ただけの日も数えます',
+    color: '#3f8f6a',
+  },
+  {
+    id: 'normal',
+    label: 'ふつう',
+    demand: '続けることを第一に置きます',
+    who: '健康のために、なんとなく走っている人へ。週に何回かを、長く続ける形にします',
+    color: '#2f6f9f',
+  },
+  {
+    id: 'hard',
+    label: 'むずかしい',
+    demand: '記録は数字で詰めます',
+    who: 'タイムを伸ばしたい人へ。心拍とペースを見て、練習が成立したかを判定します',
+    color: '#c47a18',
+  },
+  {
+    id: 'oni',
+    label: 'おに',
+    demand: '本番から逆算します',
+    who: '出る大会と狙うタイムが決まっている人へ。今日の一本を、本番の一部として扱います',
+    color: '#c2417a',
+  },
+];
+
+export const COACH_LEVEL_LABEL: Record<CoachLevel, string> = {
+  easy: 'かんたん',
+  normal: 'ふつう',
+  hard: 'むずかしい',
+  oni: 'おに',
+};
+
+export function levelInfo(level: CoachLevel): CoachLevelInfo {
+  return COACH_LEVELS.find((item) => item.id === level) ?? COACH_LEVELS[0]!;
+}
+
+/**
+ * 難易度ごとにコーチを分ける。
+ *
+ * **空の段は返さない。** 誰も居ない難易度の見出しだけが出ていると、
+ * 読み込みに失敗したように見える。
+ */
+export function charactersByLevel(
+  characters: CoachCharacter[] = COACH_CHARACTERS,
+): { level: CoachLevelInfo; characters: CoachCharacter[] }[] {
+  return COACH_LEVELS.map((level) => ({
+    level,
+    characters: characters.filter((character) => character.level === level.id),
+  })).filter((group) => group.characters.length > 0);
+}
 
 export function findCharacter(id: string | undefined): CoachCharacter {
   return COACH_CHARACTERS.find((c) => c.id === id) ?? COACH_CHARACTERS.find((c) => c.id === DEFAULT_CHARACTER_ID)!;
