@@ -15,6 +15,7 @@ import RunFormSheet from './RunFormSheet';
 import ReviewSheet from './ReviewSheet';
 import ConnectSheet from './ConnectSheet';
 import ConnectBanner from './ConnectBanner';
+import KeepRecordsBanner from './KeepRecordsBanner';
 import RunSheet from './RunSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
@@ -262,6 +263,17 @@ export default function CoachApp() {
           <strong className="font-semibold">いまは走らない期間です。</strong>{' '}
           {activePains.map((p) => p.site).join('・')}が回復するまで、走る以外の方法で一緒に強くなりましょう。
         </div>
+      )}
+
+      {/*
+        未ログインで記録が積み上がっている人に、消える経路があることを知らせる。
+        **失って困るものが出来てから出す。** 初日に出すと、ただの登録の壁になる。
+      */}
+      {ready && build?.authAvailable && !auth.isAuthenticated && (
+        <KeepRecordsBanner
+          activityCount={profile?.activities.length ?? 0}
+          onOpen={() => setAuthOpen(true)}
+        />
       )}
 
       {/* つながっていない人にだけ、入口が在ることを知らせる。閉じれば二度と出ない。 */}
