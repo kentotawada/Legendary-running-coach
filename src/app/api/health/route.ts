@@ -63,6 +63,19 @@ export async function GET() {
       // **まだ足りないもの。** 名前だけで、値は返さない。
       pending: pendingSetup(),
     },
-    { headers: { 'Cache-Control': 'no-store' } },
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+        /*
+          **文字コードを明示する。**
+          JSON は規格上いつも UTF-8 なので省いてもよいことになっているが、
+          省くと、ブラウザがこれを「ダウンロードしたファイル」として開いた時に
+          文字コードを推測する。iOS Safari は日本語を別の文字コードとして読み、
+          足りない設定の名前が読めない文字の列になった。
+          **読むために出しているものが読めなければ、出していないのと同じ。**
+        */
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    },
   );
 }
