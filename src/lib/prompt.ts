@@ -16,6 +16,7 @@ import { checklistDoctrine } from './checklist';
 import { connectionDoctrine } from './sync';
 import { runDoctrine } from './analysis';
 import { comparisonDoctrine } from './compare';
+import { workloadDoctrine } from './workload';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
@@ -276,6 +277,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     summarizeProfile(profile, now),
     latestRunDetail(profile),
     comparisonDoctrine(profile, now),
+    workloadDoctrine(profile, now),
     dailyDoctrine(profile, now),
     connectionDoctrine(profile, isStravaConfigured(), now),
     fuelDoctrine(profile, now),
