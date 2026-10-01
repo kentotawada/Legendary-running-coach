@@ -459,7 +459,7 @@ export default function ConnectSheet({
                   <span className="ml-1.5 font-normal text-muted">どのアプリでも</span>
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                  入力欄の「＋」→「練習データの画像を送る」。
+                  入力欄の「＋」→「記録の画像を送る」。
                   距離・ペース・心拍・ピッチまで読み取ります。
                   {source.canExport === 'none' && (
                     <strong className="font-semibold text-fg">

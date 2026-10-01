@@ -504,7 +504,7 @@ export const COACH_CHARACTERS: CoachCharacter[] = [
       back: 'おかえりなさい。また来てくれた、それがいちばんです。',
       pain: '今日はおやすみにしましょう。明日また会いましょうね。',
       ask: '今日はどうでしたか。',
-      empty: 'まずは1つだけ。時計の記録を送ってみませんか。',
+      empty: 'まずは1つだけ。今日どれくらい歩いたか、教えてもらえますか。',
     },
     voice: [
       '明るく前向きに、ただし騒がしくならない温度で話す。',
@@ -683,10 +683,22 @@ export function familyName(character: CoachCharacter): string {
  * 日本語は主語を省いて話せるので、呼びかけずに話すほうが自然で、
  * 借り物の「あなた」より距離が近い。
  */
+/**
+ * すでに敬称で終わっている名前。
+ *
+ * **「げんさん」と名乗った人を「げんさんさん」と呼ばない。**
+ * 自分で敬称込みの呼び名を入れる人は多く（「げんさん」「まっちゃん」）、
+ * 機械的に足すと毎回それが出る。**毎回の返事に出るので、目につく所ほど痛い。**
+ */
+const ALREADY_POLITE = /(さん|サン|ちゃん|チャン|くん|クン|君|様|さま|氏)$/;
+
 export function addressFor(id: string | undefined, displayName: string | undefined): string | null {
   const name = displayName?.trim();
   if (!name) return null;
-  return `${name}${findCharacter(id).speech.honorific}`;
+  const honorific = findCharacter(id).speech.honorific;
+  // 敬称で終わっているなら、そのまま呼ぶ。本人がそう名乗っている。
+  if (!honorific || ALREADY_POLITE.test(name)) return name;
+  return `${name}${honorific}`;
 }
 
 /**
