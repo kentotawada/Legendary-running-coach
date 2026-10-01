@@ -5,6 +5,7 @@ import { publicProfile } from '@/lib/profile';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
 import { dailyStatus, logWeight, markOpened } from '@/lib/daily';
+import { isBodyFatInRange } from '@/lib/composition';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,9 +55,9 @@ export async function PATCH(request: NextRequest) {
   const { userId } = session;
   const store = getStore();
 
-  let body: { weightKg?: unknown };
+  let body: { weightKg?: unknown; bodyFatPercent?: unknown };
   try {
-    body = (await request.json()) as { weightKg?: unknown };
+    body = (await request.json()) as { weightKg?: unknown; bodyFatPercent?: unknown };
   } catch {
     return Response.json({ error: 'リクエストの形式が正しくありません。' }, { status: 400 });
   }
@@ -66,6 +67,21 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: '体重は 20〜250kg の範囲で入力してください。' }, { status: 400 });
   }
 
+  /*
+    体脂肪率は、体組成計を持っている人だけが入れるので、**無くても通す。**
+    入っていて範囲の外なら、黙って捨てずに断る（打ち間違いを記録しない）。
+  */
+  const fatRaw =
+    typeof body.bodyFatPercent === 'string' ? Number(body.bodyFatPercent) : body.bodyFatPercent;
+  let bodyFatPercent: number | undefined;
+  if (fatRaw !== undefined && fatRaw !== null && fatRaw !== '') {
+    if (typeof fatRaw !== 'number' || !isBodyFatInRange(fatRaw)) {
+      return Response.json({ error: '体脂肪率は 3〜60% の範囲で入力してください。' }, { status: 400 });
+    }
+    bodyFatPercent = Math.round(fatRaw * 10) / 10;
+  }
+
+
   let profile;
   try {
     const state = await loadForSession(session);
@@ -74,7 +90,7 @@ export async function PATCH(request: NextRequest) {
       return Response.json({ error: CONSENT_REQUIRED_MESSAGE }, { status: 403 });
     }
     // 小数第1位まで。体重計の表示より細かく持っても意味がない。
-    profile = logWeight(state.profile, Math.round(raw * 10) / 10);
+    profile = logWeight(state.profile, Math.round(raw * 10) / 10, undefined, undefined, bodyFatPercent);
     await store.save(userId, { ...state, profile }, session.authUserId);
   } catch (error) {
     return storageErrorResponse(error, '体重を記録できませんでした');

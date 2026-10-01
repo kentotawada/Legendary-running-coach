@@ -9,6 +9,7 @@ import {
   weightOutlook,
 } from '@/lib/forecast';
 import { formatPace, parseDuration, resolveTargetPace } from '@/lib/goals';
+import { MEASURE_NOTE, compositionChange, describeChange } from '@/lib/composition';
 import type { RunnerProfile } from '@/lib/types';
 
 /**
@@ -30,6 +31,14 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
     const target = parseDuration(resolveTargetPace(profile?.goal)?.replace(/\s*\/\s*km$/i, ''));
     return goalOutlook(profile, pace, target);
   }, [profile, pace]);
+
+  /**
+   * **何が減ったのか。**
+   * 同じ「3kg減」でも、脂肪が減ったのか筋肉が減ったのかで意味が正反対。
+   * 体重だけを見ていると、この2つが同じ数字に見える。
+   */
+  const change = useMemo(() => compositionChange(profile, { now }), [profile, now]);
+  const story = change ? describeChange(change) : null;
 
   const anything = weight.ready || pace.ready;
 
@@ -96,6 +105,40 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
       </div>
 
       {/*
+        **体組成があれば、中身まで言う。**
+        減る速さだけを見張っていても、落ちているのが筋肉かどうかは拾えない。
+        走る人にとって、そこが疲労骨折と貧血の入口になる。
+      */}
+      {change && story && (
+        <div
+          className={`mt-2.5 rounded-[14px] px-3.5 py-3 ${
+            change.kind === 'lean' ? 'bg-warn-soft' : 'bg-sunken'
+          }`}
+        >
+          <p
+            className={`text-[13px] font-bold ${change.kind === 'lean' ? 'text-warn' : ''}`}
+          >
+            {story.title}
+          </p>
+          <p
+            className={`mt-1 text-[12px] leading-relaxed ${
+              change.kind === 'lean' ? 'text-warn' : 'text-muted'
+            }`}
+          >
+            {story.detail}
+          </p>
+          {/* 内訳は、言葉より棒のほうが早い。 */}
+          {change.kind !== 'flat' && (
+            <div className="mt-2.5 flex items-center gap-2 text-[11px] tabular-nums">
+              <Bar label="脂肪" value={change.fatKg} />
+              <Bar label="それ以外" value={change.leanKg} warn={change.leanKg < -0.3} />
+            </div>
+          )}
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">{MEASURE_NOTE}</p>
+        </div>
+      )}
+
+      {/*
         **速すぎる減り方は、夢として見せない。**
         走る人にとって週1%を超える減量は、筋肉も一緒に落ち、
         故障と貧血の入口になる。ここだけは、はっきり言う。
@@ -114,6 +157,19 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
         <p className="mt-3 text-[11px] leading-relaxed text-muted">{OUTLOOK_NOTE}</p>
       )}
     </div>
+  );
+}
+
+/** 増減を1つ。**色で良し悪しを決めつけない。** 警告は、筋肉が落ちている時だけ。 */
+function Bar({ label, value, warn = false }: { label: string; value: number; warn?: boolean }) {
+  return (
+    <span className="flex-1 rounded-[10px] border border-line px-2.5 py-1.5">
+      <span className="block text-muted">{label}</span>
+      <span className={`block text-[14px] font-bold ${warn ? 'text-warn' : ''}`}>
+        {value > 0 ? '+' : ''}
+        {value} kg
+      </span>
+    </span>
   );
 }
 

@@ -16,6 +16,7 @@
  * 5. **条件を必ず書く。**「このまま続けたら」であって、約束ではない。
  */
 
+import { minHealthyWeightKg } from './composition';
 import { paceTrend, weightTrend } from './review';
 import type { RunnerProfile } from './types';
 
@@ -38,9 +39,9 @@ const MAX_WEEKLY_LOSS_RATIO = 0.01;
 /**
  * 3か月で見込む下限（いまの体重に対する割合）。
  *
- * **身長を預かっていないので、BMI では止められない。**
- * そのかわり、いまの体重からの減り幅で止める。
- * 10%以上痩せる見込みは、たとえ数字がそう出ても画面には出さない。
+ * **身長を預かっていない人のための、粗い下限。**
+ * 身長が分かれば BMI 18.5 で止める（そちらが本来の止め方）。
+ * どちらにしても、10%以上痩せる見込みは画面に出さない。
  */
 const MIN_TOTAL_RATIO = 0.9;
 
@@ -110,6 +111,10 @@ export interface WeightOutlook {
   tooFast: boolean;
   /** 下限に当たったか。 */
   floored: boolean;
+  /** 下限の体重(kg)。 */
+  floor: number;
+  /** 下限の根拠。身長があれば BMI、無ければいまの体重からの割合。 */
+  floorBasis: 'bmi' | 'ratio';
   direction: 'down' | 'up' | 'flat';
   points: number;
 }
@@ -159,7 +164,14 @@ export function weightOutlook(
   const change = perWeek * HORIZON_WEEKS;
   let center = current + change;
 
-  const floor = current * MIN_TOTAL_RATIO;
+  /*
+    **下限は、身長があれば BMI で止める。**
+    「いまの体重の10%まで」は、身長を知らない時の間に合わせ。
+    50kg の人と 90kg の人で、同じ10%が意味することはまったく違う。
+    両方ある時は、高いほう（＝厳しいほう）を採る。
+  */
+  const healthy = minHealthyWeightKg(profile.heightCm);
+  const floor = Math.max(current * MIN_TOTAL_RATIO, healthy ?? 0);
   const floored = center < floor;
   if (floored) center = floor;
 
@@ -177,6 +189,8 @@ export function weightOutlook(
     rawPerWeek: round2(rawPerWeek),
     tooFast,
     floored,
+    floor: round1(floor),
+    floorBasis: healthy !== null && healthy >= current * MIN_TOTAL_RATIO ? 'bmi' : 'ratio',
     direction,
     points: fit.points,
   };
