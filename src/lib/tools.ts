@@ -25,6 +25,7 @@ import {
 } from './profile';
 import { logWeight } from './daily';
 import { isBodyFatInRange, isHeightInRange } from './composition';
+import { logIntake } from './daily';
 import { activeRedFlag, clearRedFlags } from './red-flags';
 import { SHOE_ROLE_LABEL, activeShoes, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
@@ -54,6 +55,13 @@ export const coachTools: FunctionDeclaration[] = [
           type: 'number',
           description:
             '身長(cm)。減量の下限を安全な値で止めるために使う。一度聞けば、もう変わらない。',
+        },
+        age: { type: 'number', description: '年齢。**基礎代謝の計算にだけ使う。**' },
+        sex: {
+          type: 'string',
+          enum: ['male', 'female'],
+          description:
+            '性別。**基礎代謝の計算にだけ使う。指導の中身は変えない。**体脂肪率が分かっていれば要らない。',
         },
         maxHr: { type: 'number', description: '最大心拍数(bpm)。心拍ゾーン評価に必須。' },
         restingHr: { type: 'number', description: '安静時心拍数(bpm)。疲労の蓄積を測る指標。' },
@@ -280,6 +288,27 @@ export const coachTools: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'log_intake',
+    description:
+      '食べたものを話された時に、量の目安(kcal)を見積もって記録する。' +
+      '**これは減量のための道具ではない。足りているかを見るためのもの。**' +
+      '正確さは期待されていないので、ざっくりでよい（おにぎり1個=180、定食1食=700、など）。' +
+      '**目標カロリーを出してはならない。「あと◯kcal食べましょう」も言わない。**' +
+      '1日の合計として記録する。同じ日に追加で聞いたら、それまでの分に足した合計を渡すこと。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        kcal: { type: 'number', description: 'その日に食べた量の目安(kcal)。1日の合計。' },
+        note: {
+          type: 'string',
+          description: '何を食べたか。**本人の言葉のまま**短く（例: 朝おにぎり2個、昼は定食）',
+        },
+        date: { type: 'string', description: 'YYYY-MM-DD。省略時は今日。' },
+      },
+      required: ['kcal'],
+    },
+  },
+  {
     name: 'add_shoes',
     description:
       'シューズを聞いた時に登録する。すでに何km履いているかが分かれば km に入れる（分からなければ本人に尋ねる。0 と決めつけない）。' +
@@ -443,6 +472,11 @@ export function executeTool(
           weeklyVolumeKm: num(args.weeklyVolumeKm),
           bodyWeightKg: num(args.bodyWeightKg),
           heightCm: isHeightInRange(num(args.heightCm)) ? num(args.heightCm) : undefined,
+          age: (() => {
+            const value = num(args.age);
+            return value !== undefined && value >= 10 && value <= 100 ? Math.round(value) : undefined;
+          })(),
+          sex: args.sex === 'male' || args.sex === 'female' ? args.sex : undefined,
           maxHr: num(args.maxHr),
           restingHr: num(args.restingHr),
           lthr: num(args.lthr),
@@ -735,6 +769,31 @@ export function executeTool(
             (fat !== undefined
               ? '体脂肪率も記録した。**この数値に目標を立てないこと。**家庭用の体組成計は絶対値がずれる（脱水だけで1〜3ポイント動く）。見てよいのは変わっていく向きだけ。'
               : ''),
+        },
+      };
+    }
+
+    case 'log_intake': {
+      const kcal = num(args.kcal);
+      // 1日に 10,000kcal を超える申告は、桁の間違い。記録しない。
+      if (kcal === undefined || kcal <= 0 || kcal > 10_000) {
+        return { profile, result: { ok: false, error: '食べた量は 1〜10000kcal の範囲で受け取る。' } };
+      }
+      const next = logIntake(
+        profile,
+        Math.round(kcal),
+        str(args.date) ?? today(now),
+        str(args.note),
+        now,
+      );
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          message:
+            '食べた量を記録した。**目標を出さないこと。**「あと◯kcal」とも言わない。' +
+            '走る人にとって危ないのは食べすぎではなく、食べなさすぎのほう。' +
+            '走った日は、いつもより食べてよいと伝える。',
         },
       };
     }

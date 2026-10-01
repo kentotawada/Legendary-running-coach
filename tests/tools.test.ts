@@ -15,6 +15,7 @@ describe('coachTools', () => {
       'log_activity',
       'log_condition',
       'log_gear_feedback',
+      'log_intake',
       'log_weight',
       'remove_race',
       'retire_shoes',

@@ -102,6 +102,30 @@ export function logWeight(
   };
 }
 
+/**
+ * 食べた量を記録する。
+ *
+ * **「足りているか」を見るためのもので、減らすためのものではない。**
+ * 正確さは期待しない。本人の申告からの概算で十分で、それでも
+ * 基礎代謝を下回っているかどうかは分かる。
+ */
+export function logIntake(
+  profile: RunnerProfile,
+  intakeKcal: number,
+  date: string = today(),
+  intakeNote?: string,
+  now: Date = new Date(),
+): RunnerProfile {
+  const log = profile.dailyLog ?? [];
+  const exists = log.some((record) => record.date === date);
+  const patch = { intakeKcal, ...(intakeNote ? { intakeNote } : {}) };
+  const next = exists
+    ? log.map((record) => (record.date === date ? { ...record, ...patch } : record))
+    : [...log, { date, opened: true, ...patch }];
+
+  return { ...profile, dailyLog: trimLog(next), updatedAt: now.toISOString() };
+}
+
 /** 記録は増え続けるので、直近1年分だけ残す。 */
 function trimLog(log: DailyRecord[]): DailyRecord[] {
   const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date));

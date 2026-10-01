@@ -10,6 +10,7 @@ import {
 } from '@/lib/forecast';
 import { formatPace, parseDuration, resolveTargetPace } from '@/lib/goals';
 import { MEASURE_NOTE, compositionChange, describeChange } from '@/lib/composition';
+import { describeFuel, fuelCheck } from '@/lib/energy';
 import type { RunnerProfile } from '@/lib/types';
 
 /**
@@ -39,6 +40,13 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
    */
   const change = useMemo(() => compositionChange(profile, { now }), [profile, now]);
   const story = change ? describeChange(change) : null;
+
+  /**
+   * **足りているか。** 食べなさすぎは、食べすぎよりずっと危ない。
+   * 今回入れた「減っているのは筋肉」の検出と、ここは同じことを別の角度から見ている。
+   */
+  const fuel = useMemo(() => fuelCheck(profile, { now }), [profile, now]);
+  const fuelSaid = fuel ? describeFuel(fuel) : null;
 
   const anything = weight.ready || pace.ready;
 
@@ -151,6 +159,26 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
           安全な速さに置きなおした数字です。食べる量を減らしすぎていないか、
           コーチに話してみてください。
         </p>
+      )}
+
+      {/* **足りていない時だけ出す。** 足りている人に毎回カロリーの話をしない。 */}
+      {fuel && fuelSaid && fuel.level !== 'ok' && (
+        <div
+          className={`mt-2.5 rounded-[14px] px-3.5 py-3 ${
+            fuel.level === 'low' ? 'bg-warn-soft' : 'bg-sunken'
+          }`}
+        >
+          <p className={`text-[13px] font-bold ${fuel.level === 'low' ? 'text-warn' : ''}`}>
+            {fuelSaid.title}
+          </p>
+          <p
+            className={`mt-1 text-[12px] leading-relaxed ${
+              fuel.level === 'low' ? 'text-warn' : 'text-muted'
+            }`}
+          >
+            {fuelSaid.detail}
+          </p>
+        </div>
       )}
 
       {anything && (

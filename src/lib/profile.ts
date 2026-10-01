@@ -16,6 +16,7 @@ import type {
   ShoeRole,
   TimedContent,
 } from './types';
+import { LIVING_FACTOR, basalMetabolicRate, describeFuel, fuelCheck } from './energy';
 import { PHASE_LABEL } from './phase';
 import { INTERNAL_PREFIX, attachmentCountOf, attachmentGroupOf } from './markers';
 import { describeRace, pastRaces, racesOf, sortRaces, upcomingRaces } from './races';
@@ -64,6 +65,10 @@ export interface ProfilePatch {
   bodyWeightKg?: number;
   /** 身長(cm)。減量の下限を安全な値で止めるために使う。 */
   heightCm?: number;
+  /** 年齢。基礎代謝の計算にだけ使う。 */
+  age?: number;
+  /** 性別。基礎代謝の計算にだけ使う。 */
+  sex?: 'male' | 'female';
   maxHr?: number;
   restingHr?: number;
   lthr?: number;
@@ -93,6 +98,8 @@ export function applyProfileUpdate(
     weeklyVolumeKm: patch.weeklyVolumeKm ?? profile.weeklyVolumeKm,
     bodyWeightKg: patch.bodyWeightKg ?? profile.bodyWeightKg,
     heightCm: patch.heightCm ?? profile.heightCm,
+    age: patch.age ?? profile.age,
+    sex: patch.sex ?? profile.sex,
     maxHr: patch.maxHr ?? profile.maxHr,
     restingHr: patch.restingHr ?? profile.restingHr,
     lthr: patch.lthr ?? profile.lthr,
@@ -734,6 +741,22 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
     );
   }
   if (profile.heightCm !== undefined) lines.push(`- 身長: ${profile.heightCm}cm`);
+  /*
+    **基礎代謝と、足りているか。** コーチが毎回の返答で使えるよう、ここに置く。
+    1日の消費は運動より基礎代謝のほうがずっと大きい（10km走って約600kcal、
+    基礎代謝は1,400kcal前後）ので、食べる量の話はここが出発点になる。
+  */
+  const basal = basalMetabolicRate(profile);
+  if (basal) {
+    lines.push(
+      `- 基礎代謝の目安: ${basal.kcal}kcal/日（運動を除く1日の消費は約 ${Math.round(basal.kcal * LIVING_FACTOR)}kcal）`,
+    );
+  }
+  const fuel = fuelCheck(profile);
+  if (fuel && fuel.level !== 'ok') {
+    const said = describeFuel(fuel);
+    lines.push(`- **${said.title}** ${said.detail}`);
+  }
 
   const hr = [
     profile.maxHr !== undefined ? `最大心拍 ${profile.maxHr}` : null,
