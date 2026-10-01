@@ -375,6 +375,36 @@ export default function ConnectSheet({
       <div className="mt-4">
         <p className="mb-1.5 text-[12px] font-bold text-muted">② いつも使っている時計・アプリ</p>
 
+        {/*
+          **選ぶ前に、ぜんたいの見取り図を1つ置く。**
+          12個の名前がいきなり並ぶと、自分がどれに当たるのか、
+          そもそも何分かかるのかが分からないまま選ぶことになる。
+          **「自分のは、どのくらい手間か」が先に分かると、押しやすい。**
+        */}
+        <div className="mb-2.5 rounded-[14px] bg-sunken px-3.5 py-3">
+          <p className="text-[12px] font-semibold">つなぎ方は、だいたい3通りです</p>
+          <ul className="mt-1.5 space-y-1.5 text-[11px] leading-relaxed text-muted">
+            <li>
+              <strong className="font-semibold text-fg">1回つなぐだけ（2〜3分）</strong>
+              … Garmin・Nike・COROS・Polar・Suunto・Fitbit・adidas。
+              以降は走るたびに自動で届きます
+            </li>
+            <li>
+              <strong className="font-semibold text-fg">橋渡しアプリが要る（5分・有料あり）</strong>
+              … Apple Watch の純正ワークアウト。ヘルスケアを読める別アプリを挟みます
+            </li>
+            <li>
+              <strong className="font-semibold text-fg">画面を撮って送る（数秒）</strong>
+              … <strong className="font-semibold text-fg">どのアプリでも必ず通ります。</strong>
+              iPhone の「ヘルスケア」だけを使っている人も、これがいちばん速いです
+            </li>
+          </ul>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            どれを選んでも、<strong className="font-semibold text-fg">つないだ後の記録から</strong>
+            届きます。それより前の分は、画面を撮って送ってください。
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           {CONNECT_SOURCES.map((item) => {
             const active = source?.id === item.id;
