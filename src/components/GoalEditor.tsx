@@ -98,6 +98,25 @@ const inputClass =
  * label で包むと、中のボタンを押しただけで先頭の入力欄が反応してしまうので、
  * 見た目だけ Field に揃えた div 版を用意する。
  */
+/**
+ * カルテの章。
+ *
+ * **18個の欄を平らに並べていた。** どこに何があるのか分からず、
+ * 身長を入れたい人が最大心拍数の欄まで見ることになる。
+ * 「自分のこと」「目標」「体のこと」に分けて、探す範囲を狭くする。
+ */
+function Chapter({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-6 first:mt-0">
+      <div className="mb-1 border-b border-line pb-1.5">
+        <h3 className="text-[14px] font-bold">{title}</h3>
+        {note && <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{note}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function Section({
   label,
   hint,
@@ -440,6 +459,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
+      <Chapter title="あなたのこと" note="コーチと、呼んでほしい名前">
       <Field
         label="コーチのキャラクター"
         required={false}
@@ -507,6 +527,9 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         />
       </Field>
 
+      </Chapter>
+
+      <Chapter title="目標" note="ここが変わると、コーチが使う基準も変わります">
       <Field label="何を目指しますか" required hint="選ぶと、コーチが使う基準がそれに合わせて切り替わります">
         <div className="flex flex-wrap gap-2">
           {KINDS.map((item) => (
@@ -639,6 +662,12 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         </div>
       </Section>
 
+      </Chapter>
+
+      <Chapter
+        title="体のこと"
+        note="一度入れれば、そう変わりません。入っているほど、コーチの判断が正確になります"
+      >
       <Field
         label="故障歴・気になる部位"
         required={false}
@@ -757,6 +786,19 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
           inputMode="numeric"
         />
       </Field>
+
+      </Chapter>
+
+      {/*
+        **毎日の記録は、ここには無い。** 体重・体脂肪率・食べた量は
+        日によって変わるので、頭の列のスタンプから入れる。
+        探し回らせないよう、ここにも行き先を書いておく。
+      */}
+      <p className="mt-5 rounded-[12px] bg-sunken px-3.5 py-3 text-[11px] leading-relaxed text-muted">
+        <strong className="font-semibold text-fg">体重・体脂肪率・食べた量は、ここではありません。</strong>
+        毎日変わるものなので、画面の上の「スタンプ」から入れてください。
+        走った記録は、入力欄の「＋」から送れます。
+      </p>
 
       <div className="mt-4 flex gap-2">
         <button

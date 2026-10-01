@@ -418,6 +418,24 @@ export function parseRichText(text: string): RichBlock[] {
     }
 
     if (!line.trim()) {
+      /*
+        **空行だけで、箇条書きを切らない。**
+
+        コーチは番号付きの手順を、読みやすさのために1行あけて書く。
+
+            1. まずこれ
+            (空行)
+            2. つぎにこれ
+
+        ここで切ると、2つ目以降がそれぞれ別の箇条書きになり、
+        **全部「1.」から始まってしまう。** 実際にそう出ていた。
+        次に中身のある行が同じ種類の続きなら、空行は飛ばす。
+      */
+      const next = lines.slice(i + 1).find((rest) => rest.trim());
+      const continuesList =
+        next !== undefined &&
+        ((bullets.length > 0 && BULLET.test(next)) || (ordered.length > 0 && ORDERED.test(next)));
+      if (continuesList) continue;
       flush();
       continue;
     }
