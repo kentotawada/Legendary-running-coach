@@ -9,7 +9,8 @@
  *  3. **その人の数字を入れる。** 「そろそろ走りましょう」は誰にでも送れる＝誰にも効かない。
  */
 
-import type { RunnerProfile } from './types';
+import type { ActivityLog, RunnerProfile } from './types';
+import { compareWithPast } from './compare';
 import { addressFor } from './characters';
 import { daysUntil, targetRace } from './races';
 import { shoeStatuses } from './shoes';
@@ -230,9 +231,74 @@ export function nudgeStatus(profile: RunnerProfile, now: Date = new Date()): Nud
    * ロック画面に並ぶ通知の中で、目が止まるのは自分の名前が見えた時だけ。
    * 名前を聞けていなければ、何も足さない。
    */
+  return { nudge: addressed(profile, chosen), skip: null };
+}
+
+/**
+ * 走り終えた直後の一言。
+ *
+ * 定期の声かけ（{@link nudgeFor}）とは別の口。あちらは「こちらが決めた時刻に、用事があれば」。
+ * **こちらは、向こうから記録が届いた、その瞬間。**
+ *
+ * これが出せるのは、記録が勝手に入ってくる作りだからで、
+ * スクリーンショットを待つ形では、永久に出せない通知になる。
+ *
+ * 原則は定期の声かけと同じ。1日1通まで、責めない、その人の数字を入れる。
+ * 加えて**深夜には鳴らさない。** 夜更けの取り込みで枕元を光らせない。
+ */
+export const ARRIVAL_TAG = 'run-arrived';
+
+/** これより早い時刻には鳴らさない（走る人の地域の時刻）。 */
+const QUIET_UNTIL_HOUR = 5;
+
+export function arrivalNudge(
+  profile: RunnerProfile,
+  activity: ActivityLog,
+  now: Date = new Date(),
+): Nudge | null {
+  if (activity.type !== 'run' && activity.type !== 'walk') return null;
+  const km = activity.distanceKm;
+  if (!km || km <= 0) return null;
+  if (alreadySentToday(profile, now)) return null;
+  if (coachHour(now) < QUIET_UNTIL_HOUR) return null;
+
+  const shown = Math.round(km * 10) / 10;
+  const facts = [activity.metrics?.avgPace, activity.metrics?.avgHr ? `心拍${activity.metrics.avgHr}` : null]
+    .filter((part): part is string => Boolean(part))
+    .join('・');
+
+  /**
+   * **ここに比較を入れる。** 「届きました」だけなら、ただの受領通知で、
+   * 受け取ったこと自体には何の価値もない。
+   * 過去の自分と並べて初めて、開く理由になる。
+   */
+  const comparison = compareWithPast(profile, activity);
+  let line: string;
+  if (comparison && comparison.verdict === 'better') {
+    line =
+      comparison.efficiencyPercent !== undefined && comparison.hrDelta !== undefined && comparison.hrDelta <= 0
+        ? `同じくらいの距離の前より、心拍は低いままペースが上がっています。`
+        : `同じくらいの距離の前より、1kmあたり${Math.abs(comparison.paceDeltaSec)}秒速いです。`;
+  } else if (comparison && comparison.verdict === 'harder') {
+    line = '同じくらいの距離の前より、きつかったようです。体の感じを聞かせてください。';
+  } else if (comparison) {
+    line = '同じくらいの距離の前と、ほぼ同じでした。';
+  } else {
+    line = '中身を見ておきました。開けば、区間ごとの読みがあります。';
+  }
+
+  return {
+    tag: ARRIVAL_TAG,
+    title: `${shown}km、おつかれさまでした`,
+    body: facts ? `${facts}。${line}` : line,
+    cooldownDays: 0,
+  };
+}
+
+/** 呼びかけの名前を足す。{@link nudgeStatus} の最後と同じ扱い。 */
+export function addressed(profile: RunnerProfile, nudge: Nudge): Nudge {
   const address = addressFor(profile.characterId, profile.displayName);
-  const named = address ? { ...chosen, title: `${address}、${chosen.title}` } : chosen;
-  return { nudge: named, skip: null };
+  return address ? { ...nudge, title: `${address}、${nudge.title}` } : nudge;
 }
 
 /** 送ったことを記録する。次に同じ知らせを出さないため。 */
@@ -240,6 +306,9 @@ export function markNotified(profile: RunnerProfile, tag: string, now: Date = ne
   return {
     ...profile,
     notifications: {
+      // **本人が選んだ時刻（hour）を落とさない。** ここを書き換えで潰していたので、
+      // 21時に設定した人が、最初の1通を受け取った翌日から朝9時に戻っていた。
+      ...profile.notifications,
       lastSentAt: now.toISOString(),
       lastTag: tag,
       sentOn: { ...(profile.notifications?.sentOn ?? {}), [tag]: ymd(now) },

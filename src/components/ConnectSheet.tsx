@@ -333,6 +333,16 @@ export default function ConnectSheet({
                   : 'まだ取り込んでいません'}
                 {connection?.imported ? ` / これまで${connection.imported}件` : ''}
               </p>
+              {/*
+                **ここが変わったことを、はっきり書く。**
+                これまでは「開いた時に取り込む」だったので、開かなければ何も起きなかった。
+                いまは走り終えた時点で向こうから届く。下のボタンは、急ぐ時のためだけに残す。
+              */}
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                走り終えた記録は、
+                <strong className="font-semibold text-fg">アプリを開かなくても届きます。</strong>
+                通知を許可していれば、その場で一言お伝えします。
+              </p>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <button
                   type="button"

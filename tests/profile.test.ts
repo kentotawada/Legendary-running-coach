@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addActivity,
   applyProfileUpdate,
+  removeExternalActivity,
   replaceInjuryHistory,
   setGoal,
   setPhase,
@@ -179,5 +180,80 @@ describe('本人による設定変更', () => {
   it('空行や空白だけの行は落とす', () => {
     const profile = replaceInjuryHistory(createDefaultProfile('u1'), ['  右膝  ', '', '   '], NOW);
     expect(profile.injuryHistory).toEqual(['右膝']);
+  });
+});
+
+
+/**
+ * 外部で消された練習を、こちらからも消す。
+ *
+ * **残しておくと、週の走行距離がずっと狂ったままになる。**
+ * GPSが飛んだ1本を Strava で消す人は多い。その操作を二度やらせない。
+ */
+describe('消された練習', () => {
+  const base = () => ({
+    ...createDefaultProfile('u1', NOW.toISOString()),
+    activities: [
+      {
+        id: 'a1',
+        date: '2026-09-20',
+        type: 'run' as const,
+        distanceKm: 10,
+        durationMin: 50,
+        externalId: 'strava:1',
+        createdAt: '2026-09-20T10:00:00.000Z',
+      },
+      {
+        id: 'a2',
+        date: '2026-09-22',
+        type: 'run' as const,
+        distanceKm: 12,
+        durationMin: 60,
+        externalId: 'strava:2',
+        createdAt: '2026-09-22T10:00:00.000Z',
+      },
+    ],
+  });
+
+  it('指された1件だけを消す', () => {
+    const after = removeExternalActivity(base(), 'strava:1', NOW);
+    expect(after.activities.map((a) => a.externalId)).toEqual(['strava:2']);
+  });
+
+  it('持っていない記録を指されても、何も変えない', () => {
+    const profile = base();
+    expect(removeExternalActivity(profile, 'strava:99', NOW)).toBe(profile);
+  });
+
+  it('自前で積んだ靴からは、同じぶんを戻す', () => {
+    const profile = base();
+    const withShoe = {
+      ...profile,
+      shoes: [{ id: 's1', name: 'ペガサス', role: 'daily' as const, km: 100, updatedAt: NOW.toISOString() }],
+      activities: profile.activities.map((a) => (a.id === 'a1' ? { ...a, shoeId: 's1' } : a)),
+    };
+    const after = removeExternalActivity(withShoe, 'strava:1', NOW);
+    expect(after.shoes?.[0].km).toBe(90);
+  });
+
+  /** 外部が管理している靴は、向こうの数字が正。こちらで引くと二重に減る。 */
+  it('外部が管理している靴には触らない', () => {
+    const profile = base();
+    const withShoe = {
+      ...profile,
+      shoes: [
+        {
+          id: 's1',
+          name: 'ペガサス',
+          role: 'daily' as const,
+          km: 100,
+          externalId: 'strava:g1',
+          updatedAt: NOW.toISOString(),
+        },
+      ],
+      activities: profile.activities.map((a) => (a.id === 'a1' ? { ...a, shoeId: 's1' } : a)),
+    };
+    const after = removeExternalActivity(withShoe, 'strava:1', NOW);
+    expect(after.shoes?.[0].km).toBe(100);
   });
 });
