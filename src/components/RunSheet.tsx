@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import type { ActivityLog, RunnerProfile } from '@/lib/types';
 import { analyze } from '@/lib/analysis';
 import { compareWithPast, describeComparison, paceText } from '@/lib/compare';
+import { SHARE_FILE_NAME, renderShareCard, shareCardContent } from '@/lib/share-card';
 import { heartRateZones } from '@/lib/zones';
 import RunCharts from './RunCharts';
 import Sheet from './Sheet';
@@ -61,6 +63,46 @@ export default function RunSheet({
    */
   const comparison = profile ? compareWithPast(profile, activity) : null;
   const compared = comparison ? describeComparison(comparison) : null;
+
+  /**
+   * 比較を1枚の画像にして渡す。
+   *
+   * **画面を撮ると、名前も体重も一緒に写る。** だからそのままでは貼れない。
+   * ここで作る画像に入るのは、距離・ペース・心拍・差だけ。名前も日付も入れない。
+   */
+  const [sharing, setSharing] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+
+  const shareComparison = async () => {
+    if (!comparison || sharing) return;
+    setSharing(true);
+    setShareNote(null);
+    try {
+      const blob = await renderShareCard(shareCardContent(comparison));
+      if (!blob) throw new Error('画像を作れませんでした');
+      const file = new File([blob], SHARE_FILE_NAME, { type: 'image/png' });
+
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        return;
+      }
+
+      // 共有シートが無い環境（パソコンのブラウザなど）では、保存に落とす。
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = SHARE_FILE_NAME;
+      link.click();
+      URL.revokeObjectURL(url);
+      setShareNote('画像を保存しました。');
+    } catch (error) {
+      // 共有シートを閉じただけの時もここに来る。それは失敗ではない。
+      if ((error as Error)?.name === 'AbortError') return;
+      setShareNote('画像を作れませんでした。');
+    } finally {
+      setSharing(false);
+    }
+  };
   const zones = profile ? heartRateZones(profile) : null;
 
   const paces = laps
@@ -191,6 +233,39 @@ export default function RunSheet({
                 </strong>
               </span>
             )}
+          </div>
+
+          {/*
+            **ここに共有を置く。** このアプリでいちばん人に見せたくなる画面なのに、
+            画面を撮ると名前も体重も一緒に写るので、そのままでは貼れなかった。
+            何が入らないかを、押す前に書いておく。
+          */}
+          <div className="mt-3 flex items-center gap-2 border-t border-line/70 pt-2.5">
+            <button
+              type="button"
+              onClick={() => void shareComparison()}
+              disabled={sharing}
+              className="flex items-center gap-1.5 rounded-full border border-line bg-bg px-3 py-1.5 text-[12px] font-semibold active:scale-[0.98] disabled:opacity-50"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-[14px] w-[14px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 15V3" />
+                <path d="m8 7 4-4 4 4" />
+                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+              </svg>
+              {sharing ? '作っています…' : '画像で共有'}
+            </button>
+            <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted">
+              {shareNote ?? '名前も日付も入りません。数字だけの画像になります。'}
+            </p>
           </div>
         </div>
       )}
