@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ARRIVAL_TAG,
   alreadySentToday,
+  arrivalNudge,
   markNotified,
   notifyHourOf,
   nudgeFor,
@@ -285,5 +287,100 @@ describe('1日1通の数え方', () => {
     const base0 = active(base());
     const broken = { ...base0, notifications: { lastSentAt: 'not-a-date' } };
     expect(alreadySentToday(broken, NOW)).toBe(false);
+  });
+});
+
+
+/**
+ * 走り終えた直後の一言。
+ *
+ * 定期の声かけと違い、**向こうから記録が届いた、その瞬間**に出る。
+ * 届いたことを知らせるだけでは受領通知でしかないので、
+ * 過去の自分との比較まで入って初めて、開く理由になる。
+ */
+describe('届いた直後の一言', () => {
+  const ARRIVED = new Date('2026-09-24T08:30:00+09:00');
+
+  /** 今日の20km。1か月以上前の似た練習より速い。 */
+  function ran(): RunnerProfile {
+    const past = [60, 75, 90].map((ago) => {
+      const date = new Date(ARRIVED.getTime() - ago * 86400000).toISOString().slice(0, 10);
+      return {
+        id: `p${ago}`,
+        date,
+        type: 'run' as const,
+        distanceKm: 20,
+        durationMin: 114,
+        metrics: { avgHr: 152 },
+        createdAt: `${date}T10:00:00.000Z`,
+      };
+    });
+    return {
+      ...base(),
+      displayName: '健太',
+      characterId: 'logic',
+      activities: [...past].sort((a, b) => a.date.localeCompare(b.date)),
+    };
+  }
+
+  const today = {
+    id: 'now',
+    date: '2026-09-24',
+    type: 'run' as const,
+    distanceKm: 20,
+    durationMin: 110,
+    metrics: { avgPace: '5:30/km', avgHr: 148 },
+    createdAt: '2026-09-24T08:30:00.000Z',
+  };
+
+  it('距離をねぎらって、過去の自分と比べた一言を添える', () => {
+    const profile = ran();
+    const nudge = arrivalNudge({ ...profile, activities: [...profile.activities, today] }, today, ARRIVED)!;
+
+    expect(nudge.tag).toBe(ARRIVAL_TAG);
+    expect(nudge.title).toBe('20km、おつかれさまでした');
+    expect(nudge.body).toContain('5:30/km');
+    expect(nudge.body).toContain('心拍148');
+    expect(nudge.body).toContain('同じくらいの距離の前より');
+  });
+
+  it('比べる相手がいなければ、中身を見たことだけを伝える', () => {
+    const profile = { ...base(), activities: [today] };
+    const nudge = arrivalNudge(profile, today, ARRIVED)!;
+
+    expect(nudge.body).toContain('区間ごとの読み');
+    expect(nudge.body).not.toContain('前より');
+  });
+
+  it('走っていない記録には出さない', () => {
+    const stretch = { ...today, type: 'stretch' as const, distanceKm: undefined };
+    expect(arrivalNudge(base(), stretch, ARRIVED)).toBeNull();
+    expect(arrivalNudge(base(), { ...today, distanceKm: undefined }, ARRIVED)).toBeNull();
+  });
+
+  /** 原則1は定期の声かけと同じ。**1日に2通目が来た時点で、人は設定を切りに行く。** */
+  it('今日もう1通送っていれば、出さない', () => {
+    const profile = markNotified(base(), 'quiet', new Date('2026-09-24T07:00:00+09:00'));
+    expect(arrivalNudge(profile, today, ARRIVED)).toBeNull();
+  });
+
+  /** 深夜の取り込みで、枕元を光らせない。 */
+  it('深夜には鳴らさない', () => {
+    expect(arrivalNudge(base(), today, new Date('2026-09-24T03:00:00+09:00'))).toBeNull();
+  });
+});
+
+describe('送ったことの記録', () => {
+  /**
+   * **本人が選んだ受け取り時刻を、送信の記録で潰さない。**
+   * ここを上書きしていたので、21時に設定した人が最初の1通のあと朝9時に戻っていた。
+   */
+  it('受け取る時刻の設定を残す', () => {
+    const profile = { ...base(), notifications: { hour: 21 } };
+    const after = markNotified(profile, 'quiet', NOW);
+
+    expect(after.notifications?.hour).toBe(21);
+    expect(after.notifications?.lastTag).toBe('quiet');
+    expect(notifyHourOf(after)).toBe(21);
   });
 });

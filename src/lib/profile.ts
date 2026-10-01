@@ -310,6 +310,42 @@ export function addActivity(
 }
 
 /**
+ * 外部サービス側で消された練習を、こちらからも消す。
+ *
+ * **消えた記録を残しておくと、週の走行距離がずっと狂ったままになる。**
+ * GPSが飛んだ1本を Strava で消す人は多い。その操作を、こちらでもやり直させない。
+ *
+ * 自前で距離を積んだ靴からは、同じぶんを戻す。
+ * 外部が管理している靴は向こうの数字が正なので、触らない。
+ */
+export function removeExternalActivity(
+  profile: RunnerProfile,
+  externalId: string,
+  now: Date = new Date(),
+): RunnerProfile {
+  const target = profile.activities.find((activity) => activity.externalId === externalId);
+  if (!target) return profile;
+
+  const shoe = target.shoeId ? (profile.shoes ?? []).find((item) => item.id === target.shoeId) : undefined;
+  const km = target.distanceKm ?? 0;
+  const shoes =
+    shoe && !shoe.externalId && km > 0
+      ? (profile.shoes ?? []).map((item) =>
+          item.id === shoe.id
+            ? { ...item, km: Math.max(0, Math.round((item.km - km) * 10) / 10), updatedAt: now.toISOString() }
+            : item,
+        )
+      : profile.shoes;
+
+  return {
+    ...profile,
+    activities: profile.activities.filter((activity) => activity.externalId !== externalId),
+    shoes,
+    updatedAt: now.toISOString(),
+  };
+}
+
+/**
  * すでに二重になっている記録を、まとめ直す。
  * **入口を直しても、過去に入った分は残る。** 取り込みのたびに通して、そこで直す。
  */

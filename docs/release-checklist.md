@@ -70,9 +70,24 @@
 |---|---|---|
 | 1 | **困った時の出口を前に出す** | いま問い合わせ先はプライバシーポリシーの中だけ。ベータなら「変だったら 👎」をもっと見える所に置く。**返ってこない意見は、無いのと同じ** |
 | 2 | **「ホーム画面に追加」の案内を、通知以外の場所にも** | いまは通知の導線の中にある。iOS は追加しないと通知が使えないので、**通知をオンにしようとした人しか辿り着けない** |
-| 3 | **Strava 連携**（30分） | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET`。Callback Domain は `legendary-running-coach.vercel.app`（ドメインだけ） |
+| 3 | **Strava 連携**（30分） | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET`。Callback Domain は `legendary-running-coach.vercel.app`（ドメインだけ）。**到着の受け取り（webhook）は、誰かが最初につないだ時に自動で登録されます。**設定作業はありません |
 | 4 | **お金の見張り** | オートチャージ オン／クレジット ¥10,000／予算アラート ¥10,000。**残高切れ＝テスター全員が同時に止まる** |
 | 5 | **招待する10〜30人を決めておく** | 声をかけるのは、副部長から連絡が来てから |
+
+### Strava の「到着の受け取り」が効いているか
+
+走り終えた記録が、**アプリを開かなくても**入ってくる仕組み（webhook）。
+うまくいっていれば、何もしなくて構いません。確かめる時だけ、下を使います。
+
+```
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://legendary-running-coach.vercel.app/api/strava/subscription
+```
+
+- `"matches": true` … 届く状態。**これだけ見ればいい。**
+- `"matches": false` で別のURLが出ている … プレビュー用のURLに登録が残っている。
+  同じURLに **POST** すると、こちらへ付け替わる（`-X POST` を足すだけ）。
+- 購読は**アプリ全体でひとつ**。人ごとではないので、1回直せば全員に効く。
 
 ---
 

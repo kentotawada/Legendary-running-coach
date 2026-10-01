@@ -280,6 +280,92 @@ export async function fetchActivities(
   return all.sort((a, b) => (a.start_date_local ?? '').localeCompare(b.start_date_local ?? ''));
 }
 
+/**
+ * 購読（webhook）の登録先。
+ *
+ * **アプリ全体でひとつしか持てない。** 人ごとではなく、アプリにひとつ。
+ * 誰の記録かは、届いた通知の owner_id（＝athleteId）で見分ける。
+ */
+const SUBSCRIPTION_URL = `${API}/push_subscriptions`;
+
+export interface StravaSubscription {
+  id: number;
+  callbackUrl?: string;
+}
+
+/** Strava が通知を投げてくる先。 */
+export function stravaWebhookUrl(origin: string): string {
+  return `${origin.replace(/\/$/, '')}/api/strava/webhook`;
+}
+
+function clientParams(env: NodeJS.ProcessEnv): URLSearchParams {
+  const { clientId, clientSecret } = stravaConfigFromEnv(env);
+  return new URLSearchParams({ client_id: clientId ?? '', client_secret: clientSecret ?? '' });
+}
+
+function subscriptionFrom(json: unknown): StravaSubscription | null {
+  const data = (json ?? {}) as Record<string, unknown>;
+  if (typeof data.id !== 'number') return null;
+  return {
+    id: data.id,
+    callbackUrl: typeof data.callback_url === 'string' ? data.callback_url : undefined,
+  };
+}
+
+/** いま登録されている購読。無ければ空。 */
+export async function listPushSubscriptions(
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: Fetcher = (...args) => fetch(...args),
+): Promise<StravaSubscription[]> {
+  const json = await call(fetchImpl, `${SUBSCRIPTION_URL}?${clientParams(env).toString()}`, {
+    what: 'subscriptions',
+    headers: { Accept: 'application/json' },
+  });
+  const items = Array.isArray(json) ? json : [];
+  return items.map(subscriptionFrom).filter((item): item is StravaSubscription => item !== null);
+}
+
+/**
+ * 購読を登録する。
+ *
+ * **この呼び出しの最中に、Strava がこちらの callback を GET しに来る。**
+ * そこで合言葉を返せないと登録は失敗する。つまり、**外から見えるURLでしか成功しない。**
+ * 手元の開発機では必ず失敗するので、それは異常ではない。
+ */
+export async function createPushSubscription(
+  callbackUrl: string,
+  verifyToken: string,
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: Fetcher = (...args) => fetch(...args),
+): Promise<StravaSubscription> {
+  const body = clientParams(env);
+  body.set('callback_url', callbackUrl);
+  body.set('verify_token', verifyToken);
+  const json = await call(fetchImpl, SUBSCRIPTION_URL, {
+    what: 'subscribe',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: body.toString(),
+  });
+  const subscription = subscriptionFrom(json);
+  if (!subscription) {
+    throw new StravaError('購読を登録できませんでした。', JSON.stringify(json).slice(0, 200));
+  }
+  return subscription;
+}
+
+export async function deletePushSubscription(
+  id: number,
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: Fetcher = (...args) => fetch(...args),
+): Promise<void> {
+  await call(fetchImpl, `${SUBSCRIPTION_URL}/${id}?${clientParams(env).toString()}`, {
+    what: 'unsubscribe',
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+}
+
 export interface StravaGear {
   id: string;
   name?: string;

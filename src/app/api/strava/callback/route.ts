@@ -1,9 +1,11 @@
+import { after } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getStore, loadForSession } from '@/lib/store';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { siteOrigin } from '@/lib/site-url';
 import { STRAVA_STATE_COOKIE, clearStateCookieHeader, stateMatches } from '@/lib/strava-state';
 import { StravaError, exchangeCode, isStravaConfigured } from '@/lib/strava';
+import { ensureSubscription } from '@/lib/strava-webhook';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +69,18 @@ export async function GET(request: NextRequest) {
     };
 
     await getStore().save(session.userId, { ...state, profile }, session.authUserId);
+
+    /*
+      **つないだついでに、購読も確かめる。**
+      練習の到着を受け取る口（webhook）は、アプリ全体でひとつあればいい。
+      設定作業として別に残すと、本番で入れ忘れたまま「自動で入らない」が続く。
+      登録済みなら何もしないので、毎回ここを通してよい。返事は待たせない。
+    */
+    after(async () => {
+      const result = await ensureSubscription(origin);
+      if (result !== 'exists') console.info('[coach] strava subscription', result);
+    });
+
     return back(origin, 'connected', extra);
   } catch (error) {
     console.error('[coach] strava callback failed', error);
