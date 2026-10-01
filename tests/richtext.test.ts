@@ -153,3 +153,50 @@ describe('商品ブロック', () => {
     expect(JSON.stringify(blocks)).not.toContain('ref');
   });
 });
+
+
+/**
+ * **空行だけで、箇条書きを切らない。**
+ *
+ * コーチは番号付きの手順を、読みやすさのために1行あけて書く。
+ * そこで切ると2つ目以降がそれぞれ別の箇条書きになり、
+ * **全部「1.」から始まってしまう。** 実際にそう出ていた。
+ */
+describe('番号付きの箇条書き', () => {
+  it('間に空行があっても、ひと続きの番号になる', () => {
+    const blocks = parseRichText('1. まず\n\n2. つぎに\n\n3. さいごに');
+    const lists = blocks.filter((block) => block.type === 'ordered');
+    expect(lists).toHaveLength(1);
+    expect(lists[0].type === 'ordered' && lists[0].items).toHaveLength(3);
+  });
+
+  it('空行が無くても、これまで通り', () => {
+    const blocks = parseRichText('1. まず\n2. つぎに\n3. さいごに');
+    const lists = blocks.filter((block) => block.type === 'ordered');
+    expect(lists).toHaveLength(1);
+    expect(lists[0].type === 'ordered' && lists[0].items).toHaveLength(3);
+  });
+
+  it('箇条書き（・）でも同じ', () => {
+    const blocks = parseRichText('- ひとつ\n\n- ふたつ');
+    const lists = blocks.filter((block) => block.type === 'bullets');
+    expect(lists).toHaveLength(1);
+    expect(lists[0].type === 'bullets' && lists[0].items).toHaveLength(2);
+  });
+
+  it('間に文章が入れば、そこで切れる（別の話なので）', () => {
+    const blocks = parseRichText('1. まず\n\nここで一度まとめます。\n\n1. あらためて');
+    expect(blocks.filter((block) => block.type === 'ordered')).toHaveLength(2);
+  });
+
+  it('種類が変われば、そこで切れる', () => {
+    const blocks = parseRichText('1. 番号\n\n- 点');
+    expect(blocks.filter((block) => block.type === 'ordered')).toHaveLength(1);
+    expect(blocks.filter((block) => block.type === 'bullets')).toHaveLength(1);
+  });
+
+  it('終わりが空行でも落ちない', () => {
+    expect(() => parseRichText('1. まず\n\n')).not.toThrow();
+    expect(parseRichText('1. まず\n\n').filter((b) => b.type === 'ordered')).toHaveLength(1);
+  });
+});
