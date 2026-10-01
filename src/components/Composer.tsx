@@ -414,12 +414,40 @@ export default function Composer({
           </button>
 
           {menuOpen && (
-            <div className="absolute bottom-[54px] left-0 z-20 w-56 overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+            <div className="absolute bottom-[54px] left-0 z-20 w-[248px] overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
               {/*
-                時計の記録ファイルを、いちばん上に置く。
-                入る情報がいちばん多い道なので、探させない。
-                スクリーンショットの道は、そのすぐ下に残す。
+                **画像を、いちばん上に置く。**
+
+                以前は時計の記録ファイルを先頭にしていた。入る情報がいちばん多い
+                道だからだが、それは**時計を持っている人にとっての話**だった。
+                「今日20分歩いた」から始める人が最初に見る一行が
+                「時計の記録を送る / FIT / TCX / GPX」では、自分向けではないと
+                判断されて終わる。**このアプリは、その人も対象にしている。**
+
+                画像なら、スマホの歩数の画面でも、時計の画面でも、どちらでも撮れる。
+                誰でも通れる道を先に見せて、書き出しファイルはその下に残す。
               */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  fileRef.current?.click();
+                }}
+                className="flex w-full items-start gap-2.5 px-4 py-3 text-left active:bg-sunken"
+              >
+                <svg viewBox="0 0 24 24" className="mt-0.5 h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="3" />
+                  <circle cx="8.5" cy="9.5" r="1.6" />
+                  <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
+                </svg>
+                <span className="min-w-0">
+                  <span className="block text-[14px]">記録の画像を送る</span>
+                  {/* 歩数から時計まで、両端を1行で挙げる。どちらの人も自分の話だと分かる。 */}
+                  <span className="block text-[11px] leading-snug text-muted">
+                    歩数でも、時計の画面でも
+                  </span>
+                </span>
+              </button>
               {onImportFiles && (
                 <button
                   type="button"
@@ -427,34 +455,28 @@ export default function Composer({
                     setMenuOpen(false);
                     recordRef.current?.click();
                   }}
-                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left active:bg-sunken"
+                  className="flex w-full items-start gap-2.5 px-4 py-3 text-left active:bg-sunken"
                 >
-                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="12" cy="13" r="7" />
                     <path d="M12 9.5V13l2.2 1.6" />
                     <path d="M9 2h6M9.5 5.2 10 2.4M14.5 5.2 14 2.4" />
                   </svg>
                   <span className="min-w-0">
-                    <span className="block text-[14px]">時計の記録を送る</span>
-                    <span className="block text-[11px] text-muted">FIT / TCX / GPX / zip / PDF</span>
+                    <span className="block text-[14px]">記録のファイルを送る</span>
+                    {/*
+                      **拡張子より先に、どこから来るファイルかを言う。**
+                      FIT / TCX / GPX だけでは、持っている人にしか意味が通らない。
+                      持っていない人が「自分には関係ない」と判断できることも大事。
+                    */}
+                    <span className="block text-[11px] leading-snug text-muted">
+                      時計やアプリから書き出したもの
+                      <br />
+                      FIT / TCX / GPX / zip / PDF
+                    </span>
                   </span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  fileRef.current?.click();
-                }}
-                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken"
-              >
-                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="4" width="18" height="16" rx="3" />
-                  <circle cx="8.5" cy="9.5" r="1.6" />
-                  <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
-                </svg>
-                練習データの画像を送る
-              </button>
               {onOpenIdeas && (
                 <button
                   type="button"
@@ -462,14 +484,20 @@ export default function Composer({
                     setMenuOpen(false);
                     onOpenIdeas();
                   }}
-                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken"
+                  className="flex w-full items-start gap-2.5 px-4 py-3 text-left active:bg-sunken"
                 >
-                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M9 18h6" />
                     <path d="M10 21h4" />
                     <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3z" />
                   </svg>
-                  何を相談するか迷ったら
+                  <span className="min-w-0">
+                    <span className="block text-[14px]">何を話せばいいか迷ったら</span>
+                    {/* 送るものが何も無い人が、ここで行き止まりにならないように。 */}
+                    <span className="block text-[11px] leading-snug text-muted">
+                      記録が無くても話せます
+                    </span>
+                  </span>
                 </button>
               )}
             </div>

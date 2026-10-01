@@ -227,3 +227,50 @@ describe('名前は、あとから変えられる', () => {
     expect(findCharacter(moved.characterId).speech.honorific).toBe('');
   });
 });
+
+
+/**
+ * 自分で敬称込みの呼び名を入れる人は多い（「げんさん」「まっちゃん」）。
+ *
+ * **そこに機械的に敬称を足すと「げんさんさん」になる。**
+ * 呼び方は毎回の返事に出るので、目につく所ほど痛い。
+ */
+describe('敬称を二重に付けない', () => {
+  it('「さん」で終わる名前に、もう一度「さん」を足さない', () => {
+    expect(addressFor('logic', 'げんさん')).toBe('げんさん');
+    expect(addressFor('logic', 'まっちゃん')).toBe('まっちゃん');
+  });
+
+  it('ふつうの名前には、いつも通り付ける', () => {
+    expect(addressFor('logic', 'ケント')).toBe('ケントさん');
+    expect(addressFor('logic', '田中')).toBe('田中さん');
+  });
+
+  it('前後の空白は落としたうえで判断する', () => {
+    expect(addressFor('logic', '  げんさん  ')).toBe('げんさん');
+  });
+
+  it('ほかの敬称でも二重にしない', () => {
+    for (const name of ['たろう君', 'はなちゃん', '先生様', 'みっちゃん']) {
+      expect(addressFor('logic', name), name).toBe(name);
+    }
+  });
+
+  it('呼び捨てで話すコーチは、もとから足さない', () => {
+    // blaze は honorific が空。ここは変わらない。
+    expect(addressFor('blaze', 'げんさん')).toBe('げんさん');
+    expect(addressFor('blaze', 'ケント')).toBe('ケント');
+  });
+
+  it('名前が無ければ、これまで通り null', () => {
+    expect(addressFor('logic', '')).toBeNull();
+    expect(addressFor('logic', '   ')).toBeNull();
+    expect(addressFor('logic', undefined)).toBeNull();
+  });
+
+  it('口調の指示にも、二重にならない呼び方が入る', () => {
+    const voice = characterVoice('logic', 'げんさん');
+    expect(voice).toContain('「げんさん」と呼ぶ');
+    expect(voice).not.toContain('げんさんさん');
+  });
+});

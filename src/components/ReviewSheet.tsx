@@ -86,7 +86,7 @@ export default function ReviewSheet({ profile, onImport, onClose }: Props) {
                 onClick={onImport}
                 className="mt-4 rounded-full bg-accent px-5 py-2.5 text-[14px] font-bold text-[var(--accent-fg)]"
               >
-                時計の記録を取り込む
+                記録をまとめて取り込む
               </button>
               <p className="mt-2 text-[11px] leading-relaxed text-muted">
                 過去の練習をまとめて入れると、いきなりここが埋まります。
