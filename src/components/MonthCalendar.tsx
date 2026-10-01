@@ -10,6 +10,7 @@ import {
   type CalendarDay,
 } from '@/lib/calendar';
 import { CALORIES_NOTE } from '@/lib/calories';
+import { ENERGY_NOTE, dayEnergy, whyNoBasal } from '@/lib/energy';
 import type { RunnerProfile } from '@/lib/types';
 
 /**
@@ -149,6 +150,13 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
               体重 {picked.weightKg} kg
             </p>
           )}
+
+          {/*
+            **使った量と食べた量。**
+            1日の消費は運動より基礎代謝のほうがずっと大きい（10km走って約600kcal、
+            基礎代謝は1,400kcal前後）ので、運動の分だけ出しても判断材料にならない。
+          */}
+          <DayBalance profile={profile} date={picked.date} />
         </div>
       )}
 
@@ -170,6 +178,52 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
       {month.kcal !== null && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted">{CALORIES_NOTE}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * その日の、使った量と食べた量。
+ *
+ * **不足だけを言う。食べすぎは言わない。**
+ * 走る人にとって危ないのは、その逆のほうなので。
+ */
+function DayBalance({ profile, date }: { profile: RunnerProfile | null; date: string }) {
+  const energy = dayEnergy(profile, date);
+  if (energy.burned === null) {
+    const why = whyNoBasal(profile);
+    return why ? <p className="mt-2 text-[11px] leading-relaxed text-muted">{why}</p> : null;
+  }
+  return (
+    <div className="mt-2.5 border-t border-line pt-2.5">
+      <p className="text-[12px] tabular-nums">
+        使った <strong className="font-semibold">{energy.burned.toLocaleString('ja-JP')}</strong>
+        <span className="text-[11px] text-muted">
+          {' '}
+          kcal（基礎代謝 {energy.basal!.toLocaleString('ja-JP')} ＋ 生活{' '}
+          {energy.living!.toLocaleString('ja-JP')}
+          {energy.exercise > 0 ? ` ＋ 運動 ${energy.exercise.toLocaleString('ja-JP')}` : ''}）
+        </span>
+      </p>
+      {energy.intake !== null ? (
+        <>
+          <p className="mt-1 text-[12px] tabular-nums">
+            食べた <strong className="font-semibold">{energy.intake.toLocaleString('ja-JP')}</strong>
+            <span className="text-[11px] text-muted"> kcal</span>
+          </p>
+          {/* **足りない時だけ言う。** 余っている日を責めない。 */}
+          {energy.balance !== null && energy.balance < 0 && (
+            <p className="mt-1 text-[11px] text-muted">
+              {Math.abs(energy.balance).toLocaleString('ja-JP')} kcal 足りていません
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="mt-1 text-[11px] text-muted">
+          食べたものをコーチに話すと、ここに並びます。
+        </p>
+      )}
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{ENERGY_NOTE}</p>
     </div>
   );
 }

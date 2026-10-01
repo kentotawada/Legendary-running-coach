@@ -24,6 +24,7 @@ export const COACH_TOOL_NAMES = [
   'log_activity',
   'set_today_plan',
   'log_weight',
+  'log_intake',
   'set_coaching_phase',
   'add_shoes',
   'retire_shoes',
