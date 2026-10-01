@@ -13,6 +13,7 @@ import {
   setPhase,
 } from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
+import { isHeightInRange } from '@/lib/composition';
 import type { CoachingPhase, GoalKind, RacePriority, RunnerGoal } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -59,6 +60,9 @@ interface ProfilePatchBody {
   injuryHistory?: unknown;
   maxHr?: unknown;
   restingHr?: unknown;
+  heightCm?: unknown;
+  age?: unknown;
+  sex?: unknown;
   lthr?: unknown;
   weeklyVolumeKm?: unknown;
   displayName?: unknown;
@@ -229,6 +233,16 @@ export async function PATCH(request: NextRequest) {
       characterId: text(body.characterId),
       maxHr: count(body.maxHr),
       restingHr: count(body.restingHr),
+      // **基礎代謝の計算にだけ使う。** 範囲の外は受け取らない。
+      heightCm: (() => {
+        const value = count(body.heightCm);
+        return value !== undefined && isHeightInRange(value) ? value : undefined;
+      })(),
+      age: (() => {
+        const value = count(body.age);
+        return value !== undefined && value >= 10 && value <= 100 ? value : undefined;
+      })(),
+      sex: body.sex === 'male' || body.sex === 'female' ? body.sex : undefined,
       lthr: count(body.lthr),
       weeklyVolumeKm: count(body.weeklyVolumeKm),
     },

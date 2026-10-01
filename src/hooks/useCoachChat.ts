@@ -112,6 +112,8 @@ export interface CoachChat {
   /** ログイン状態。 */
   auth: AuthState;
   saveWeight: (weightKg: number, bodyFatPercent?: number) => Promise<void>;
+  /** 食べた量を足す。 */
+  addIntake: (kcal: number) => Promise<void>;
   savingWeight: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
   reportError: (message: string) => void;
@@ -770,6 +772,33 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  /**
+   * 食べた量を足す。
+   *
+   * **1回で入れ切らせない。** 食べたその場でひと押しできる形にしてあるので、
+   * ここは「足す」だけを受ける。合計はサーバーが持つ。
+   */
+  const addIntake = useCallback(async (kcal: number) => {
+    setSavingWeight(true);
+    try {
+      const response = await fetch('/api/daily', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addIntakeKcal: kcal }),
+      });
+      const data = (await response.json()) as { profile?: RunnerProfile; error?: string };
+      if (!response.ok || !data.profile) {
+        throw new Error(data.error ?? '食べた量を記録できませんでした。');
+      }
+      // daily は profile から導いているので、入れ替えればそのまま付いてくる。
+      setProfile(data.profile);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '食べた量を記録できませんでした。');
+    } finally {
+      setSavingWeight(false);
+    }
+  }, []);
+
   const reportError = useCallback((message: string) => {
     setError(message);
     setErrorDetail(null);
@@ -813,6 +842,7 @@ export function useCoachChat(): CoachChat {
     },
     needsDeviceGuide,
     saveWeight,
+    addIntake,
     savingWeight,
   };
 }

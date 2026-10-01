@@ -46,6 +46,9 @@ export interface ProfileEdit {
   maxHr?: string;
   lthr?: string;
   restingHr?: string;
+  heightCm?: string;
+  age?: string;
+  sex?: 'male' | 'female' | '';
 }
 
 interface Props {
@@ -350,6 +353,9 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
   const [maxHr, setMaxHr] = useState(profile?.maxHr ? String(profile.maxHr) : '');
   const [lthr, setLthr] = useState(profile?.lthr ? String(profile.lthr) : '');
   const [restingHr, setRestingHr] = useState(profile?.restingHr ? String(profile.restingHr) : '');
+  const [heightCm, setHeightCm] = useState(profile?.heightCm ? String(profile.heightCm) : '');
+  const [age, setAge] = useState(profile?.age ? String(profile.age) : '');
+  const [sex, setSex] = useState<'male' | 'female' | ''>(profile?.sex ?? '');
 
   const needsTime = kind === 'time' || kind === 'race';
   const timeIsValid = !targetTime.trim() || parseDuration(targetTime) !== undefined;
@@ -426,6 +432,9 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
       maxHr,
       lthr,
       restingHr,
+      heightCm,
+      age,
+      sex,
     });
   };
 
@@ -641,6 +650,65 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
           onChange={(e) => setInjuries(e.target.value)}
           placeholder={'右膝の外側（腸脛靭帯炎、2年前）\n左アキレス腱が張りやすい'}
         />
+      </Field>
+
+      {/*
+        **ここは「1日に使う量」を出すためだけの欄。**
+        指導の中身は変わらない。体脂肪率が分かっている人には、そもそも要らない。
+        要らない人に埋めさせないよう、はじめからそう書く。
+      */}
+      <Field
+        label="身長・年齢・性別"
+        required={false}
+        hint="1日に使うカロリーの計算にだけ使います。指導の中身は変わりません。体組成計で体脂肪率をはかっている人は、入れなくても大丈夫です"
+      >
+        <div className="flex gap-2">
+          <label className="min-w-0 flex-1">
+            <span className="mb-1 block text-[11px] text-muted">身長(cm)</span>
+            <input
+              className={inputClass}
+              value={heightCm}
+              onChange={(e) => setHeightCm(e.target.value)}
+              placeholder="170"
+              inputMode="numeric"
+            />
+          </label>
+          <label className="min-w-0 flex-1">
+            <span className="mb-1 block text-[11px] text-muted">年齢</span>
+            <input
+              className={inputClass}
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder="38"
+              inputMode="numeric"
+            />
+          </label>
+        </div>
+        <div className="mt-2 flex gap-2">
+          {([
+            ['male', '男性'],
+            ['female', '女性'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSex(sex === value ? '' : value)}
+              aria-pressed={sex === value}
+              className={[
+                'flex-1 rounded-full border px-4 py-2.5 text-[13px] font-medium transition',
+                sex === value
+                  ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                  : 'border-line',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* **身長を入れるいちばんの理由は、こちら。** */}
+        <span className="mt-2 block text-[11px] leading-relaxed text-muted">
+          身長を入れると、減量の見込みを安全な下限（BMI 18.5）で止められます。
+        </span>
       </Field>
 
       <Field
