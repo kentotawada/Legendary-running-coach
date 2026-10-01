@@ -10,6 +10,7 @@ import {
   totals,
   weightTrend,
 } from '@/lib/review';
+import { niceTicks } from '@/components/ReviewCharts';
 import { addActivity, applyProfileUpdate, upsertPain } from '@/lib/profile';
 import { logWeight } from '@/lib/daily';
 import { createDefaultProfile } from '@/lib/types';
@@ -264,5 +265,59 @@ describe('ふりかえるものが在るか', () => {
 
   it('カルテが無ければ false', () => {
     expect(hasHistory(null)).toBe(false);
+  });
+});
+
+/**
+ * グラフの目盛り。
+ *
+ * **横線だけ引いても、目盛りが無ければ読めない。**
+ * 「だいたいこのくらい」は分かっても、それが80kmなのか120kmなのかが
+ * 分からないグラフは、形を眺めているだけになる。
+ */
+describe('きりのいい目盛り', () => {
+  it('いちばん上の目盛りが、最大値以上になる', () => {
+    for (const max of [1, 7, 23, 88, 137, 460, 1234, 9999]) {
+      const ticks = niceTicks(max);
+      expect(ticks[ticks.length - 1], `max=${max}`).toBeGreaterThanOrEqual(max);
+    }
+  });
+
+  it('0 から始まる', () => {
+    expect(niceTicks(88)[0]).toBe(0);
+  });
+
+  it('等間隔になっている', () => {
+    for (const max of [7, 23, 88, 137, 460]) {
+      const ticks = niceTicks(max);
+      const step = ticks[1]! - ticks[0]!;
+      for (let i = 1; i < ticks.length; i += 1) {
+        expect(ticks[i]! - ticks[i - 1]!, `max=${max}`).toBeCloseTo(step, 6);
+      }
+    }
+  });
+
+  /** 3 や 7 の刻みは、人が頭の中で割れない。 */
+  it('刻みは 1 / 2 / 2.5 / 5 の系列から選ぶ', () => {
+    for (const max of [7, 23, 88, 137, 460, 1234]) {
+      const ticks = niceTicks(max);
+      const step = ticks[1]! - ticks[0]!;
+      const magnitude = 10 ** Math.floor(Math.log10(step));
+      const unit = Math.round((step / magnitude) * 10) / 10;
+      expect([1, 2, 2.5, 5, 10], `max=${max} step=${step}`).toContain(unit);
+    }
+  });
+
+  it('本数が増えすぎない', () => {
+    for (const max of [7, 23, 88, 137, 460, 1234, 9999]) {
+      expect(niceTicks(max).length, `max=${max}`).toBeLessThanOrEqual(6);
+      expect(niceTicks(max).length, `max=${max}`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('記録が無くても落ちない', () => {
+    expect(niceTicks(0).length).toBeGreaterThanOrEqual(2);
+    expect(niceTicks(-5).length).toBeGreaterThanOrEqual(2);
+    expect(niceTicks(NaN).length).toBeGreaterThanOrEqual(2);
   });
 });

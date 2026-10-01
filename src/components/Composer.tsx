@@ -14,6 +14,8 @@ import { useVoiceInput } from '@/hooks/useSpeech';
 export interface ComposerApi {
   /** クイックボタンからも画像選択を開けるようにする。 */
   openPicker: () => void;
+  /** 記録ファイル（FIT / TCX / GPX / zip / PDF）の選択を開く。 */
+  openRecordPicker: () => void;
   /** 相談アイデアから質問文を差し込む。送信はせず、書き換えられる状態で置く。 */
   setText: (text: string) => void;
   /** 前に送った画像を、もう一度添付欄に戻す。 */
@@ -92,6 +94,7 @@ export default function Composer({
   if (apiRef) {
     apiRef.current = {
       openPicker: () => fileRef.current?.click(),
+      openRecordPicker: () => recordRef.current?.click(),
       attachAgain: (previews) => {
         const restored = previews
           .map((preview, index) => dataUrlToFile(preview, reattachName(index, preview)))

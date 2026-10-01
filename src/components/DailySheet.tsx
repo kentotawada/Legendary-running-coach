@@ -15,6 +15,10 @@ interface Props {
   onAddIntake: (kcal: number) => void;
   /** 「走りを見てもらう」へ。渡さなければ出さない。 */
   onOpenRunForm?: () => void;
+  /** 練習の画像を送る（入力欄の「＋」と同じ道）。 */
+  onSendImages?: () => void;
+  /** 記録のファイルを送る。 */
+  onSendFiles?: () => void;
   /** 「ストレッチ・筋トレを見てもらう」へ。 */
   onOpenForm?: () => void;
   onClose: () => void;
@@ -43,6 +47,8 @@ export default function DailySheet({
   saving,
   onSaveWeight,
   onOpenRunForm,
+  onSendImages,
+  onSendFiles,
   onOpenForm,
   onClose,
   onAddIntake,
@@ -64,7 +70,7 @@ export default function DailySheet({
   const next = nextMilestone(daily.streakDays);
 
   return (
-    <Sheet label="今日のスタンプ" title="今日のスタンプ" onClose={onClose}>
+    <Sheet label="記録する" title="記録する" onClose={onClose}>
 
           {daily.milestone && (
             /*
@@ -173,6 +179,40 @@ export default function DailySheet({
               </span>
               <span className="shrink-0 text-[13px] text-muted">›</span>
             </button>
+          )}
+
+          {/*
+            **走った記録も、ここから送れるようにする。**
+            これまで入力欄の「＋」にしか無く、体重とは別の場所だった。
+            「きょう記録する」という1つの動作なのに、置き場が2つに割れていた。
+            入力欄の「＋」は、会話の流れで送る道として残す。
+          */}
+          {(onSendImages || onSendFiles) && (
+            <div className="mt-5 border-t border-line pt-4">
+              <p className="text-[13px] font-medium">走った記録を送る</p>
+              <div className="mt-2 flex gap-2">
+                {onSendImages && (
+                  <button
+                    type="button"
+                    onClick={onSendImages}
+                    className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97]"
+                  >
+                    <span className="block text-[13px] font-semibold">記録の画像</span>
+                    <span className="block text-[11px] text-muted">歩数でも、時計の画面でも</span>
+                  </button>
+                )}
+                {onSendFiles && (
+                  <button
+                    type="button"
+                    onClick={onSendFiles}
+                    className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97]"
+                  >
+                    <span className="block text-[13px] font-semibold">記録のファイル</span>
+                    <span className="block text-[11px] text-muted">時計やアプリの書き出し</span>
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {/*
