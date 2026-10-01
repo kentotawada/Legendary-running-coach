@@ -43,10 +43,37 @@ describe('選べる道具の一覧', () => {
     }
   });
 
-  it('Strava の中でリンクする道具は、その項目名を手順に持つ', () => {
+  /**
+   * 公式の窓口でつなぐ道具は、**どの画面を探すか**を必ず名指しする。
+   *
+   * つなぐ場所は2通りある。Strava の中の「アプリ、サービス、デバイスをリンク」と、
+   * そのサービス自身の中（Nike は「設定 → パートナー」）。
+   * **どちらでもよいが、どちらかは必ず書いてあること。**
+   * 画面の名前が無いと、人は探す場所が分からずそこで諦める。
+   */
+  it('公式の窓口でつなぐ道具は、どの画面を探すかを名指しする', () => {
     for (const source of CONNECT_SOURCES.filter((item) => item.route === 'link')) {
-      const text = source.steps.map((step) => step.title).join('\n');
-      expect(text, source.id).toContain('アプリ、サービス、デバイスをリンク');
+      const text = source.steps.map((step) => `${step.title}${step.detail ?? ''}`).join('\n');
+      const inStrava = text.includes('アプリ、サービス、デバイスをリンク');
+      const inTheApp = text.includes('パートナー');
+      expect(inStrava || inTheApp, `${source.id}: つなぐ画面の名前`).toBe(true);
+      // どちらの道でも、最後に Strava の名前が出ていること。
+      expect(text, source.id).toContain('Strava');
+    }
+  });
+
+  /**
+   * **つないだ後の記録からしか流れない。** どの窓口でもそうなので、
+   * 過去の記録を期待して待ち続ける人が出ないよう、先に断っておく。
+   */
+  it('公式の窓口でつなぐ道具は、過去の記録が遡れないことを断っている', () => {
+    // 「その他」は名前の分からない道具の受け皿で、断るべきことが違う
+    //（そもそも窓口が無いかもしれない）。ここでは外す。
+    for (const source of CONNECT_SOURCES.filter(
+      (item) => item.route === 'link' && item.id !== 'other',
+    )) {
+      expect(source.caution, source.id).toBeTruthy();
+      expect(source.caution, source.id).toMatch(/後の(記録|練習)|遡/);
     }
   });
 

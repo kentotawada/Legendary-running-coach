@@ -2,9 +2,14 @@
  * 「自分の時計・アプリを、どうやってつなぐのか」に一画面で答えるための層。
  *
  * 前提として、外部サービスの窓口はこちらの都合では増やせません。
- * Garmin も Nike Run Club も、個人開発者に直接の窓口を開いていません。
+ * Garmin も Nike も、個人開発者に直接の窓口を開いていません。
  * そこで **Strava を唯一の入口**にし、それぞれの道具から Strava までの道を、
  * 使っている人ごとに1本だけ出します。
+ *
+ * **各社の窓口は増えることがある。** Nike は長く公式の窓口が無く、
+ * 橋渡しアプリを挟むしかなかったが、いまは Nike 側のアプリの中に
+ * Strava との連携がある。古い手順のまま案内すると、要らない出費と
+ * 手間を押しつけることになるので、ここは定期的に見直す。
  *
  * ここで守っていること:
  *
@@ -161,31 +166,46 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     matchers: ['apple', 'healthfit', 'rungap'],
   },
   {
+    /*
+      **Nike にも公式の窓口ができている。**
+
+      長いあいだ Nike Run Club には外部サービス向けの窓口が無く、
+      ヘルスケア → 橋渡しアプリ（HealthFit / RunGap）→ Strava という
+      遠回りしか無かった。ここもそう書いていた。
+
+      いまは Nike 側のアプリの中に Strava との連携がある。
+      **有料の橋渡しアプリを入れる必要はもう無い。**
+      古い手順のまま案内すると、要らない出費と5分を押しつけることになる。
+    */
     id: 'nike',
     name: 'Nike Run Club',
     hint: 'NRC',
     emoji: '👟',
-    route: 'bridge',
-    minutes: 5,
+    route: 'link',
+    minutes: 2,
     steps: [
       {
-        title: 'Nike Run Club の記録は、iPhone の「ヘルスケア」に入ります',
-        detail: 'NRC の設定で、ヘルスケアへの書き込みが有効になっていることを確認してください',
+        title: 'Nike Run Club アプリを開き、左上のプロフィール（頭文字）をタップ',
       },
       {
-        title: 'HealthFit か RunGap を入れ、ヘルスケアの読み取りを許可する',
-        detail: 'どちらも App Store にある橋渡しアプリです（有料の機能があります）',
+        title: '「設定」→「パートナー」を開く',
+        english: 'Settings → Partners',
       },
       {
-        title: 'そのアプリの設定で、Strava への自動アップロードを有効にする',
-        detail: '以降は、NRC で走り終えるたびに Strava へ流れます',
+        title: '一覧から Strava を選んで、出てくる画面で連携を完了する',
+        english: 'Strava → Connect',
+        detail: 'Nike と Strava のアイコンに緑のチェックが付けば、つながっています',
+      },
+      {
+        title: 'ここまでで終わりです。あとは走るたびに自動で流れます',
+        detail: 'Nike Training Club の記録も、同じ連携で一緒に流れます',
       },
     ],
     caution:
-      'Nike Run Club は外部サービス向けの公式な窓口を出していないため、ここだけ一手増えます。Android では使える橋渡しアプリが限られます。',
+      '**連携した後の記録から流れます。** それより前の記録は遡れないので、過去の分はスクリーンショットで送ってください。心拍は、心拍計をつないでいるか Apple Watch で記録していれば一緒に入ります。',
     canExport: 'none',
     exportHint:
-      'Nike Run Club には記録ファイルの書き出しがありません。**スクリーンショットがいちばん確実です。**橋渡しアプリ（HealthFit / RunGap）を使えば書き出せます。',
+      'Nike Run Club には記録ファイルの書き出しがありません。**まず上の連携（設定 → パートナー → Strava）を済ませてください。**それより前の記録は、スクリーンショットがいちばん確実です。',
     matchers: ['nike'],
   },
   {
@@ -196,6 +216,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('COROS', 'COROS'),
+    caution:
+      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint:
       'アプリかウェブ版の、その練習の画面で「エクスポート」「書き出し」を探してください。FIT があれば FIT を選びます。',
@@ -210,6 +232,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Polar', 'Polar Flow'),
+    caution:
+      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint:
       'Polar Flow（ウェブ版）の練習の画面で「エクスポート」を探してください。',
@@ -223,6 +247,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Suunto', 'Suunto'),
+    caution:
+      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'アプリかウェブ版の練習の画面で「エクスポート」を探してください。',
     exportFormats: 'FIT / GPX',
@@ -235,6 +261,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('Fitbit', 'Fitbit'),
+    caution:
+      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'ウェブ版の運動の記録から書き出せます。アプリ側には無いことがあります。',
     exportFormats: 'TCX',
@@ -248,6 +276,8 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     route: 'link',
     minutes: 3,
     steps: linkInStrava('adidas Running', 'adidas Running'),
+    caution:
+      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'ウェブ版の練習の画面で「エクスポート」を探してください。',
     exportFormats: 'GPX / TCX',
