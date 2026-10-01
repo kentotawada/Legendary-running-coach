@@ -26,7 +26,7 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
       type="button"
       onClick={onOpen}
       className="flex w-full items-center gap-3 border-b border-line bg-elevated px-4 py-2 text-left"
-      aria-label="今日のスタンプを開く"
+      aria-label="きょうの記録を開く"
     >
       <span className="flex gap-1.5">
         {daily.stamps.map((stamp) => (
@@ -53,7 +53,7 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
         {daily.streakDays >= 2 ? (
           <span className="font-bold text-accent">{daily.streakDays}日連続</span>
         ) : (
-          <span className="font-bold">今日のスタンプ</span>
+          <span className="font-bold">きょうの記録</span>
         )}
         <span className="block truncate text-muted">{remaining}</span>
       </span>

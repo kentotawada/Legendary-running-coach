@@ -501,6 +501,14 @@ export default function CoachApp() {
           saving={savingWeight}
           onSaveWeight={(kg, fat) => void saveWeight(kg, fat)}
           onAddIntake={(kcal) => void addIntake(kcal)}
+          onSendImages={() => {
+            setDailyOpen(false);
+            composerRef.current?.openPicker();
+          }}
+          onSendFiles={() => {
+            setDailyOpen(false);
+            composerRef.current?.openRecordPicker();
+          }}
           onOpenRunForm={() => {
             setDailyOpen(false);
             setRunFormOpen(true);

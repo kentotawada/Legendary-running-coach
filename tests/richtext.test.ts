@@ -195,6 +195,36 @@ describe('番号付きの箇条書き', () => {
     expect(blocks.filter((block) => block.type === 'bullets')).toHaveLength(1);
   });
 
+  /**
+   * 実際に出ていた形。項目のあいだに、字下げした段落が挟まる。
+   * ここで切ると項目ごとに別の箇条書きになり、全部「1.」になる。
+   */
+  it('字下げした続きの段落があっても、ひと続きの番号になる', () => {
+    const blocks = parseRichText(
+      '1. 安定性のあるものを選ぶ:\n\n    厚底の中でも、着地した時に。\n\n' +
+        '2. 反発のタイミング:\n\n    ポンと地面から足が離れる感覚。\n\n' +
+        '3. サイズは妥協しない:\n\n    足が中で遊ばないように。',
+    );
+    const lists = blocks.filter((block) => block.type === 'ordered');
+    expect(lists).toHaveLength(1);
+    expect(lists[0].type === 'ordered' && lists[0].items).toHaveLength(3);
+  });
+
+  it('字下げの続きは、その項目の中に入る', () => {
+    const blocks = parseRichText('1. みだし\n    つづきの説明');
+    const list = blocks.find((block) => block.type === 'ordered');
+    expect(list?.type === 'ordered' && list.items).toHaveLength(1);
+    const text = JSON.stringify(list);
+    expect(text).toContain('みだし');
+    expect(text).toContain('つづきの説明');
+  });
+
+  it('字下げしていない段落は、これまで通りそこで切る', () => {
+    const blocks = parseRichText('1. みだし\nべつの話です。');
+    expect(blocks.filter((block) => block.type === 'ordered')).toHaveLength(1);
+    expect(blocks.filter((block) => block.type === 'paragraph')).toHaveLength(1);
+  });
+
   it('終わりが空行でも落ちない', () => {
     expect(() => parseRichText('1. まず\n\n')).not.toThrow();
     expect(parseRichText('1. まず\n\n').filter((b) => b.type === 'ordered')).toHaveLength(1);

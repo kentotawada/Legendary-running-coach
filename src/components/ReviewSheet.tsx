@@ -216,6 +216,7 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
                 ariaLabel="週ごとの平均ペースの移り変わり"
                 invert
                 axisNote="↑ 上ほど速い"
+                formatTick={(seconds) => paceLabel(seconds)}
               />
             </Section>
           )}
@@ -229,6 +230,7 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
                   display: `${point.kg}kg`,
                 }))}
                 ariaLabel="はかった体重の移り変わり"
+                formatTick={(kg) => String(Math.round(kg * 10) / 10)}
               />
             </Section>
           )}

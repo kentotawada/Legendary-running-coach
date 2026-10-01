@@ -143,6 +143,8 @@ export function parseInline(text: string): InlineText[] {
 const FENCE = /^```(menu|zones|gear|product|checklist|figure)\s*$/;
 const BULLET = /^\s*(?:[-*・]|●)\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
+/** 箇条書きの中の、字下げした続きの行。 */
+const INDENTED = /^(?:\s{2,}|\t|　)\S/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
 
 function menuFrom(raw: string): MenuBlock | null {
@@ -434,9 +436,31 @@ export function parseRichText(text: string): RichBlock[] {
       const next = lines.slice(i + 1).find((rest) => rest.trim());
       const continuesList =
         next !== undefined &&
-        ((bullets.length > 0 && BULLET.test(next)) || (ordered.length > 0 && ORDERED.test(next)));
-      if (continuesList) continue;
+        (INDENTED.test(next) ||
+          (bullets.length > 0 && BULLET.test(next)) ||
+          (ordered.length > 0 && ORDERED.test(next)));
+      if ((bullets.length > 0 || ordered.length > 0) && continuesList) continue;
       flush();
+      continue;
+    }
+
+    /*
+      **字下げした続きの行は、同じ項目の続き。**
+
+          1. 安定性のあるものを選ぶ:
+          （空行）
+              厚底の中でも、着地した時に…
+          （空行）
+          2. 反発のタイミング:
+
+      ここで切ると、項目ごとに別の箇条書きになり、どれも1つしか
+      要素を持たないので、**全部「1.」から始まってしまう。**
+      前回、空行だけは飛ばすようにしたが、その間に字下げの段落が
+      挟まる形は拾えていなかった。
+    */
+    if ((bullets.length > 0 || ordered.length > 0) && INDENTED.test(line)) {
+      const open = ordered.length > 0 ? ordered : bullets;
+      open[open.length - 1] += `\n${line.trim()}`;
       continue;
     }
 
