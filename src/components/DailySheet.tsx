@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { DailyStatus } from '@/lib/daily';
+import { MEASURE_NOTE, isBodyFatInRange } from '@/lib/composition';
 import { MILESTONES } from '@/lib/daily';
 import Sheet from './Sheet';
 import StampIcon from './StampIcon';
@@ -9,7 +10,7 @@ import StampIcon from './StampIcon';
 interface Props {
   daily: DailyStatus;
   saving: boolean;
-  onSaveWeight: (weightKg: number) => void;
+  onSaveWeight: (weightKg: number, bodyFatPercent?: number) => void;
   /** 「走りを見てもらう」へ。渡さなければ出さない。 */
   onOpenRunForm?: () => void;
   /** 「ストレッチ・筋トレを見てもらう」へ。 */
@@ -32,6 +33,14 @@ export default function DailySheet({
 }: Props) {
   const [weight, setWeight] = useState(daily.latestWeightKg ? String(daily.latestWeightKg) : '');
   const parsed = Number(weight);
+  /**
+   * 体脂肪率。**体組成計を持っている人だけのための欄なので、たたんでおく。**
+   * 最初から2つ並んでいると、持っていない人に「片方しか埋められない」と思わせる。
+   */
+  const [fatOpen, setFatOpen] = useState(false);
+  const [fat, setFat] = useState('');
+  const fatValue = Number(fat);
+  const fatOk = fat.trim() === '' || (Number.isFinite(fatValue) && isBodyFatInRange(fatValue));
   const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 250;
   const next = nextMilestone(daily.streakDays);
 
@@ -165,13 +174,51 @@ export default function DailySheet({
               />
               <button
                 type="button"
-                disabled={!valid || saving}
-                onClick={() => onSaveWeight(Math.round(parsed * 10) / 10)}
+                disabled={!valid || !fatOk || saving}
+                onClick={() =>
+                  onSaveWeight(
+                    Math.round(parsed * 10) / 10,
+                    fat.trim() === '' ? undefined : Math.round(fatValue * 10) / 10,
+                  )
+                }
                 className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
               >
                 {saving ? '保存中' : '記録'}
               </button>
             </div>
+
+            {/*
+              体組成計を持っている人だけの欄。
+              **同じ「3kg減」でも、脂肪が減ったのか筋肉が減ったのかで意味が正反対。**
+              体重だけでは見分けられず、後者は疲労骨折と貧血の入口になる。
+            */}
+            {fatOpen ? (
+              <div className="mt-3">
+                <label className="block text-[12px] font-medium" htmlFor="daily-fat">
+                  体脂肪率（体組成計があれば）
+                </label>
+                <input
+                  id="daily-fat"
+                  className="mt-1.5 w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                  value={fat}
+                  onChange={(e) => setFat(e.target.value)}
+                  placeholder="18.5"
+                  inputMode="decimal"
+                />
+                {!fatOk && (
+                  <p className="mt-1 text-[11px] text-warn">3〜60% の範囲で入れてください。</p>
+                )}
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{MEASURE_NOTE}</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFatOpen(true)}
+                className="mt-2.5 text-[12px] text-accent underline underline-offset-4"
+              >
+                体脂肪率も記録する
+              </button>
+            )}
           </div>
     </Sheet>
   );

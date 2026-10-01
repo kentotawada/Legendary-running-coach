@@ -498,7 +498,7 @@ export default function CoachApp() {
         <DailySheet
           daily={daily}
           saving={savingWeight}
-          onSaveWeight={(kg) => void saveWeight(kg)}
+          onSaveWeight={(kg, fat) => void saveWeight(kg, fat)}
           onOpenRunForm={() => {
             setDailyOpen(false);
             setRunFormOpen(true);

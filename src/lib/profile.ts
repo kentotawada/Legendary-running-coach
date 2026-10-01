@@ -62,6 +62,8 @@ export interface ProfilePatch {
   experience?: string;
   weeklyVolumeKm?: number;
   bodyWeightKg?: number;
+  /** 身長(cm)。減量の下限を安全な値で止めるために使う。 */
+  heightCm?: number;
   maxHr?: number;
   restingHr?: number;
   lthr?: number;
@@ -90,6 +92,7 @@ export function applyProfileUpdate(
     experience: patch.experience?.trim() || profile.experience,
     weeklyVolumeKm: patch.weeklyVolumeKm ?? profile.weeklyVolumeKm,
     bodyWeightKg: patch.bodyWeightKg ?? profile.bodyWeightKg,
+    heightCm: patch.heightCm ?? profile.heightCm,
     maxHr: patch.maxHr ?? profile.maxHr,
     restingHr: patch.restingHr ?? profile.restingHr,
     lthr: patch.lthr ?? profile.lthr,
@@ -722,7 +725,15 @@ export function summarizeProfile(profile: RunnerProfile, now: Date = new Date())
     lines.push(`- 自己ベスト: ${pb}`);
   }
   if (profile.weeklyVolumeKm !== undefined) lines.push(`- 週間走行距離: 約${profile.weeklyVolumeKm}km`);
-  if (profile.bodyWeightKg !== undefined) lines.push(`- 体重: ${profile.bodyWeightKg}kg`);
+  if (profile.bodyWeightKg !== undefined) {
+    lines.push(
+      `- 体重: ${profile.bodyWeightKg}kg` +
+        (profile.bodyFatPercent !== undefined
+          ? `（体脂肪率 ${profile.bodyFatPercent}%。**この数値に目標を立てないこと。**向きだけを見る）`
+          : ''),
+    );
+  }
+  if (profile.heightCm !== undefined) lines.push(`- 身長: ${profile.heightCm}cm`);
 
   const hr = [
     profile.maxHr !== undefined ? `最大心拍 ${profile.maxHr}` : null,

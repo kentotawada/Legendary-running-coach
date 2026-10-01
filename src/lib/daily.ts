@@ -1,4 +1,5 @@
 import type { DailyRecord, RunnerProfile } from './types';
+import { isBodyFatInRange } from './composition';
 import { today } from './profile';
 import { shiftDay } from './day';
 
@@ -65,24 +66,38 @@ export function markOpened(profile: RunnerProfile, now: Date = new Date()): Runn
   return { ...profile, dailyLog: trimLog(next), updatedAt: now.toISOString() };
 }
 
-/** 体重を記録する。習慣にしたいのは「はかること」なので、増減は評価しない。 */
+/**
+ * 体重を記録する。習慣にしたいのは「はかること」なので、増減は評価しない。
+ *
+ * 体組成計があれば、体脂肪率も一緒に受ける。**同じ「3kg減」でも、
+ * 脂肪が減ったのか筋肉が減ったのかで意味が正反対**で、
+ * 体重だけでは見分けられない。
+ */
 export function logWeight(
   profile: RunnerProfile,
   weightKg: number,
   date: string = today(),
   now: Date = new Date(),
+  bodyFatPercent?: number,
 ): RunnerProfile {
+  const fat = isBodyFatInRange(bodyFatPercent) ? Math.round(bodyFatPercent * 10) / 10 : undefined;
   const log = profile.dailyLog ?? [];
   const exists = log.some((record) => record.date === date);
   const next = exists
-    ? log.map((record) => (record.date === date ? { ...record, weightKg } : record))
-    : [...log, { date, opened: true, weightKg }];
+    ? log.map((record) =>
+        record.date === date
+          ? // 体脂肪率は、渡された時だけ書き換える。体重だけ直した時に消さない。
+            { ...record, weightKg, ...(fat !== undefined ? { bodyFatPercent: fat } : {}) }
+          : record,
+      )
+    : [...log, { date, opened: true, weightKg, ...(fat !== undefined ? { bodyFatPercent: fat } : {}) }];
 
   return {
     ...profile,
     dailyLog: trimLog(next),
     // 最新の体重はプロフィール側にも持たせ、コーチがすぐ参照できるようにする。
     bodyWeightKg: weightKg,
+    ...(fat !== undefined ? { bodyFatPercent: fat } : {}),
     updatedAt: now.toISOString(),
   };
 }

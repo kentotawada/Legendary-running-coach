@@ -24,6 +24,7 @@ import {
   upsertPain,
 } from './profile';
 import { logWeight } from './daily';
+import { isBodyFatInRange, isHeightInRange } from './composition';
 import { activeRedFlag, clearRedFlags } from './red-flags';
 import { SHOE_ROLE_LABEL, activeShoes, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
@@ -49,6 +50,11 @@ export const coachTools: FunctionDeclaration[] = [
         experience: { type: 'string', description: 'ランニング歴や運動経験' },
         weeklyVolumeKm: { type: 'number', description: 'week あたりの走行距離(km)' },
         bodyWeightKg: { type: 'number' },
+        heightCm: {
+          type: 'number',
+          description:
+            '身長(cm)。減量の下限を安全な値で止めるために使う。一度聞けば、もう変わらない。',
+        },
         maxHr: { type: 'number', description: '最大心拍数(bpm)。心拍ゾーン評価に必須。' },
         restingHr: { type: 'number', description: '安静時心拍数(bpm)。疲労の蓄積を測る指標。' },
         lthr: { type: 'number', description: '乳酸性作業閾値心拍(bpm)。閾値走の強度設定に使う。' },
@@ -257,11 +263,17 @@ export const coachTools: FunctionDeclaration[] = [
   {
     name: 'log_weight',
     description:
-      '体重を聞いた時に記録する。増減を評価するためではなく、はかる習慣を支えるために残す。',
+      '体重を聞いた時に記録する。増減を評価するためではなく、はかる習慣を支えるために残す。' +
+      '体組成計の体脂肪率も言われたら一緒に記録する（同じ減量でも、脂肪が減ったのか筋肉が減ったのかで意味が正反対になるため）。',
     parametersJsonSchema: {
       type: 'object',
       properties: {
         weightKg: { type: 'number', description: '体重(kg)' },
+        bodyFatPercent: {
+          type: 'number',
+          description:
+            '体脂肪率(%)。体組成計の数値を言われた時だけ入れる。**この数値に目標を立ててはならない。**',
+        },
         date: { type: 'string', description: 'YYYY-MM-DD。省略時は今日。' },
       },
       required: ['weightKg'],
@@ -430,6 +442,7 @@ export function executeTool(
           experience: str(args.experience),
           weeklyVolumeKm: num(args.weeklyVolumeKm),
           bodyWeightKg: num(args.bodyWeightKg),
+          heightCm: isHeightInRange(num(args.heightCm)) ? num(args.heightCm) : undefined,
           maxHr: num(args.maxHr),
           restingHr: num(args.restingHr),
           lthr: num(args.lthr),
@@ -702,12 +715,26 @@ export function executeTool(
       if (weightKg === undefined || weightKg < 20 || weightKg > 250) {
         return { profile, result: { ok: false, error: '体重は 20〜250kg の範囲で受け取る。' } };
       }
-      const next = logWeight(profile, Math.round(weightKg * 10) / 10, str(args.date) ?? today(now), now);
+      const fat = num(args.bodyFatPercent);
+      if (fat !== undefined && !isBodyFatInRange(fat)) {
+        return { profile, result: { ok: false, error: '体脂肪率は 3〜60% の範囲で受け取る。' } };
+      }
+      const next = logWeight(
+        profile,
+        Math.round(weightKg * 10) / 10,
+        str(args.date) ?? today(now),
+        now,
+        fat,
+      );
       return {
         profile: next,
         result: {
           ok: true,
-          message: '体重を記録した。増減ではなく、はかったこと自体を評価すること。',
+          message:
+            '体重を記録した。増減ではなく、はかったこと自体を評価すること。' +
+            (fat !== undefined
+              ? '体脂肪率も記録した。**この数値に目標を立てないこと。**家庭用の体組成計は絶対値がずれる（脱水だけで1〜3ポイント動く）。見てよいのは変わっていく向きだけ。'
+              : ''),
         },
       };
     }

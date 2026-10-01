@@ -351,6 +351,17 @@ export interface DailyRecord {
   opened: boolean;
   /** その日はかった体重(kg)。 */
   weightKg?: number;
+  /**
+   * その日はかった体脂肪率(%)。体組成計があれば。
+   *
+   * **同じ「3kg減」でも、中身が正反対のことがある。**
+   * 脂肪が減ったのか、筋肉と骨が減ったのか。体重だけでは見分けられず、
+   * 後者は走る人にとって疲労骨折と貧血の入口になる。
+   *
+   * 家庭用の体組成計の絶対値は信用しない（DEXA に対して±3〜10ポイント、
+   * 脱水で1〜3ポイント高く出る）。**見るのは変わっていく向きだけ。**
+   */
+  bodyFatPercent?: number;
 }
 
 /** 危険な兆候の重さ（red-flags.ts）。emergency は胸の痛み・意識が遠のく等、warning はめまい・動悸等。 */
@@ -390,6 +401,16 @@ export interface RunnerProfile {
   experience?: string;
   weeklyVolumeKm?: number;
   bodyWeightKg?: number;
+  /** いちばん新しい体脂肪率(%)。**絶対値では判断しない。向きだけを見る。** */
+  bodyFatPercent?: number;
+  /**
+   * 身長(cm)。
+   *
+   * **減量の下限を、根拠のある値で止めるために使う。**
+   * これが無いと「いまの体重の10%まで」という粗い下限しか置けない。
+   * 指導の中身には使わない。一度聞けば、もう変わらない。
+   */
+  heightCm?: number;
   /** 最大心拍数。心拍ゾーンの評価に必須。分からなければコーチが尋ねる。 */
   maxHr?: number;
   /** 安静時心拍数。疲労の蓄積を測る手がかり。 */

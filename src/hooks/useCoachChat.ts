@@ -111,7 +111,7 @@ export interface CoachChat {
   gear: ResolvedGear[];
   /** ログイン状態。 */
   auth: AuthState;
-  saveWeight: (weightKg: number) => Promise<void>;
+  saveWeight: (weightKg: number, bodyFatPercent?: number) => Promise<void>;
   savingWeight: boolean;
   /** 画像の準備に失敗した時など、画面側から理由を差し込むため。 */
   reportError: (message: string) => void;
@@ -748,13 +748,13 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
-  const saveWeight = useCallback(async (weightKg: number) => {
+  const saveWeight = useCallback(async (weightKg: number, bodyFatPercent?: number) => {
     setSavingWeight(true);
     try {
       const response = await fetch('/api/daily', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weightKg }),
+        body: JSON.stringify({ weightKg, bodyFatPercent }),
       });
       const data = (await response.json()) as {
         daily?: DailyStatus;
