@@ -4,7 +4,7 @@ import { getStore, loadForSession } from '@/lib/store';
 import { publicProfile } from '@/lib/profile';
 import { resolveUserId, userCookieHeader } from '@/lib/session';
 import { storageErrorResponse } from '@/lib/storage-error';
-import { dailyStatus, logWeight, markOpened } from '@/lib/daily';
+import { dailyStatus, logWeight, markOpened, addIntake} from '@/lib/daily';
 import { isBodyFatInRange } from '@/lib/composition';
 
 export const runtime = 'nodejs';
@@ -55,11 +55,38 @@ export async function PATCH(request: NextRequest) {
   const { userId } = session;
   const store = getStore();
 
-  let body: { weightKg?: unknown; bodyFatPercent?: unknown };
+  let body: { weightKg?: unknown; bodyFatPercent?: unknown; addIntakeKcal?: unknown };
   try {
-    body = (await request.json()) as { weightKg?: unknown; bodyFatPercent?: unknown };
+    body = (await request.json()) as {
+      weightKg?: unknown;
+      bodyFatPercent?: unknown;
+      addIntakeKcal?: unknown;
+    };
   } catch {
     return Response.json({ error: 'リクエストの形式が正しくありません。' }, { status: 400 });
+  }
+
+  /*
+    **食べた量を足すだけの呼び出し。** 体重とは別の道にする。
+    一緒にすると、体重を入れないと食事を記録できない形になってしまう。
+  */
+  const addRaw =
+    typeof body.addIntakeKcal === 'string' ? Number(body.addIntakeKcal) : body.addIntakeKcal;
+  if (addRaw !== undefined && addRaw !== null) {
+    if (typeof addRaw !== 'number' || !Number.isFinite(addRaw) || addRaw <= 0 || addRaw > 5000) {
+      return Response.json({ error: '食べた量は 1〜5000kcal の範囲で入力してください。' }, { status: 400 });
+    }
+    try {
+      const state = await loadForSession(session);
+      if (!hasConsent(state.profile)) {
+        return Response.json({ error: CONSENT_REQUIRED_MESSAGE }, { status: 403 });
+      }
+      const next = addIntake(state.profile, Math.round(addRaw));
+      await store.save(userId, { ...state, profile: next }, session.authUserId);
+      return Response.json({ daily: dailyStatus(next), profile: publicProfile(next) });
+    } catch (error) {
+      return storageErrorResponse(error, '食べた量を記録できませんでした');
+    }
   }
 
   const raw = typeof body.weightKg === 'string' ? Number(body.weightKg) : body.weightKg;

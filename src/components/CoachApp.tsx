@@ -62,6 +62,7 @@ export default function CoachApp() {
     savingProfile,
     daily,
     saveWeight,
+    addIntake,
     savingWeight,
     gear,
     auth,
@@ -499,6 +500,7 @@ export default function CoachApp() {
           daily={daily}
           saving={savingWeight}
           onSaveWeight={(kg, fat) => void saveWeight(kg, fat)}
+          onAddIntake={(kcal) => void addIntake(kcal)}
           onOpenRunForm={() => {
             setDailyOpen(false);
             setRunFormOpen(true);

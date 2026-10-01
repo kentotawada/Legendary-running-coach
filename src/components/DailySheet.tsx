@@ -11,6 +11,8 @@ interface Props {
   daily: DailyStatus;
   saving: boolean;
   onSaveWeight: (weightKg: number, bodyFatPercent?: number) => void;
+  /** 食べた量を足す。**1回で入れ切らせない。** */
+  onAddIntake: (kcal: number) => void;
   /** 「走りを見てもらう」へ。渡さなければ出さない。 */
   onOpenRunForm?: () => void;
   /** 「ストレッチ・筋トレを見てもらう」へ。 */
@@ -23,6 +25,19 @@ function nextMilestone(streak: number): number | undefined {
   return MILESTONES.find((value) => value > streak);
 }
 
+/**
+ * 一食ぶんの目安。
+ *
+ * **数字を打たせない。** ここで要る精度は「基礎代謝を下回っているか」が
+ * 分かる程度で、1kcal単位の正確さには意味が無い。
+ * 打つ手間のほうが、記録が続かなくなる原因として大きい。
+ */
+const MEALS = [
+  { label: '軽め', kcal: 300 },
+  { label: 'ふつう', kcal: 600 },
+  { label: 'しっかり', kcal: 900 },
+] as const;
+
 export default function DailySheet({
   daily,
   saving,
@@ -30,6 +45,7 @@ export default function DailySheet({
   onOpenRunForm,
   onOpenForm,
   onClose,
+  onAddIntake,
 }: Props) {
   const [weight, setWeight] = useState(daily.latestWeightKg ? String(daily.latestWeightKg) : '');
   const parsed = Number(weight);
@@ -37,8 +53,11 @@ export default function DailySheet({
    * 体脂肪率。**体組成計を持っている人だけのための欄なので、たたんでおく。**
    * 最初から2つ並んでいると、持っていない人に「片方しか埋められない」と思わせる。
    */
-  const [fatOpen, setFatOpen] = useState(false);
-  const [fat, setFat] = useState('');
+  /** **一度でも入れた人は、体組成計を持っている。** 次からは開いたまま出す。 */
+  const [fatOpen, setFatOpen] = useState(daily.latestBodyFatPercent !== undefined);
+  const [fat, setFat] = useState(
+    daily.latestBodyFatPercent !== undefined ? String(daily.latestBodyFatPercent) : '',
+  );
   const fatValue = Number(fat);
   const fatOk = fat.trim() === '' || (Number.isFinite(fatValue) && isBodyFatInRange(fatValue));
   const valid = Number.isFinite(parsed) && parsed >= 20 && parsed <= 250;
@@ -156,6 +175,41 @@ export default function DailySheet({
             </button>
           )}
 
+          {/*
+            **食べた量。1回で入れ切らせない。**
+            1日ぶんをまとめて思い出すのは難しく、夜にまとめて入れる形にすると
+            入れ忘れた日がそのまま空になる。食べたその場で、ひと押しで足せるようにする。
+            **数字を打たせない。** ざっくりで十分な精度しか要らないので、
+            打たせること自体が無駄な手間になる。
+          */}
+          <div className="mt-5 border-t border-line pt-4">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[13px] font-medium">今日 食べた量</p>
+              <p className="text-[15px] font-bold tabular-nums">
+                {(daily.intakeKcalToday ?? 0).toLocaleString('ja-JP')}
+                <span className="ml-0.5 text-[11px] font-medium text-muted">kcal</span>
+              </p>
+            </div>
+            <div className="mt-2 flex gap-2">
+              {MEALS.map((meal) => (
+                <button
+                  key={meal.label}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onAddIntake(meal.kcal)}
+                  className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97] disabled:opacity-40"
+                >
+                  <span className="block text-[13px] font-semibold">{meal.label}</span>
+                  <span className="block text-[11px] text-muted tabular-nums">＋{meal.kcal}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              食べるたびに押してください。ざっくりで十分です。
+              細かく伝えたい時は、コーチに話せば読み取ります。
+            </p>
+          </div>
+
           <div className="mt-5 border-t border-line pt-4">
             {/*
               **同じことを2回言わない。** 上のスタンプの行に
@@ -164,14 +218,31 @@ export default function DailySheet({
             */}
             <p className="text-[13px] font-medium">体重をはかる</p>
             <div className="mt-2 flex gap-2">
-              <input
-                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                placeholder="61.4"
-                inputMode="decimal"
-                aria-label="体重(kg)"
-              />
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">体重(kg)</span>
+                <input
+                  className="w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="61.4"
+                  inputMode="decimal"
+                  aria-label="体重(kg)"
+                />
+              </label>
+              {/* 体脂肪率を、体重の隣に。**持っている人には、2つで1つの動作。** */}
+              {fatOpen && (
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">体脂肪率(%)</span>
+                  <input
+                    className="w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                    value={fat}
+                    onChange={(e) => setFat(e.target.value)}
+                    placeholder="18.5 %"
+                    inputMode="decimal"
+                    aria-label="体脂肪率(%)"
+                  />
+                </label>
+              )}
               <button
                 type="button"
                 disabled={!valid || !fatOk || saving}
@@ -193,30 +264,19 @@ export default function DailySheet({
               体重だけでは見分けられず、後者は疲労骨折と貧血の入口になる。
             */}
             {fatOpen ? (
-              <div className="mt-3">
-                <label className="block text-[12px] font-medium" htmlFor="daily-fat">
-                  体脂肪率（体組成計があれば）
-                </label>
-                <input
-                  id="daily-fat"
-                  className="mt-1.5 w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
-                  value={fat}
-                  onChange={(e) => setFat(e.target.value)}
-                  placeholder="18.5"
-                  inputMode="decimal"
-                />
+              <>
                 {!fatOk && (
-                  <p className="mt-1 text-[11px] text-warn">3〜60% の範囲で入れてください。</p>
+                  <p className="mt-1.5 text-[11px] text-warn">体脂肪率は 3〜60% の範囲で入れてください。</p>
                 )}
                 <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{MEASURE_NOTE}</p>
-              </div>
+              </>
             ) : (
               <button
                 type="button"
                 onClick={() => setFatOpen(true)}
                 className="mt-2.5 text-[12px] text-accent underline underline-offset-4"
               >
-                体脂肪率も記録する
+                体組成計の体脂肪率も入れる
               </button>
             )}
           </div>

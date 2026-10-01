@@ -35,6 +35,10 @@ export interface DailyStatus {
   milestone?: number;
   /** 直近の体重。 */
   latestWeightKg?: number;
+  /** 直近の体脂肪率。**これがあれば、体組成計を持っている人。欄を最初から開く。** */
+  latestBodyFatPercent?: number;
+  /** 今日まで食べた量の合計(kcal)。 */
+  intakeKcalToday?: number;
 }
 
 /** 祝う節目。細かすぎても、遠すぎても効かない。 */
@@ -126,6 +130,24 @@ export function logIntake(
   return { ...profile, dailyLog: trimLog(next), updatedAt: now.toISOString() };
 }
 
+/**
+ * 食べた量を足す。
+ *
+ * **1回で入れ切らせない。** 1日ぶんをまとめて思い出すのは難しいし、
+ * 夜にまとめて入れる形にすると、入れ忘れた日がそのまま空になる。
+ * 食べたその場で足せるようにして、合計はこちらで持つ。
+ */
+export function addIntake(
+  profile: RunnerProfile,
+  addKcal: number,
+  date: string = today(),
+  intakeNote?: string,
+  now: Date = new Date(),
+): RunnerProfile {
+  const current = findRecord(profile, date)?.intakeKcal ?? 0;
+  return logIntake(profile, current + addKcal, date, intakeNote, now);
+}
+
 /** 記録は増え続けるので、直近1年分だけ残す。 */
 function trimLog(log: DailyRecord[]): DailyRecord[] {
   const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date));
@@ -192,6 +214,11 @@ export function dailyStatus(profile: RunnerProfile, now: Date = new Date()): Dai
     streakDays: streak,
     milestone: MILESTONES.includes(streak) ? streak : undefined,
     latestWeightKg: latest?.weightKg,
+    latestBodyFatPercent: [...(profile.dailyLog ?? [])]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .reverse()
+      .find((record) => record.bodyFatPercent !== undefined)?.bodyFatPercent,
+    intakeKcalToday: findRecord(profile, date)?.intakeKcal,
   };
 }
 
