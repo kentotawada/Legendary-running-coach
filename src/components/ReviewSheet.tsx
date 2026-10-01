@@ -3,7 +3,6 @@
 import type { RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
-import MonthCalendar from './MonthCalendar';
 import {
   fourWeekComparison,
   hasHistory,
@@ -22,6 +21,8 @@ interface Props {
   /** 記録がまだ無い時に出す、取り込みへの入口。 */
   onImport?: () => void;
   onClose: () => void;
+  /** カレンダーの画面へ送る。 */
+  onOpenCalendar?: () => void;
 }
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
@@ -55,7 +56,7 @@ function paceDelta(recent: number, previous: number): string | null {
   return diff > 0 ? `${diff}秒/km 速くなった` : `${-diff}秒/km 遅くなった`;
 }
 
-export default function ReviewSheet({ profile, onImport, onClose }: Props) {
+export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose }: Props) {
   const now = new Date();
   const summary = profile ? totals(profile, now) : null;
   const months = profile ? monthlyVolume(profile, 6, now) : [];
@@ -113,14 +114,35 @@ export default function ReviewSheet({ profile, onImport, onClose }: Props) {
           </Section>
 
           {/*
-            **カレンダーを、グラフより先に置く。**
-            棒グラフは積んだ量を見せるが、空いた日は谷として通り過ぎる。
-            枡を並べて初めて、空白が空白として目に入る。
-            「平日は無理で、土日だけ」のような自分の癖は、ここで初めて見える。
+            カレンダーは、頭の列から開く独立した画面にした。
+            **ここで同じものをもう一度描かない。** 同じ絵が2か所にあると、
+            どちらが本体なのか分からなくなるし、縦に長くなって他が埋もれる。
+            ここには入口だけを置く。
           */}
-          <Section title="カレンダー" note="走った日を塗っています。押すとその日の中身が出ます">
-            <MonthCalendar profile={profile} />
-          </Section>
+          {onOpenCalendar && (
+            <button
+              type="button"
+              onClick={onOpenCalendar}
+              className="mb-4 flex w-full items-center gap-3 rounded-[14px] border border-line px-3.5 py-3 text-left active:scale-[0.99]"
+            >
+              <svg viewBox="0 0 24 24" className="h-[20px] w-[20px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="3" />
+                <path d="M3 10h18M8 3v4M16 3v4" />
+                <circle cx="8.5" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+                <circle cx="12" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+                <circle cx="15.5" cy="18" r="1.1" fill="currentColor" stroke="none" />
+              </svg>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold">カレンダーで見る</span>
+                <span className="block text-[11px] leading-snug text-muted">
+                  走った日と、空いた日。消費カロリーの目安も
+                </span>
+              </span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          )}
 
           <Section title="月ごとの走行距離">
             <BarChart

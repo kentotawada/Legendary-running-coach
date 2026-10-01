@@ -13,6 +13,7 @@ import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
 import RunFormSheet from './RunFormSheet';
 import ReviewSheet from './ReviewSheet';
+import CalendarSheet from './CalendarSheet';
 import ConnectSheet from './ConnectSheet';
 import ConnectBanner from './ConnectBanner';
 import KeepRecordsBanner from './KeepRecordsBanner';
@@ -80,6 +81,7 @@ export default function CoachApp() {
   const [formOpen, setFormOpen] = useState(false);
   const [runFormOpen, setRunFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   /** 中身を開いている練習。区間と心拍の推移を見せる。 */
   const [openRun, setOpenRun] = useState<ActivityLog | null>(null);
@@ -246,6 +248,25 @@ export default function CoachApp() {
           ) : (
             <span className="text-[12px] font-medium leading-none">ふりかえり</span>
           )}
+        </button>
+        {/*
+          カレンダー。**字ではなく絵で置く。**
+          頭の列は幅が限られていて、3つ目に字を足すとコーチの名前が潰れる。
+          月の枡は、形そのものが何の画面かを言っている。
+        */}
+        <button
+          type="button"
+          onClick={() => setCalendarOpen(true)}
+          aria-label="カレンダーを開く"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-line"
+        >
+          <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="3" />
+            <path d="M3 10h18M8 3v4M16 3v4" />
+            <circle cx="8.5" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+            <circle cx="15.5" cy="18" r="1.1" fill="currentColor" stroke="none" />
+          </svg>
         </button>
         <button
           type="button"
@@ -414,12 +435,25 @@ export default function CoachApp() {
         />
       )}
 
+      {calendarOpen && (
+        <CalendarSheet
+          profile={profile}
+          onClose={() => closeChild(() => setCalendarOpen(false))}
+          onBack={cameFromCarte ? () => closeChild(() => setCalendarOpen(false)) : undefined}
+          backLabel={cameFromCarte ? 'カルテ' : undefined}
+        />
+      )}
+
       {reviewOpen && (
         <ReviewSheet
           profile={profile}
           onImport={() => {
             setReviewOpen(false);
             setConnectOpen(true);
+          }}
+          onOpenCalendar={() => {
+            setReviewOpen(false);
+            setCalendarOpen(true);
           }}
           onClose={() => setReviewOpen(false)}
         />
