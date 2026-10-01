@@ -3,6 +3,7 @@
 import type { RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
+import Outlook from './Outlook';
 import {
   fourWeekComparison,
   hasHistory,
@@ -111,6 +112,15 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
               記録のある日: {summary?.loggedDays ?? 0}日。
               この積み上げは、ほかのどこにも持っていけません。
             </p>
+          </Section>
+
+          {/*
+            **先のことを、積み上げのすぐ下に置く。**
+            過去のグラフは「やってきたこと」を見せるが、続ける理由にはなりにくい。
+            「この調子なら目標に届く」が見えた時に、人は明日も走る。
+          */}
+          <Section title="このまま続けたら">
+            <Outlook profile={profile} />
           </Section>
 
           {/*
