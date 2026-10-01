@@ -15,6 +15,7 @@ import {
   weightTrend,
 } from '@/lib/review';
 import { SHOE_ROLE_LABEL } from '@/lib/shoes';
+import { describeWorkload, workloadOf } from '@/lib/workload';
 import { describeRace, pastRaces } from '@/lib/races';
 
 interface Props {
@@ -33,6 +34,46 @@ function Section({ title, note, children }: { title: string; note?: string; chil
       {note && <p className="mt-0.5 text-[12px] leading-relaxed text-muted">{note}</p>}
       <div className="mt-2.5">{children}</div>
     </section>
+  );
+}
+
+/**
+ * 積み方が急すぎないか。
+ *
+ * **ここだけは、良い報せの前に出す。** 故障は、起きてから知らされても遅い。
+ * 無理のない積み方の時は、何も出さない（{@link describeWorkload} が null を返す）。
+ * **褒める材料には使わない。** 毎週「順調です」と出る欄は、すぐに読み飛ばされる。
+ */
+function WorkloadNote({ profile }: { profile: RunnerProfile | null }) {
+  const workload = profile ? workloadOf(profile) : null;
+  const text = workload ? describeWorkload(workload) : null;
+  if (!workload || !text) return null;
+
+  const urgent = workload.level === 'high';
+  return (
+    <div
+      className={[
+        'mb-4 rounded-[14px] border px-3.5 py-3',
+        urgent ? 'border-[color:var(--warn)] bg-warn-soft' : 'border-line bg-sunken',
+      ].join(' ')}
+    >
+      <p className={`text-[14px] font-bold leading-snug ${urgent ? 'text-warn' : ''}`}>{text.title}</p>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted">{text.detail}</p>
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] tabular-nums text-muted">
+        <span>
+          直近7日 <strong className="font-bold text-fg">{workload.acuteKm}km</strong>
+        </span>
+        <span>
+          直前4週の平均 <strong className="font-bold text-fg">{workload.chronicKm}km</strong>
+          <span className="ml-0.5">/週</span>
+        </span>
+        {workload.ratio !== undefined && (
+          <span>
+            比 <strong className="font-bold text-fg">{workload.ratio}倍</strong>
+          </span>
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -99,6 +140,8 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
         </div>
       ) : (
         <div className="pb-2">
+          <WorkloadNote profile={profile} />
+
           <Section
             title="ここまで積み上げたもの"
             note={summary?.since ? `${summary.since} から ${summary.days}日` : undefined}
