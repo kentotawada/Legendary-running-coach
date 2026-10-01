@@ -15,6 +15,7 @@ import { gearNoteDoctrine } from './gear-notes';
 import { checklistDoctrine } from './checklist';
 import { connectionDoctrine } from './sync';
 import { runDoctrine } from './analysis';
+import { comparisonDoctrine } from './compare';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
@@ -274,6 +275,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     transition,
     summarizeProfile(profile, now),
     latestRunDetail(profile),
+    comparisonDoctrine(profile, now),
     dailyDoctrine(profile, now),
     connectionDoctrine(profile, isStravaConfigured(), now),
     fuelDoctrine(profile, now),

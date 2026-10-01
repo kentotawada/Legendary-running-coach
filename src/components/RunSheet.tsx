@@ -2,6 +2,7 @@
 
 import type { ActivityLog, RunnerProfile } from '@/lib/types';
 import { analyze } from '@/lib/analysis';
+import { compareWithPast, describeComparison, paceText } from '@/lib/compare';
 import { heartRateZones } from '@/lib/zones';
 import RunCharts from './RunCharts';
 import Sheet from './Sheet';
@@ -51,6 +52,15 @@ export default function RunSheet({
 }) {
   const laps = activity.laps ?? [];
   const analysis = analyze(activity);
+  /**
+   * 過去の自分との比較。
+   *
+   * **この1本をいくら詳しく見ても、「強くなったか」は出てこない。**
+   * 5:30/km が良いのか悪いのかは、自分の過去と並べて初めて決まる。
+   * 似た練習が足りなければ `null` になり、その時は何も出さない。
+   */
+  const comparison = profile ? compareWithPast(profile, activity) : null;
+  const compared = comparison ? describeComparison(comparison) : null;
   const zones = profile ? heartRateZones(profile) : null;
 
   const paces = laps
@@ -120,6 +130,70 @@ export default function RunSheet({
           note={activity.metrics?.maxHr !== undefined ? `最高 ${activity.metrics.maxHr}` : undefined}
         />
       </div>
+
+      {/*
+        **まとめの数字のすぐ下に置く。** 「20km 5:30/km 心拍148」を見た次に来るのは、
+        「で、それは前と比べてどうなのか」。区間の中身より先に、そこへ答える。
+        落ちている時も同じ形で出す。良くなった時だけ出す数字は、信用されなくなる。
+      */}
+      {comparison && compared && (
+        <div
+          className={[
+            'mt-3 rounded-[14px] border px-3.5 py-3',
+            comparison.verdict === 'better'
+              ? 'border-[color:var(--accent)] bg-accent-soft'
+              : 'border-line bg-sunken',
+          ].join(' ')}
+        >
+          <p className="text-[11px] text-muted">過去の自分と比べて</p>
+          <p
+            className={`mt-0.5 text-[14px] font-bold leading-snug ${
+              comparison.verdict === 'better' ? 'text-accent' : ''
+            }`}
+          >
+            {compared.title}
+          </p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-muted">{compared.detail}</p>
+
+          <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] tabular-nums">
+            <span>
+              <span className="text-muted">ペース </span>
+              <strong className="font-bold">
+                {paceText(comparison.pastPaceSec)} → {paceText(comparison.nowPaceSec)}
+              </strong>
+              <span className="ml-1 text-muted">
+                {comparison.paceDeltaSec === 0
+                  ? '±0'
+                  : comparison.paceDeltaSec > 0
+                    ? `+${comparison.paceDeltaSec}秒`
+                    : `${comparison.paceDeltaSec}秒`}
+              </span>
+            </span>
+            {comparison.pastHr !== undefined && comparison.nowHr !== undefined && (
+              <span>
+                <span className="text-muted">心拍 </span>
+                <strong className="font-bold">
+                  {comparison.pastHr} → {comparison.nowHr}
+                </strong>
+                {comparison.hrDelta !== undefined && comparison.hrDelta !== 0 && (
+                  <span className="ml-1 text-muted">
+                    {comparison.hrDelta > 0 ? `+${comparison.hrDelta}` : comparison.hrDelta}
+                  </span>
+                )}
+              </span>
+            )}
+            {comparison.efficiencyPercent !== undefined && (
+              <span>
+                <span className="text-muted">同じ心拍で進める量 </span>
+                <strong className="font-bold">
+                  {comparison.efficiencyPercent > 0 ? '+' : ''}
+                  {comparison.efficiencyPercent}%
+                </strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 3つ並べると「インターバル」が切れる。2つにして、心拍は注釈へ回す。 */}
       {analysis && (
