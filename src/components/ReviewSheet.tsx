@@ -3,6 +3,7 @@
 import type { RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
+import MonthCalendar from './MonthCalendar';
 import {
   fourWeekComparison,
   hasHistory,
@@ -109,6 +110,16 @@ export default function ReviewSheet({ profile, onImport, onClose }: Props) {
               記録のある日: {summary?.loggedDays ?? 0}日。
               この積み上げは、ほかのどこにも持っていけません。
             </p>
+          </Section>
+
+          {/*
+            **カレンダーを、グラフより先に置く。**
+            棒グラフは積んだ量を見せるが、空いた日は谷として通り過ぎる。
+            枡を並べて初めて、空白が空白として目に入る。
+            「平日は無理で、土日だけ」のような自分の癖は、ここで初めて見える。
+          */}
+          <Section title="カレンダー" note="走った日を塗っています。押すとその日の中身が出ます">
+            <MonthCalendar profile={profile} />
           </Section>
 
           <Section title="月ごとの走行距離">
