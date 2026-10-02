@@ -18,6 +18,7 @@ export const COACH_TOOL_NAMES = [
   'update_runner_profile',
   'add_race',
   'remove_race',
+  'log_race_result',
   'log_condition',
   'update_pain',
   'clear_red_flag',

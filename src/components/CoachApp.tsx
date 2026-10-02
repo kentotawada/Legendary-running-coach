@@ -28,6 +28,7 @@ import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
 import RunFormSheet from './RunFormSheet';
 import ReviewSheet from './ReviewSheet';
+import RaceResultSheet from './RaceResultSheet';
 import CalendarSheet from './CalendarSheet';
 import ConnectSheet from './ConnectSheet';
 import ConnectBanner from './ConnectBanner';
@@ -42,7 +43,7 @@ import { totals } from '@/lib/review';
 import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
-import type { ActivityLog, ChatMessage } from '@/lib/types';
+import type { ActivityLog, ChatMessage, RaceEntry } from '@/lib/types';
 import { hasConsent } from '@/lib/legal';
 import { sendFeedback } from '@/lib/feedback-client';
 import ConsentGate from './ConsentGate';
@@ -213,6 +214,8 @@ export default function CoachApp() {
   const [connectOpen, setConnectOpen] = useState(false);
   /** 中身を開いている練習。区間と心拍の推移を見せる。 */
   const [openRun, setOpenRun] = useState<ActivityLog | null>(null);
+  /** 中身を開いている大会。通過と落ち率を見せる。 */
+  const [openRace, setOpenRace] = useState<RaceEntry | null>(null);
   /**
    * どこから開いた画面か。
    * **閉じると全部消えるのは、開いた道を覚えていないのと同じ。**
@@ -642,7 +645,29 @@ export default function CoachApp() {
             setReviewOpen(false);
             setCalendarOpen(true);
           }}
+          onOpenRace={(race) => {
+            setReviewOpen(false);
+            setOpenRace(race);
+          }}
           onClose={() => setReviewOpen(false)}
+        />
+      )}
+
+      {/*
+        大会1本の中身。**閉じたら、ふりかえりに戻す。**
+        開いた道を覚えていないと、1本見るたびに最初から辿り直すことになる。
+      */}
+      {openRace && (
+        <RaceResultSheet
+          race={openRace}
+          profile={profile}
+          now={new Date()}
+          onBack={() => {
+            setOpenRace(null);
+            setReviewOpen(true);
+          }}
+          onClose={() => setOpenRace(null)}
+          onAsk={(message) => void send(message)}
         />
       )}
 

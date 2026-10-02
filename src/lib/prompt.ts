@@ -16,6 +16,7 @@ import { checklistDoctrine } from './checklist';
 import { connectionDoctrine } from './sync';
 import { runDoctrine } from './analysis';
 import { comparisonDoctrine } from './compare';
+import { medalDoctrine } from './race-result';
 import { workloadDoctrine } from './workload';
 import { todayDoctrine, todayPlan } from './today';
 import { weekDoctrine } from './week';
@@ -113,6 +114,14 @@ const IMAGE_POLICY = `# ランニングアプリのスクリーンショット�
 **縦に長い画面は、切り分けられて複数枚で届くことがあります。**
 その場合は1枚ずつ別の練習として扱わず、**つながった1つの画面として**読んでください。
 境目は少し重なっているので、同じ行が2度出てきても二重に数えないこと。
+
+**記録証（完走証）が送られてきた時は、log_activity ではなく log_race_result を呼んでください。**
+大会名・開催日・完走タイム・5kmごとの通過・順位が書かれた、1枚の証書です。
+通過タイムは**スタートからの合計（累積）**で渡します。区間タイムではありません。
+印字されていない項目は渡さないこと。**気温を推測で埋めないこと。**
+数字が噛み合わない時はこちらが理由を返すので、画像を読み直してから入れ直してください。
+入ったあとは、画面の「走った大会」に通過も落ち率も並びます。
+**同じ数字を読み上げ直さず**、そこから何が言えるかだけを話してください。
 
 読み取ったら log_activity で記録し（source は screenshot）、そのうえで次の4点を必ずこの順で述べてください。
 
@@ -284,6 +293,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     summarizeProfile(profile, now),
     latestRunDetail(profile),
     comparisonDoctrine(profile, now),
+    medalDoctrine(profile, now),
     workloadDoctrine(profile, now),
     dailyDoctrine(profile, now),
     connectionDoctrine(profile, isStravaConfigured(), now),

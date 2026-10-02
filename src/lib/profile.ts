@@ -7,6 +7,7 @@ import type {
   ConditionLog,
   PainPoint,
   RaceEntry,
+  RaceResult,
   RacePriority,
   Connections,
   GearNote,
@@ -688,9 +689,60 @@ export function addRace(profile: RunnerProfile, input: RaceInput, now: Date = ne
   const index = existing.findIndex((race) => sameRace(race, entry));
   if (index >= 0) {
     const merged = [...existing];
-    merged[index] = { ...entry, id: existing[index].id };
+    /*
+      **走った記録を、登録のし直しで消さない。**
+      同じ大会をもう一度登録する場面は普通にある（目標タイムを直す、距離を直す）。
+      そのたびに記録証から読み取ったものが消えるのでは、ためる意味が無い。
+    */
+    merged[index] = {
+      ...entry,
+      id: existing[index].id,
+      result: existing[index].result,
+      lat: existing[index].lat,
+      lon: existing[index].lon,
+    };
     return withRaces(profile, merged, now);
   }
+  return withRaces(profile, [...existing, entry], now);
+}
+
+/**
+ * 走り終えた大会に、公式記録を入れる。
+ *
+ * 大会が登録されていなければ、そこで作る。
+ * **記録証だけ手元にある、という人のほうが多い。**
+ * 出場予定を先に登録してから走る人ばかりではない。
+ */
+export function setRaceResult(
+  profile: RunnerProfile,
+  input: { name: string; date: string; distance?: string; result: RaceResult },
+  now: Date = new Date(),
+): RunnerProfile {
+  const existing = materializeRaces(profile);
+  const index = existing.findIndex((race) =>
+    sameRace(race, { name: input.name.trim(), date: input.date.trim() }),
+  );
+
+  if (index >= 0) {
+    const merged = [...existing];
+    merged[index] = {
+      ...existing[index],
+      // 記録証に距離が書いてあれば、そちらを採る。登録時の書き方より確か。
+      distance: input.distance?.trim() || existing[index].distance,
+      result: input.result,
+    };
+    return withRaces(profile, merged, now);
+  }
+
+  const entry: RaceEntry = {
+    id: newId(),
+    name: input.name.trim(),
+    date: input.date.trim(),
+    distance: input.distance?.trim() || undefined,
+    // 走り終えた大会の優先度は、もう仕上げの基準にならない。
+    priority: 'C',
+    result: input.result,
+  };
   return withRaces(profile, [...existing, entry], now);
 }
 

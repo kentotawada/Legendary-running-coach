@@ -6,6 +6,7 @@ import type {
   PainStatus,
   PlanIntensity,
   RacePriority,
+  RaceSplit,
   RunnerProfile,
 } from './types';
 import {
@@ -18,6 +19,7 @@ import {
   logGearNote,
   removeRace,
   retireShoes,
+  setRaceResult,
   setPhase,
   setPlan,
   today,
@@ -30,6 +32,9 @@ import { activeRedFlag, clearRedFlags } from './red-flags';
 import { SHOE_ROLE_LABEL, activeShoes, attributeRun, lifespanFor, shoeStatusOf } from './shoes';
 import { GEAR_CATEGORY_IDS } from './gear';
 import { racesOf } from './races';
+import { fadeOf, validateResult } from './race-result';
+import { raceDistanceKm } from './gear-spec';
+import { formatDuration, parseDuration } from './goals';
 
 /**
  * コーチが「学習」するための手段。
@@ -131,6 +136,55 @@ export const coachTools: FunctionDeclaration[] = [
         note: { type: 'string', description: '高低差・気温・制限時間など、当日を左右する条件' },
       },
       required: ['name', 'date'],
+    },
+  },
+  {
+    name: 'log_race_result',
+    description:
+      '記録証（完走証）の画像や PDF から読み取った公式記録を登録する。' +
+      '「走った大会の記録を入れたい」と言われた時、または記録証らしき画像が送られてきた時に呼ぶこと。' +
+      '**画像に印字されている数字だけを渡すこと。読めなかった項目は省く。** ' +
+      '推測で埋めた通過タイムや気温は、本人が何年も見返す記録を壊す。' +
+      '通過タイムは「スタートからの合計（累積）」で渡すこと。区間タイムではない。' +
+      '時間はすべて "3:28:41" / "28:41" のような形式で渡す。' +
+      '数字が噛み合わない時はこちらが理由を返すので、画像を読み直してから入れ直すこと。',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '大会名。例: "東京マラソン"' },
+        date: { type: 'string', description: '開催日。YYYY-MM-DD' },
+        distance: { type: 'string', description: '"フル" / "ハーフ" / "10km" など' },
+        finishTime: { type: 'string', description: '完走タイム。"3:28:41"' },
+        timing: {
+          type: 'string',
+          enum: ['net', 'gross'],
+          description:
+            'net=計測開始から（ネットタイム）, gross=号砲から（グロスタイム）。記録証に書いてある時だけ。',
+        },
+        splits: {
+          type: 'array',
+          description:
+            '通過タイム。**スタートからの合計**で渡す。5km地点が25分、10km地点が51分なら [{km:5,time:"25:00"},{km:10,time:"51:00"}]。',
+          items: {
+            type: 'object',
+            properties: {
+              km: { type: 'number', description: '通過地点(km)' },
+              time: { type: 'string', description: 'スタートからの合計時間。"25:00"' },
+            },
+            required: ['km', 'time'],
+          },
+        },
+        overallPlace: { type: 'number', description: '総合順位' },
+        finishers: { type: 'number', description: '完走者数' },
+        category: { type: 'string', description: '年代別の区分。例: "男子40代"' },
+        categoryPlace: { type: 'number', description: '年代別の順位' },
+        bib: { type: 'string', description: 'ゼッケン番号' },
+        tempC: {
+          type: 'number',
+          description: '当日の気温(℃)。**記録証に印字されている時だけ。** 推測では渡さない。',
+        },
+      },
+      required: ['name', 'date', 'finishTime'],
     },
   },
   {
@@ -541,6 +595,115 @@ export function executeTool(
             count > 1
               ? `大会を登録した（計${count}件）。どれを本命（A）にするかが未確定なら必ず確かめ、他の大会の位置づけも言葉にすること。`
               : '大会を登録した。本番から逆算して、いま何を積む時期かを伝えること。',
+        },
+      };
+    }
+
+    /*
+      記録証から読み取った公式記録。
+
+      **ここが、このツールのいちばん壊れやすい場所。**
+      写真から読む以上、桁の読み違いは必ず起きる。入れてしまえば、
+      本人が何年も見返す一覧がそこで壊れて、以後ずっと直らない。
+      だから入れる前に数字どうしの噛み合いを見て、合わなければ**断る**。
+      断った理由をそのまま返せば、モデルは画像を読み直して入れ直せる。
+    */
+    case 'log_race_result': {
+      const name = str(args.name);
+      const date = str(args.date);
+      if (!name || !date) {
+        return { profile, result: { ok: false, error: 'name と date（YYYY-MM-DD）は必須。' } };
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return { profile, result: { ok: false, error: '日付は YYYY-MM-DD で渡すこと。' } };
+      }
+
+      const finishSec = parseDuration(str(args.finishTime));
+      if (finishSec === undefined || finishSec <= 0) {
+        return {
+          profile,
+          result: { ok: false, error: '完走タイムを "3:28:41" のような形式で渡すこと。' },
+        };
+      }
+
+      const rawSplits = Array.isArray(args.splits) ? args.splits : [];
+      const splits: RaceSplit[] = [];
+      for (const item of rawSplits) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Record<string, unknown>;
+        const km = typeof row.km === 'number' && Number.isFinite(row.km) ? row.km : undefined;
+        const elapsedSec = parseDuration(str(row.time));
+        if (km === undefined || elapsedSec === undefined) {
+          return {
+            profile,
+            result: {
+              ok: false,
+              error: '通過タイムは { km: 5, time: "25:00" } の形で、読めたものだけ渡すこと。',
+            },
+          };
+        }
+        splits.push({ km, elapsedSec });
+      }
+
+      const distance = str(args.distance);
+      // 距離は記録証の表記を優先し、無ければ大会名から見る。
+      const km = raceDistanceKm({ id: '', name, date, distance, priority: 'C' });
+
+      const check = validateResult({ finishSec, splits }, km);
+      if (!check.ok) {
+        return {
+          profile,
+          result: {
+            ok: false,
+            error: `${check.reason} 画像をもう一度読んでから入れ直すこと。読めない項目は省いてよい。`,
+          },
+        };
+      }
+
+      const tempC = num(args.tempC);
+      const next = setRaceResult(
+        profile,
+        {
+          name,
+          date,
+          distance,
+          result: {
+            finishSec,
+            timing: oneOf<'net' | 'gross'>(args.timing, ['net', 'gross'] as const),
+            splits: splits.length > 0 ? splits : undefined,
+            placing: {
+              overall: num(args.overallPlace),
+              finishers: num(args.finishers),
+              category: str(args.category),
+              categoryPlace: num(args.categoryPlace),
+            },
+            bib: str(args.bib),
+            // **印字されていた時だけ。** 推測の気温は、翌年の判断を狂わせる。
+            weather:
+              tempC !== undefined && tempC > -30 && tempC < 55
+                ? { tempC, source: 'certificate' }
+                : undefined,
+            recordedAt: now.toISOString(),
+          },
+        },
+        now,
+      );
+
+      /*
+        落ち率は、保存した結果から出し直す。
+        **モデルに計算させない。** 引き算を任せると、画面と違う数字を喋り出す。
+      */
+      const saved = next.races?.find((race) => race.name === name && race.date === date)?.result;
+      const fade = saved ? fadeOf(saved, km) : null;
+      return {
+        profile: next,
+        result: {
+          ok: true,
+          saved: `${name}（${date}）${formatDuration(finishSec)}`,
+          splits: splits.length,
+          fadePercent: fade?.percent,
+          note:
+            '画面の「走った大会」に並んだ。本人はもう見ているので、同じ数字を読み上げ直さないこと。',
         },
       };
     }
