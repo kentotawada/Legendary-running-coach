@@ -52,10 +52,6 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
 
   return (
     <div>
-      <p className="mb-3 text-[12px] leading-relaxed text-muted">
-        {HORIZON_WEEKS}週（約3か月）先の見込み。
-      </p>
-
       {pace.ready ? (
         <Card
           label="練習のペース"
@@ -181,8 +177,14 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
         </div>
       )}
 
+      {/* 但し書きは、読みたい人だけ。毎回読むものではない。 */}
       {anything && (
-        <p className="mt-3 text-[11px] leading-relaxed text-muted">{OUTLOOK_NOTE}</p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-[11px] text-muted">
+            {HORIZON_WEEKS}週（約3か月）先の見込み
+          </summary>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">{OUTLOOK_NOTE}</p>
+        </details>
       )}
     </div>
   );

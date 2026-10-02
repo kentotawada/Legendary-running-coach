@@ -217,8 +217,9 @@ export function describeChange(change: CompositionChange): { title: string; deta
 }
 
 /** 測り方。**ここを外すと、何を見ても意味が無い。** */
+/** 測り方。**条件を揃えないと、数字が動いた理由が分からなくなる。** */
 export const MEASURE_NOTE =
-  '体組成計は、朝起きてトイレのあと・食事の前・走る前に測ってください。走った直後は脱水で、体脂肪率が高めに出ます。絶対値ではなく、変わっていく向きを見ます。';
+  '朝、トイレのあと・食事の前に。走った直後は脱水で高く出ます。数字より向きを見ます。';
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;

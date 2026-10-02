@@ -60,6 +60,13 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+/**
+ * ひとつの節。
+ *
+ * **note は「何を数えたか」にだけ使う。**
+ * 「なぜこの節があるか」は作る側の話で、読む人には要らない。
+ * 以前はそれを全部の節に書いていて、見出しより説明のほうが長かった。
+ */
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-line py-4 first:border-t-0 first:pt-0">
@@ -244,7 +251,7 @@ export default function ReviewSheet({
             この先1年の結果を大きく動かす。
           */}
           {tab === 'now' && mix && (
-            <Section title="練習の強弱" note="1本ずつ見ていても気づけない、並べて初めて見えるもの">
+            <Section title="練習の強弱">
               <MixCard mix={mix} onAsk={onAsk} />
             </Section>
           )}
@@ -322,7 +329,7 @@ export default function ReviewSheet({
           )}
 
           {tab === 'trend' && (
-          <Section title="直近4週と、その前の4週" note="週ごとの揺れに埋もれて、自分では見えないところ">
+          <Section title="直近4週と、その前の4週">
             <ul className="space-y-2">
               {comparison.map((row) => {
                 const isPace = row.unit === '/km';
@@ -358,7 +365,7 @@ export default function ReviewSheet({
           {tab === 'trend' && pace.length >= 2 && (
             <Section
               title="ペースの移り変わり"
-              note="5km以上の練習を、週ごとにならした平均"
+              note="5km以上を週ごとに平均"
             >
               <LineChart
                 points={pace.map((point) => ({
@@ -375,7 +382,7 @@ export default function ReviewSheet({
           )}
 
           {tab === 'trend' && weight.length >= 2 && (
-            <Section title="体重" note="増えた減ったではなく、線が続いていることが値打ちです">
+            <Section title="体重">
               <LineChart
                 points={weight.map((point) => ({
                   label: point.date.slice(5).replace('-', '/'),
@@ -406,7 +413,7 @@ export default function ReviewSheet({
           )}
 
           {tab === 'kept' && pains.length > 0 && (
-            <Section title="痛みの記録" note="止めた判断も、積み上げのうちです">
+            <Section title="痛みの記録">
               <ul className="space-y-1.5">
                 {pains.map((pain) => (
                   <li key={`${pain.site}-${pain.since ?? ''}`} className="text-[13px]">
@@ -431,7 +438,7 @@ export default function ReviewSheet({
             10年前の1本を今でも見返す。月ごとの棒に混ぜると、そこで消える。
           */}
           {tab === 'kept' && (medals.length > 0 && onOpenRace ? (
-            <Section title="走った大会" note="記録証の写真を送れば、通過タイムまで入ります">
+            <Section title="走った大会">
               <MedalRack profile={profile} now={now} onOpen={onOpenRace} />
             </Section>
           ) : (

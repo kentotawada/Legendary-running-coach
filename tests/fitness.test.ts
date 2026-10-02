@@ -138,7 +138,8 @@ describe('届くかどうかの判定', () => {
 
     expect(read.verdict).toBe('reachable');
     expect(read.headline).toContain('速い見込み');
-    expect(read.detail).toContain('当日に出せるかは別');
+    // 力が足りていても、当日に出せるかは別。**そこに触れていること。**
+    expect(read.detail).toContain('当日');
     expect(read.next.join('')).toContain('入りを');
   });
 
@@ -148,7 +149,8 @@ describe('届くかどうかの判定', () => {
 
     expect(read.verdict).toBe('far');
     expect(`${read.headline}${read.detail}`).not.toContain('無理');
-    expect(read.detail).toContain('届かない、という意味ではありません');
+    // **諦めさせない。** 足りないのは力ではなく時間だ、と言っていること。
+    expect(read.detail).toContain('届かないのではなく');
     expect(read.next[0]).toContain('手前に1つ');
   });
 

@@ -153,9 +153,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
       source: 'none',
       verdict: 'unknown',
       headline: 'いまの力は、まだ測れていません',
-      detail:
-        'イージーのジョグからは、力は測れません。本気で出し切った記録——大会、記録会、' +
-        '閾値走やインターバルのような練習——が1本あれば、そこから見込みを出せます。',
+      detail: '出し切った記録が1本あれば、見込みを出せます。',
       next: [
         '次のポイント練習に「閾値走」「インターバル」のように名前を付けて記録する',
         '過去の大会の記録があれば、カルテに入れる',
@@ -183,9 +181,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
       from,
       verdict: 'unknown',
       headline: '目標を決めると、届くかどうかが出せます',
-      detail:
-        `${from.date}の${from.label}（${from.km}km / ${from.time}）から、いまの力は読めています。` +
-        '目標タイムを決めれば、そこまでの差と、何をすれば縮まるかを出します。',
+      detail: `${from.date}の${from.km}km から、力は読めています。目標タイムを決めてください。`,
       next: ['カルテで目標タイムを決める'],
     };
   }
@@ -223,9 +219,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
       gapSec,
       verdict,
       headline: `いまの力で、目標より ${gapText} 速い見込みです`,
-      detail:
-        `${sourceNote}届く力はあります。ただし、当日に出せるかは別の話です。` +
-        '本番で崩れるのは、力が足りない時より、入りが速すぎた時のほうが多い。',
+      detail: `${sourceNote}あとは当日、入りを抑えられるかです。`,
       next: [
         '目標ペースで走る練習を、月に1〜2回入れる（感覚を体に入れる）',
         '当日の入りを、目標より1kmあたり8秒遅く守る',
@@ -250,7 +244,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
       gapSec,
       verdict,
       headline: `あと ${gapText}。手が届くところにいます`,
-      detail: `${sourceNote}いまの力での見込みは ${formatDuration(predictedSeconds)}。この差なら、積み方を変えずに詰まります。`,
+      detail: `${sourceNote}見込み ${formatDuration(predictedSeconds)}。積み方を変えずに詰まる差です。`,
       next: common,
     };
   }
@@ -264,9 +258,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
       gapSec,
       verdict,
       headline: `あと ${gapText}。時間をかければ届きます`,
-      detail:
-        `${sourceNote}いまの力での見込みは ${formatDuration(predictedSeconds)}。` +
-        `この差は、${months}か月ほどかけて詰める幅です。1か月で縮めようとすると、たいてい壊れます。`,
+      detail: `${sourceNote}見込み ${formatDuration(predictedSeconds)}。${months}か月ほどかけて詰める幅です。`,
       next: common,
     };
   }
@@ -279,10 +271,7 @@ export function readFitness(profile: RunnerProfile, now: Date = new Date()): Fit
     gapSec,
     verdict,
     headline: `あと ${gapText}。いまは差があります`,
-    detail:
-      `${sourceNote}いまの力での見込みは ${formatDuration(predictedSeconds)}。` +
-      '届かない、という意味ではありません。必要なのは時間で、' +
-      `この幅はふつう${months}か月以上かかります。途中の目標を置くほうが、結局は速く着きます。`,
+    detail: `${sourceNote}見込み ${formatDuration(predictedSeconds)}。届かないのではなく、${months}か月以上かかる幅です。`,
     next: [
       '手前に1つ、届く目標を置く（ハーフや、少し緩めのタイム）',
       ...common,

@@ -61,21 +61,31 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
         ))}
       </div>
 
-      <p className="mt-2.5 text-[12px] leading-relaxed text-muted">{mix.detail}</p>
+      <p className="mt-2 text-[12px] leading-relaxed text-muted">{mix.detail}</p>
 
       {mix.next && (
-        <p className="mt-2.5 rounded-[10px] bg-bg px-3 py-2 text-[12px] leading-relaxed">
-          <strong className="font-bold">変えるなら、ひとつだけ。</strong> {mix.next}
+        <p className="mt-2.5 rounded-[10px] bg-bg px-3 py-2 text-[13px] font-bold leading-snug">
+          {mix.next}
         </p>
       )}
 
-      <p className="mt-2 text-[11px] leading-relaxed text-muted tabular-nums">
-        直近{WINDOW_DAYS}日 {mix.runs}本 / {mix.km}km ・ {formatPace(mix.easyFromSec)} より遅ければ「ゆっくり」、
-        {formatPace(mix.thresholdSec)} より速ければ「速い」
-        {mix.anchorFrom === 'performance' && mix.anchorRun
-          ? `（${mix.anchorRun.date} の ${mix.anchorRun.km}km ${mix.anchorRun.pace} を基準にしています）`
-          : '（まだ力を測れる記録が無いので、目標から置いた目安です）'}
-      </p>
+      {/*
+        **数えた元と、帯の境目は、押した時だけ。**
+        以前はここに80字ぶん並べていたが、毎回読むものではない。
+        「この数字は何を数えたのか」を確かめたくなった時にだけ要る。
+      */}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-[11px] text-muted">
+          直近{WINDOW_DAYS}日 {mix.runs}本 / {mix.km}km
+        </summary>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted tabular-nums">
+          {formatPace(mix.easyFromSec)} より遅ければ「ゆっくり」、{formatPace(mix.thresholdSec)}{' '}
+          より速ければ「速い」。
+          {mix.anchorFrom === 'performance' && mix.anchorRun
+            ? `${mix.anchorRun.date} の ${mix.anchorRun.km}km ${mix.anchorRun.pace} が基準です。`
+            : 'まだ力を測れる記録が無いので、目標から置いた目安です。'}
+        </p>
+      </details>
 
       {onAsk && mix.next && (
         <button
