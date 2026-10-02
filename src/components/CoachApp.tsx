@@ -201,6 +201,14 @@ export default function CoachApp() {
   */
   const live = ready && !stale;
 
+  /**
+   * 今朝の体の感じを聞くか。
+   * **下の「きょうの記録」と出し分けるので、条件に名前を付けておく。**
+   */
+  const askCondition = Boolean(
+    ready && !stale && started && today && !unrated && today.running,
+  );
+
   /*
     練習の形が偏っていること。**案内の中では、これをいちばん上に置く。**
     ほかの3つ（ログイン・連携・ホーム画面）はこのアプリの都合だが、
@@ -447,7 +455,7 @@ export default function CoachApp() {
         今朝の体の感じ。**時計に絶対できないこと。**
         走ったあとの日は出さない（もう終わっているので、変えようがない）。
       */}
-      {ready && !stale && started && today && !unrated && today.running && (
+      {askCondition && (
         <ConditionRow
           picked={condition}
           onPick={(id) =>
@@ -468,7 +476,16 @@ export default function CoachApp() {
         />
       )}
 
-      {!stale && daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
+      {/*
+        **聞く行は、同時にひとつまで。**
+        今日やることの下に「今日の体は？」「手応え」「きょうの記録」が
+        同時に積まれて、会話が画面の4割より下から始まっていた。
+        急ぐもの（走った直後の手応え → 今朝の体）を先に出し、
+        急がないもの（スタンプ）は、ほかに聞くことが無い日に出す。
+      */}
+      {!stale && daily && !unrated && !askCondition && (
+        <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />
+      )}
 
       {/*
         **ホーム画面に追加していない人には、通知が1通も届かない**（iOS は追加が条件）。
