@@ -110,6 +110,7 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
   const weight = profile ? weightTrend(profile, 90, now) : [];
   const comparison = profile ? fourWeekComparison(profile, now) : [];
   const pains = profile ? painHistory(profile, now) : [];
+  const digest = profile ? weeklyDigest(profile, now) : null;
   const races = profile ? pastRaces(profile, now) : [];
   const shoes = profile?.shoes ?? [];
   const hasAnything = hasHistory(profile);
@@ -167,9 +168,9 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
             「この調子なら目標に届く」が見えた時に、人は明日も走る。
           */}
           {/* 今週の自分。月ごとの棒は積み上げを見せるが、今週には答えていない。 */}
-          {profile && weeklyDigest(profile, now) && (
+          {digest && (
             <Section title="この7日">
-              <DigestCard digest={weeklyDigest(profile, now)!} />
+              <DigestCard digest={digest} />
             </Section>
           )}
 
