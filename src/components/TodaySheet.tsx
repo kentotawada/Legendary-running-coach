@@ -2,7 +2,9 @@
 
 import type { TodayPlan } from '@/lib/today';
 import { INTENSITY_LABEL } from '@/lib/today';
+import type { WeekPlan } from '@/lib/week';
 import Sheet from './Sheet';
+import WeekStrip from './WeekStrip';
 
 /**
  * 今日やることの中身。
@@ -16,10 +18,13 @@ import Sheet from './Sheet';
  */
 export default function TodaySheet({
   plan,
+  week,
   onClose,
   onAsk,
 }: {
   plan: TodayPlan;
+  /** この先7日。今日だけでは、計画の置き場所にならない。 */
+  week?: WeekPlan | null;
   onClose: () => void;
   /** コーチに相談へ回す。押した言葉がそのまま送られる。 */
   onAsk: (message: string) => void;
@@ -79,6 +84,12 @@ export default function TodaySheet({
           ))}
         </ol>
       </div>
+
+      {week && (
+        <div className="mt-6 border-t border-line pt-4">
+          <WeekStrip plan={week} />
+        </div>
+      )}
 
       {plan.alternatives.length > 0 && (
         <div className="mt-5">

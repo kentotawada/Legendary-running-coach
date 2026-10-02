@@ -11,7 +11,11 @@ import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import TodayBand from './TodayBand';
 import TodaySheet from './TodaySheet';
+import FeltRow from './FeltRow';
+import InstallBanner from './InstallBanner';
 import { todayPlan } from '@/lib/today';
+import { weekPlan } from '@/lib/week';
+import { coachDate } from '@/lib/day';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
 import RunFormSheet from './RunFormSheet';
@@ -90,6 +94,46 @@ export default function CoachApp() {
    * 決まったことが毎回変わるのは、コーチではない。
    */
   const today = useMemo(() => (profile ? todayPlan(profile) : null), [profile]);
+  const week = useMemo(() => (profile ? weekPlan(profile) : null), [profile]);
+
+  /**
+   * 今日走ったのに、手応えがまだ入っていない記録。
+   *
+   * **時計が取れない唯一のデータ**なので、取りこぼしたくない。
+   * ただし聞くのは今日のぶんだけ。昨日の体の感じは、もう思い出せない。
+   */
+  const unrated = useMemo(() => {
+    if (!profile) return null;
+    const date = coachDate(new Date());
+    return (
+      [...profile.activities]
+        .reverse()
+        .find(
+          (activity) =>
+            activity.type === 'run' &&
+            activity.date.slice(0, 10) === date &&
+            activity.effort === undefined &&
+            (activity.distanceKm ?? 0) > 0,
+        ) ?? null
+    );
+  }, [profile]);
+
+  /**
+   * 画面の上に出す案内は、**同時にひとつまで。**
+   *
+   * 帯が重なると、重なった数だけ会話が下へ押し出される。
+   * 4本並んだ時には、肝心の返事が画面の外にある。
+   * 急ぐもの（記録が消える・今日の手応え）を先に、急がないものは別の日に回す。
+   */
+  const showKeepRecords = ready && Boolean(build?.authAvailable) && !auth.isAuthenticated;
+  const showConnect =
+    ready && Boolean(build?.stravaAvailable) && !profile?.connections?.strava && !showKeepRecords;
+  const showInstall =
+    ready &&
+    (profile?.activities.length ?? 0) > 0 &&
+    !unrated &&
+    !showKeepRecords &&
+    !showConnect;
   const [formOpen, setFormOpen] = useState(false);
   const [runFormOpen, setRunFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -296,7 +340,27 @@ export default function CoachApp() {
       */}
       {ready && today && <TodayBand plan={today} onOpen={() => setTodayOpen(true)} />}
 
+      {/*
+        走った直後にだけ出す1行。**押すだけで、時計が取れないものが残る。**
+      */}
+      {ready && unrated && (
+        <FeltRow
+          activity={unrated}
+          onPick={(effort) => void updateProfile({ felt: { activityId: unrated.id, effort } })}
+        />
+      )}
+
       {daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
+
+      {/*
+        **ホーム画面に追加していない人には、通知が1通も届かない**（iOS は追加が条件）。
+        これまでは通知の設定の奥に案内があり、順番が逆になっていた。
+
+        ただし**案内は、同時にひとつまで。**
+        上に帯が4本並んだ時点で、肝心の会話が画面の外へ出てしまう。
+        急がないもの（これ）は、ほかに言うことが無い日まで待つ。
+      */}
+      {showInstall && <InstallBanner />}
 
       {activePains.length > 0 && (
         <div className="border-b border-line bg-warn-soft px-4 py-2.5 text-[13px] leading-relaxed text-warn">
@@ -309,7 +373,7 @@ export default function CoachApp() {
         未ログインで記録が積み上がっている人に、消える経路があることを知らせる。
         **失って困るものが出来てから出す。** 初日に出すと、ただの登録の壁になる。
       */}
-      {ready && build?.authAvailable && !auth.isAuthenticated && (
+      {showKeepRecords && (
         <KeepRecordsBanner
           activityCount={profile?.activities.length ?? 0}
           onOpen={() => setAuthOpen(true)}
@@ -317,7 +381,7 @@ export default function CoachApp() {
       )}
 
       {/* つながっていない人にだけ、入口が在ることを知らせる。閉じれば二度と出ない。 */}
-      {ready && build?.stravaAvailable && !profile?.connections?.strava && (
+      {showConnect && (
         <ConnectBanner onOpen={() => setConnectOpen(true)} />
       )}
 
@@ -516,6 +580,7 @@ export default function CoachApp() {
       {todayOpen && today && (
         <TodaySheet
           plan={today}
+          week={week}
           onClose={() => setTodayOpen(false)}
           onAsk={(message) => void send(message)}
         />

@@ -3,6 +3,7 @@ import {
   addActivity,
   applyProfileUpdate,
   removeExternalActivity,
+  setActivityEffort,
   replaceInjuryHistory,
   setGoal,
   setPhase,
@@ -255,5 +256,51 @@ describe('消された練習', () => {
     };
     const after = removeExternalActivity(withShoe, 'strava:1', NOW);
     expect(after.shoes?.[0].km).toBe(100);
+  });
+});
+
+
+/**
+ * 走った直後の手応え。
+ *
+ * **時計が絶対に取れない、唯一のデータ。**
+ * 同じ5:30/km・心拍148でも、「余裕だった」のか「必死だった」のかで意味が正反対になる。
+ */
+describe('手応えを残す', () => {
+  const base = () => ({
+    ...createDefaultProfile('u1', NOW.toISOString()),
+    activities: [
+      {
+        id: 'a1',
+        date: '2026-09-22',
+        type: 'run' as const,
+        distanceKm: 10,
+        durationMin: 55,
+        createdAt: '2026-09-22T10:00:00.000Z',
+      },
+    ],
+  });
+
+  it('その練習にだけ書き込む', () => {
+    const after = setActivityEffort(base(), 'a1', 8, NOW);
+    expect(after.activities[0].effort).toBe(8);
+  });
+
+  it('知らない練習を指されても、何も変えない', () => {
+    const profile = base();
+    expect(setActivityEffort(profile, 'nope', 5, NOW)).toBe(profile);
+  });
+
+  /** 1〜10の外は、押し間違いか作りの誤り。黙って捨てる。 */
+  it('範囲の外は受け取らない', () => {
+    const profile = base();
+    for (const value of [0, 11, -3, Number.NaN]) {
+      expect(setActivityEffort(profile, 'a1', value, NOW)).toBe(profile);
+    }
+  });
+
+  it('あとから選び直せる', () => {
+    const once = setActivityEffort(base(), 'a1', 3, NOW);
+    expect(setActivityEffort(once, 'a1', 8, NOW).activities[0].effort).toBe(8);
   });
 });
