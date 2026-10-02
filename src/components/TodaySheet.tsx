@@ -2,7 +2,8 @@
 
 import type { TodayPlan } from '@/lib/today';
 import { INTENSITY_LABEL } from '@/lib/today';
-import type { WeekPlan } from '@/lib/week';
+import { useState } from 'react';
+import type { WeekDay, WeekPlan } from '@/lib/week';
 import Sheet from './Sheet';
 import WeekStrip from './WeekStrip';
 
@@ -32,6 +33,33 @@ export default function TodaySheet({
   const ask = (message: string) => {
     onClose();
     onAsk(message);
+  };
+
+  /**
+   * 週の1日を押して、動かす。
+   *
+   * **見るだけの並びは、他のアプリと同じ。**
+   * 「日曜は出かけるので土曜にロングを移したい」——この一言のために、
+   * いまは自分で打つしかない。押して選べば、同じ文が1通で送られる。
+   *
+   * 送るのは**必ず1通**。選び直しのたびに送っていたら、1通¥4.32が積み上がる。
+   */
+  const [picked, setPicked] = useState<WeekDay | null>(null);
+  const [moving, setMoving] = useState(false);
+
+  const describe = (day: WeekDay) =>
+    `${Number(day.date.slice(5, 7))}月${Number(day.date.slice(8, 10))}日（${day.weekday}）の${day.note ?? day.label}`;
+
+  const pickDay = (day: WeekDay) => {
+    if (moving && picked && day.date !== picked.date) {
+      ask(
+        `${describe(picked)}を、${Number(day.date.slice(5, 7))}月${Number(day.date.slice(8, 10))}日（${day.weekday}）に移したいです。` +
+          'そのぶん、ほかの日はどう組み替えればいいですか。',
+      );
+      return;
+    }
+    setMoving(false);
+    setPicked(picked?.date === day.date ? null : day);
   };
 
   return (
@@ -87,7 +115,60 @@ export default function TodaySheet({
 
       {week && (
         <div className="mt-6 border-t border-line pt-4">
-          <WeekStrip plan={week} />
+          <WeekStrip
+            plan={week}
+            onPick={pickDay}
+            selected={picked?.date ?? null}
+            hint={moving ? '移す先の日を押してください' : undefined}
+          />
+
+          {picked && !moving && (
+            <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
+              <p className="text-[13px] font-bold">{describe(picked)}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMoving(true)}
+                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                >
+                  別の日に移す
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    ask(`${describe(picked)}は、予定があって走れません。この週をどう組み替えますか。`)
+                  }
+                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                >
+                  この日は走れない
+                </button>
+                <button
+                  type="button"
+                  onClick={() => ask(`${describe(picked)}の中身を変えたいです。`)}
+                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                >
+                  中身を変える
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPicked(null)}
+                className="mt-2 text-[12px] text-muted underline underline-offset-4"
+              >
+                やめる
+              </button>
+            </div>
+          )}
+
+          {moving && (
+            <button
+              type="button"
+              onClick={() => setMoving(false)}
+              className="mt-2 text-[12px] text-muted underline underline-offset-4"
+            >
+              やめる
+            </button>
+          )}
         </div>
       )}
 

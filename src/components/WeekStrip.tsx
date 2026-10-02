@@ -21,7 +21,20 @@ const TONE: Record<WeekDay['kind'], string> = {
   race: 'bg-warn-soft text-warn',
 };
 
-export default function WeekStrip({ plan }: { plan: WeekPlan }) {
+export default function WeekStrip({
+  plan,
+  onPick,
+  selected,
+  hint,
+}: {
+  plan: WeekPlan;
+  /** 押した日。渡さなければ、ただ見るだけの並びになる。 */
+  onPick?: (day: WeekDay) => void;
+  /** いま選んでいる日。 */
+  selected?: string | null;
+  /** 並びの上に出す一言（「移す先を選んでください」など）。 */
+  hint?: string;
+}) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -32,24 +45,48 @@ export default function WeekStrip({ plan }: { plan: WeekPlan }) {
         </p>
       </div>
 
+      {hint && <p className="mt-1.5 text-[12px] font-semibold text-accent">{hint}</p>}
+
       <ul className="mt-2 flex gap-1">
-        {plan.days.map((day) => (
-          <li key={day.date} className="min-w-0 flex-1">
-            <div
-              className={[
-                'flex h-[72px] flex-col items-center justify-center rounded-[10px] px-0.5 text-center',
-                TONE[day.kind],
-                day.isToday ? 'ring-2 ring-[color:var(--fg)] ring-offset-1 ring-offset-[color:var(--bg)]' : '',
-              ].join(' ')}
-            >
+        {plan.days.map((day) => {
+          const body = (
+            <>
               <span className="text-[10px] opacity-80">{day.weekday}</span>
               <span className="mt-0.5 truncate text-[10px] font-bold leading-tight">{day.label}</span>
               {day.km !== undefined && (
                 <span className="mt-0.5 text-[11px] font-bold tabular-nums">{day.km}</span>
               )}
-            </div>
-          </li>
-        ))}
+              {/* 話して決めた日は、自動で置いた日と見分けが付くようにする。 */}
+              {day.fromPlan && <span className="mt-0.5 text-[9px] leading-none opacity-70">決めた</span>}
+            </>
+          );
+          const shape = [
+            'flex h-[72px] w-full flex-col items-center justify-center rounded-[10px] px-0.5 text-center',
+            TONE[day.kind],
+            day.isToday ? 'ring-2 ring-[color:var(--fg)]' : '',
+            selected === day.date ? 'ring-2 ring-[color:var(--accent)]' : '',
+            day.isToday || selected === day.date
+              ? 'ring-offset-1 ring-offset-[color:var(--bg)]'
+              : '',
+          ].join(' ');
+
+          return (
+            <li key={day.date} className="min-w-0 flex-1">
+              {onPick ? (
+                <button
+                  type="button"
+                  onClick={() => onPick(day)}
+                  aria-label={`${day.weekday}曜日 ${day.label}`}
+                  className={`${shape} transition active:scale-[0.97]`}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className={shape}>{body}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       {/*

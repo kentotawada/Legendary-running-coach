@@ -64,10 +64,16 @@ describe('7日ぶんを並べる', () => {
     expect(plan.baseKm).toBe(30);
   });
 
-  /** **ここで1割積むと、計画の上では毎週1割ずつ増えていく。** */
-  it('合計を、土台より増やさない', () => {
-    const plan = weekPlan(steady(), NOW);
-    expect(plan.totalKm).toBeLessThanOrEqual(plan.baseKm + 2);
+  /**
+   * **ここで1割積むと、計画の上では毎週1割ずつ増えていく。**
+   * 1日ずつ四捨五入するだけでも、5日ぶんで2〜3km ふくらむ。
+   * それは誰も決めていない増量なので、合計をちょうどに合わせる。
+   */
+  it('合計を、土台ちょうどに合わせる', () => {
+    for (const profile of [steady(), steady({ goal: { kind: 'time', summary: 'サブ3.5', targetTime: '3:30:00' } })]) {
+      const plan = weekPlan(profile, NOW);
+      expect(plan.totalKm).toBe(Math.round(plan.baseKm));
+    }
   });
 
   it('週の8割をイージーに寄せ、ポイントは多くても2回まで', () => {
@@ -187,5 +193,86 @@ describe('プロンプトに差し込む7日', () => {
     expect(text).toContain('土台は1週あたり 30km');
     // 曜日や種類は動かしてよいが、合計は増やさせない。
     expect(text).toContain('週の合計は増やさない');
+  });
+});
+
+
+/**
+ * コーチと話して決めた日。
+ *
+ * **ここを見ないと、「動かしておきました」と言われたものが翌朝には戻っている。**
+ * 画面とコーチの言うことが食い違うと、コーチが二人いるのと同じになる。
+ */
+describe('会話で決めた日', () => {
+  const planned = (date: string, title: string, intensity: 'rest' | 'easy' | 'moderate' | 'hard') => ({
+    id: `pl-${date}`,
+    date,
+    title,
+    steps: [title],
+    rationale: '話して決めた',
+    intensity,
+    createdAt: `${dateDaysAgo(1)}T10:00:00.000Z`,
+  });
+
+  it('決めた日が、並びに出る', () => {
+    const plan = weekPlan(steady({ plans: [planned('2026-10-04', '休み', 'rest')] }), NOW);
+    const sunday = plan.days.find((day) => day.date === '2026-10-04')!;
+
+    expect(sunday.kind).toBe('rest');
+    expect(sunday.note).toBe('休み');
+    expect(sunday.fromPlan).toBe(true);
+    expect(sunday.km).toBeUndefined();
+  });
+
+  it('ロングを別の日へ移した形が、そのまま出る', () => {
+    const plan = weekPlan(
+      steady({
+        plans: [planned('2026-10-04', '休み', 'rest'), planned('2026-10-03', 'ロング走 18km', 'moderate')],
+      }),
+      NOW,
+    );
+
+    expect(plan.days.find((day) => day.date === '2026-10-03')!.kind).toBe('long');
+    expect(plan.days.find((day) => day.date === '2026-10-04')!.kind).toBe('rest');
+  });
+
+  /** 休みに替えた日のぶんは、ほかの日へ回す。合計は変えない。 */
+  it('休みにした日のぶんを、週の合計から落とさない', () => {
+    const before = weekPlan(steady(), NOW);
+    const after = weekPlan(steady({ plans: [planned('2026-10-04', '休み', 'rest')] }), NOW);
+
+    expect(after.totalKm).toBe(before.totalKm);
+  });
+
+  it('決めた日だと分かる印を、プロンプトにも載せる', () => {
+    const text = weekDoctrine(steady({ plans: [planned('2026-10-04', '休み', 'rest')] }), NOW)!;
+
+    expect(text).toContain('★あなたが決めた日');
+    expect(text).toContain('勝手に組み替えないこと');
+    expect(text).toContain('date を付けて残すこと');
+  });
+});
+
+
+/**
+ * **帯と並びで、今日の内容を食い違わせない。**
+ * 画面の中でコーチが二人いることになる。今日の決め方（today.ts）が唯一の正。
+ */
+describe('今日の枠は、帯と同じにする', () => {
+  it('昨日ポイント練習なら、今日の枠もイージーになる', () => {
+    const profile = steady();
+    const plan = weekPlan(
+      profileOf({ activities: [...profile.activities, run(1, 20)] }),
+      NOW,
+    );
+    expect(plan.days[0].kind).toBe('easy');
+  });
+
+  it('今日もう走っていれば、走る枠にしない', () => {
+    const profile = steady();
+    const plan = weekPlan(profileOf({ activities: [...profile.activities, run(0, 8)] }), NOW);
+
+    expect(plan.days[0].kind).toBe('rest');
+    expect(plan.days[0].label).toBe('走った');
   });
 });
