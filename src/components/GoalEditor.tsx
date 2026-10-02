@@ -56,6 +56,15 @@ interface Props {
   saving: boolean;
   onSave: (edit: ProfileEdit) => void;
   onCancel: () => void;
+  /** 「やめる」の言い方。初回は「あとで」のほうが、進んでよいと分かる。 */
+  cancelLabel?: string;
+  /**
+   * コーチを選ぶ欄を出すか。
+   *
+   * **選んだ直後の画面では隠す。** さっき顔を見て決めたばかりなのに、
+   * 次の画面の先頭でまた8人が並ぶと、決まったのかどうかが分からなくなる。
+   */
+  showCoachPicker?: boolean;
 }
 
 function Field({
@@ -343,7 +352,14 @@ function RaceRow({
   );
 }
 
-export default function GoalEditor({ profile, saving, onSave, onCancel }: Props) {
+export default function GoalEditor({
+  profile,
+  saving,
+  onSave,
+  onCancel,
+  cancelLabel = 'やめる',
+  showCoachPicker = true,
+}: Props) {
   const goal = profile?.goal;
   const [kind, setKind] = useState<GoalKind>(goal?.kind ?? 'time');
   const [summary, setSummary] = useState(goal?.summary ?? '');
@@ -459,7 +475,11 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
 
   return (
     <div className="pb-4">
-      <Chapter title="あなたのこと" note="コーチと、呼んでほしい名前">
+      <Chapter
+        title="あなたのこと"
+        note={showCoachPicker ? 'コーチと、呼んでほしい名前' : '呼んでほしい名前'}
+      >
+      {showCoachPicker && (
       <Field
         label="コーチのキャラクター"
         required={false}
@@ -503,6 +523,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-muted">{chosen.description}</p>
       </Field>
+      )}
 
       {/*
         呼び方。**コーチの隣に置く。** 誰に見てもらうかと、何と呼ばれたいかは
@@ -815,7 +836,7 @@ export default function GoalEditor({ profile, saving, onSave, onCancel }: Props)
           disabled={saving}
           className="flex-1 rounded-full border border-line px-4 py-3 text-[14px]"
         >
-          やめる
+          {cancelLabel}
         </button>
       </div>
     </div>

@@ -19,6 +19,7 @@ const latin = Inter({
   display: 'swap',
 });
 import { FONT_SIZE_BOOT_SCRIPT } from '@/lib/display';
+import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 import { Analytics } from '@vercel/analytics/next';
 import ErrorReporter from '@/components/ErrorReporter';
 
@@ -67,6 +68,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           大きい設定にしている人の画面が毎回一瞬だけ小さく見えてしまう。
         */}
         <script dangerouslySetInnerHTML={{ __html: FONT_SIZE_BOOT_SCRIPT }} />
+        {/*
+          明暗も描画の前に当てる。**効果の中で当てると、暗いところで開いた時に
+          白い画面が一瞬出て目を灼く。**
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="antialiased">
         {children}

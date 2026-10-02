@@ -39,12 +39,14 @@ import RunSheet from './RunSheet';
 import AuthSheet from './AuthSheet';
 import CoachAvatar from './CoachAvatar';
 import Welcome from './Welcome';
+import FirstProfile from './FirstProfile';
 import ImageLightbox from './ImageLightbox';
 import { findCharacter } from '@/lib/characters';
 import { totals } from '@/lib/review';
 import { useReadAloud } from '@/hooks/useSpeech';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { applyFontSize, loadFontSize, saveFontSize, type FontSizeId } from '@/lib/display';
+import { applyTheme, loadTheme, saveTheme, type ThemeId } from '@/lib/theme';
 import type { ActivityLog, ChatMessage, RaceEntry } from '@/lib/types';
 import { hasConsent } from '@/lib/legal';
 import { sendFeedback } from '@/lib/feedback-client';
@@ -261,6 +263,13 @@ export default function CoachApp() {
   const [celebration, setCelebration] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [fontSize, setFontSize] = useState<FontSizeId>('medium');
+  /** 画面の明暗。既定は端末まかせ（自動）。 */
+  const [theme, setTheme] = useState<ThemeId>('auto');
+  /**
+   * コーチを決めた直後の、自分のことを入れる画面。
+   * **初回だけ。** 2回目からはカルテで1項目ずつ直せる。
+   */
+  const [setupProfile, setSetupProfile] = useState(false);
   /** 返答への評価。端末を閉じるまでの記録で、コーチ側には送らない。 */
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const readAloud = useReadAloud();
@@ -271,12 +280,20 @@ export default function CoachApp() {
 
   useEffect(() => {
     setFontSize(loadFontSize());
+    // 当てるのは描画前のスクリプトが済ませている。ここは画面の選択状態を合わせるだけ。
+    setTheme(loadTheme());
   }, []);
 
   const changeFontSize = (id: FontSizeId) => {
     setFontSize(id);
     applyFontSize(id);
     saveFontSize(id);
+  };
+
+  const changeTheme = (id: ThemeId) => {
+    setTheme(id);
+    applyTheme(id);
+    saveTheme(id);
   };
 
   // 新しい発言が来たら常に最新へ。ストリーミング中も追従させる。
@@ -353,7 +370,36 @@ export default function CoachApp() {
    * **空のチャットに放り出さない。** 白紙の入力欄の前で止まった人は、たいてい戻ってこない。
    */
   if (ready && needsCoach) {
-    return <Welcome onPick={(id, name) => void chooseCoach(id, name)} busy={busy || savingProfile} />;
+    return (
+      <Welcome
+        onPick={(id, name) => {
+          // 決まったら、そのまま自分のことを入れる画面へ送る。
+          setSetupProfile(true);
+          void chooseCoach(id, name);
+        }}
+        busy={busy || savingProfile}
+      />
+    );
+  }
+
+  /*
+    コーチが決まった直後。**欄をまとめて出す。**
+    これまでは空のチャットへ出していたので、目標も体のことも
+    会話で1往復ずつ聞くことになり、費用も手間もかかっていた。
+  */
+  if (ready && setupProfile && profile && hasConsent(profile)) {
+    return (
+      <FirstProfile
+        coach={coach}
+        profile={profile}
+        saving={savingProfile}
+        onSave={(edit) => {
+          void updateProfile(edit);
+          setSetupProfile(false);
+        }}
+        onSkip={() => setSetupProfile(false)}
+      />
+    );
   }
 
   /**
@@ -859,6 +905,8 @@ export default function CoachApp() {
           }}
           fontSize={fontSize}
           onChangeFontSize={changeFontSize}
+          theme={theme}
+          onChangeTheme={changeTheme}
           stravaAvailable={build?.stravaAvailable}
           pushAvailable={build?.pushAvailable}
           onChangeNotifyHour={(hour) => void saveNotifyHour(hour)}

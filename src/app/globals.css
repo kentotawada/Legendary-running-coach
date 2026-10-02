@@ -68,8 +68,20 @@
   --keyboard-inset: 0px;
 }
 
+/*
+  暗い画面の色。
+
+  **当て方は2通りある。**
+   1. 端末の設定に従う（自動）… prefers-color-scheme
+   2. アプリの中で選ぶ … data-theme="dark"
+
+  1 は「白を選んでいる人」には効かせたくないので、
+  `:root:not([data-theme])` で囲ってある。属性が付いている時は、
+  端末がどちらでも、選んだほうが勝つ。
+*/
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
+
     --bg: #0f0f11;
     --bg-elevated: #17171a;
     --bg-sunken: #1d1d21;
@@ -101,6 +113,40 @@
     --zone-4: #d95926;
     --zone-5: #e66767;
   }
+}
+
+:root[data-theme='dark'] {
+
+    --bg: #0f0f11;
+    --bg-elevated: #17171a;
+    --bg-sunken: #1d1d21;
+    --fg: #f4f4f5;
+    --fg-muted: #a1a1aa;
+    --border: #2a2a30;
+    --accent: #ff7a45;
+    --accent-soft: #2b1711;
+    --accent-fg: #14120f;
+    --user-bubble: #1d1d21;
+    --user-bubble-fg: #f4f4f5;
+    --warn: #f0938a;
+    --warn-soft: #34191a;
+    --good: #7cc79b;
+    --good-soft: #162c1e;
+    --chart-ink: #e4652f;
+    --chart-mean: #6b6b74;
+    /* 暗い面に対して選び直した同じ7色。明るいほうの値をそのまま使わない。 */
+    --chart-1: #3987e5;
+    --chart-2: #e66767;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --zone-1: #8a8a93;
+    --zone-2: #3987e5;
+    --zone-3: #199e70;
+    --zone-4: #d95926;
+    --zone-5: #e66767;
 }
 
 @theme inline {
@@ -248,6 +294,51 @@ select {
 }
 
 /* 下から出るシート。 */
+/*
+  選ばれたコーチが、中央に出て大きくなる。
+
+  **顔が動くこと自体が、このアプリで最初に起きる出来事になる。**
+  名前と肩書きが並んでいるだけの画面から、人を選んだ実感に変える。
+*/
+@keyframes coach-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-step-in {
+  animation: coach-step-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 押された顔が、ひと跳ねする。 */
+@keyframes coach-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.11);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-pop {
+  animation: coach-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-in,
+  .animate-pop {
+    animation: none;
+  }
+}
+
 @keyframes coach-sheet {
   from {
     opacity: 0;
