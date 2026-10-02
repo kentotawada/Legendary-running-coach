@@ -82,14 +82,17 @@ export default function TodaySheet({
         ].join(' ')}
       >
         <p className="flex items-center gap-2">
-          <span
-            className={[
-              'rounded-full px-2 py-0.5 text-[10px] font-bold',
-              plan.running ? 'bg-accent text-[var(--accent-fg)]' : 'bg-bg text-muted',
-            ].join(' ')}
-          >
-            {INTENSITY_LABEL[plan.intensity]}
-          </span>
+          {/* まだ記録が無い人には、強度の札を出さない。指すものが無い。 */}
+          {plan.source !== 'start' && (
+            <span
+              className={[
+                'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                plan.running ? 'bg-accent text-[var(--accent-fg)]' : 'bg-bg text-muted',
+              ].join(' ')}
+            >
+              {INTENSITY_LABEL[plan.intensity]}
+            </span>
+          )}
           {plan.summary && <span className="text-[12px] text-muted">{plan.summary}</span>}
         </p>
         <p className={`mt-1.5 text-[19px] font-bold leading-snug ${plan.running ? 'text-accent' : ''}`}>
@@ -152,7 +155,7 @@ export default function TodaySheet({
 
       {askLocation && onAllowLocation && <WeatherAsk onAllow={onAllowLocation} />}
 
-      {week && !comeback && (
+      {week && !comeback && week.baseKm > 0 && (
         <div className="mt-6 border-t border-line pt-4">
           <WeekStrip
             plan={week}
@@ -235,12 +238,19 @@ export default function TodaySheet({
       <div className="mt-6">
         <p className="text-[13px] font-bold">合わないときは、言ってください</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {[
-            { label: '今日はきつい', message: '今日は体がきついです。メニューを変えられますか。' },
-            { label: '時間がない', message: '今日は時間が取れません。短くできますか。' },
-            { label: '脚が痛い', message: '脚に痛みがあります。どうすればいいですか。' },
-            { label: 'もっとやりたい', message: 'もう少しやれそうです。増やしても大丈夫ですか。' },
-          ].map((chip) => (
+          {(plan.source === 'start'
+            ? [
+                { label: '記録の送り方は？', message: '走った記録は、どうやって送ればいいですか。' },
+                { label: '目標を決めたい', message: '目標を決めたいです。何から決めればいいですか。' },
+                { label: '脚が痛い', message: '脚に痛みがあります。どうすればいいですか。' },
+              ]
+            : [
+                { label: '今日はきつい', message: '今日は体がきついです。メニューを変えられますか。' },
+                { label: '時間がない', message: '今日は時間が取れません。短くできますか。' },
+                { label: '脚が痛い', message: '脚に痛みがあります。どうすればいいですか。' },
+                { label: 'もっとやりたい', message: 'もう少しやれそうです。増やしても大丈夫ですか。' },
+              ]
+          ).map((chip) => (
             <button
               key={chip.label}
               type="button"

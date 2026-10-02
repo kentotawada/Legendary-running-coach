@@ -17,6 +17,8 @@ import { INTENSITY_LABEL } from '@/lib/today';
 export default function TodayBand({ plan, onOpen }: { plan: TodayPlan; onOpen: () => void }) {
   // 走らない日は色を変える。**休む日を、失敗のように見せない。**
   const resting = !plan.running;
+  /** まだ記録が無い人。強度の札を出しても、何の強度なのか指すものが無い。 */
+  const starting = plan.source === 'start';
 
   return (
     <button
@@ -28,14 +30,16 @@ export default function TodayBand({ plan, onOpen }: { plan: TodayPlan; onOpen: (
         resting ? 'bg-sunken' : 'bg-accent-soft',
       ].join(' ')}
     >
-      <span
-        className={[
-          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-          resting ? 'bg-bg text-muted' : 'bg-accent text-[var(--accent-fg)]',
-        ].join(' ')}
-      >
-        {INTENSITY_LABEL[plan.intensity]}
-      </span>
+      {!starting && (
+        <span
+          className={[
+            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+            resting ? 'bg-bg text-muted' : 'bg-accent text-[var(--accent-fg)]',
+          ].join(' ')}
+        >
+          {INTENSITY_LABEL[plan.intensity]}
+        </span>
+      )}
 
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-[14px] font-bold ${resting ? '' : 'text-accent'}`}>
