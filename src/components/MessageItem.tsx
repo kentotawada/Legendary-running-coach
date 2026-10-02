@@ -28,6 +28,15 @@ interface Props {
   failed?: boolean;
   /** 書き直して送り直せる発言か（直前のユーザー発言だけ）。 */
   canEdit?: boolean;
+  /**
+   * いちばん新しいやりとりか。
+   *
+   * **操作のボタンは、読んだ直後の1通にだけ出す。**
+   * 全部の発言に出していたので、会話が20往復すると画面に60個以上のボタンが
+   * 並んでいた。ひとつ分は小さくても、スクロールする全域にわたって散らかる。
+   * 古い発言のボタンは、その発言を押した時だけ出す。
+   */
+  latest?: boolean;
   /** 書き直した本文で送り直す。 */
   onEdit?: (text: string) => void;
   /** この発言の画像を、もう一度添付欄に戻す。 */
@@ -116,6 +125,7 @@ export default function MessageItem({
   busy = false,
   failed = false,
   canEdit = false,
+  latest = false,
   onEdit,
   onReuseImages,
 }: Props) {
@@ -126,6 +136,9 @@ export default function MessageItem({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.text);
   const [copied, setCopied] = useState(false);
+  /** 古い発言で、操作を出しているか。押された時だけ開く。 */
+  const [revealed, setRevealed] = useState(false);
+  const showActions = latest || revealed;
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -204,7 +217,14 @@ export default function MessageItem({
             )}
             <div className="chat-body mt-1 flex flex-wrap items-center justify-end gap-0.5">
               {at && <time className="mr-auto text-[11px] tabular-nums text-muted">{at}</time>}
-              {message.text && (
+              {/*
+                **古い発言では、操作を畳んでおく。**
+                押せば出る。出しっぱなしにすると、会話の全域にボタンが散らばる。
+              */}
+              {!showActions && message.text && (
+                <UserAction label="…" onClick={() => setRevealed(true)} />
+              )}
+              {showActions && message.text && (
                 <UserAction
                   label={copied ? 'コピーしました' : 'コピー'}
                   onClick={() => {
@@ -215,14 +235,14 @@ export default function MessageItem({
                   }}
                 />
               )}
-              {hasImages && onReuseImages && (
+              {showActions && hasImages && onReuseImages && (
                 <UserAction
                   label="画像をもう一度使う"
                   disabled={busy}
                   onClick={() => onReuseImages(message.imagePreviews!)}
                 />
               )}
-              {canEdit && onEdit && message.text && (
+              {showActions && canEdit && onEdit && message.text && (
                 <UserAction
                   label="書き直して送る"
                   disabled={busy}
@@ -252,7 +272,23 @@ export default function MessageItem({
         {pending && <span className="ml-0.5 inline-block animate-blink text-accent">●</span>}
       </div>
 
-      {!pending && message.text.trim().length > 0 && onFeedback && (
+      {/*
+        **読んだ直後の1通にだけ出す。**
+        全部の返事に出していたので、会話が伸びるほどボタンが増え続けていた。
+        古い返事は、押せば同じものが出る。
+      */}
+      {!pending && !showActions && message.text.trim().length > 0 && onFeedback && (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          aria-label="この返事への操作を出す"
+          className="mt-1 rounded-full px-2 py-1 text-[13px] leading-none text-muted active:scale-95"
+        >
+          …
+        </button>
+      )}
+
+      {!pending && showActions && message.text.trim().length > 0 && onFeedback && (
         <MessageActions
           text={message.text}
           feedback={feedback}
