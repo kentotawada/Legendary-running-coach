@@ -475,6 +475,15 @@ export interface RunnerProfile {
   /** 通知を出しすぎないための記録。 */
   notifications?: NotificationState;
   /**
+   * 走る場所のおおよその位置。
+   *
+   * **小数2桁までしか持たない（約1km四方）。** 天気を引くのに必要なのはそこまでで、
+   * それ以上の精度は、ただ家の場所を預かることになる。
+   */
+  location?: { lat: number; lon: number };
+  /** 直近に取った空気。古くなったら取り直す（weather.ts）。 */
+  weather?: { temperatureC: number; humidity: number; at: string };
+  /**
    * 送った画像の見返し用の控え。
    * カルテの内容ではないが、保存先の列を増やさずに済ませるためここに置いている。
    * プロンプトには載せない。
