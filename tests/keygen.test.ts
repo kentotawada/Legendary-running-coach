@@ -9,6 +9,10 @@ import {
   generateVapidKeys,
   toBase64Url,
 } from '@/lib/keygen';
+import { checkVapidPair } from '@/lib/push';
+
+/** 環境変数の差し替え。tests/billing.test.ts と同じ書き方。 */
+const envOf = (values: Record<string, string>) => values as unknown as NodeJS.ProcessEnv;
 
 /**
  * 通知の鍵を、スマホだけで作る。
@@ -104,5 +108,68 @@ describe('base64url への変換', () => {
   it('長さを数えられる', () => {
     expect(base64UrlLength(toBase64Url(new Uint8Array(32)))).toBe(32);
     expect(base64UrlLength(toBase64Url(new Uint8Array(65)))).toBe(65);
+  });
+});
+
+/**
+ * 公開鍵と秘密鍵が、対になっているか。
+ *
+ * **ここは、設定がそろって見えるのに動かない唯一の場所。**
+ * web-push は長さと文字種しか見ないので、別々に作った鍵を組み合わせても
+ * 素通しする。通知だけが1通も届かず、エラーもどこにも出ない。
+ */
+describe('鍵が対になっているかを見る', () => {
+  it('同じ組なら ok', async () => {
+    const keys = await generateVapidKeys(subtle);
+    expect(
+      checkVapidPair(envOf({ VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey })),
+    ).toBe('ok');
+  });
+
+  /** 鍵を作り直して、片方だけ貼り替えた状態。 */
+  it('別々に作った鍵を組み合わせたら mismatch', async () => {
+    const a = await generateVapidKeys(subtle);
+    const b = await generateVapidKeys(subtle);
+    expect(
+      checkVapidPair(envOf({ VAPID_PUBLIC_KEY: a.publicKey, VAPID_PRIVATE_KEY: b.privateKey })),
+    ).toBe('mismatch');
+  });
+
+  it('web-push 自身が作った組も ok と読める', () => {
+    const keys = webpush.generateVAPIDKeys();
+    expect(
+      checkVapidPair(envOf({ VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey })),
+    ).toBe('ok');
+  });
+
+  it('旧名（NEXT_PUBLIC_）で入れてあっても見る', async () => {
+    const keys = await generateVapidKeys(subtle);
+    expect(
+      checkVapidPair(
+        envOf({
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: keys.publicKey,
+          VAPID_PRIVATE_KEY: keys.privateKey,
+        }),
+      ),
+    ).toBe('ok');
+  });
+
+  it('設定が無ければ not-configured', () => {
+    expect(checkVapidPair(envOf({}))).toBe('not-configured');
+  });
+
+  it('鍵として読めない値なら unreadable', () => {
+    expect(
+      checkVapidPair(envOf({ VAPID_PUBLIC_KEY: 'abc', VAPID_PRIVATE_KEY: 'みじかすぎる' })),
+    ).toBe('unreadable');
+  });
+
+  /** web-push は、ちぐはぐな組み合わせを弾かない。だからこの検査が要る。 */
+  it('web-push 自身は、ちぐはぐな組を弾かない', async () => {
+    const a = await generateVapidKeys(subtle);
+    const b = await generateVapidKeys(subtle);
+    expect(() =>
+      webpush.setVapidDetails('mailto:test@example.com', a.publicKey, b.privateKey),
+    ).not.toThrow();
   });
 });

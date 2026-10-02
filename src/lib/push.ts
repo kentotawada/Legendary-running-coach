@@ -8,6 +8,7 @@
  */
 
 import webpush from 'web-push';
+import { createECDH } from 'node:crypto';
 import { cleanEnv } from './build-info';
 import type { PushSubscriptionRecord, RunnerProfile } from './types';
 
@@ -31,6 +32,36 @@ export function vapidFromEnv(env: NodeJS.ProcessEnv = process.env): VapidConfig 
 
 export function isPushConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   return vapidFromEnv(env) !== null;
+}
+
+export type VapidPairCheck = 'ok' | 'mismatch' | 'unreadable' | 'not-configured';
+
+/**
+ * 公開鍵と秘密鍵が、対になっているか。
+ *
+ * **ここが、いちばん静かに壊れる場所。**
+ * web-push は長さと文字種しか見ないので、別々に作った鍵を組み合わせても
+ * そのまま受け取ってしまう（確認済み）。設定も健康診断も通る。
+ * それでいて通知は1通も届かない。**どこにもエラーが出ない。**
+ *
+ * 鍵を作り直した時に、片方だけ貼り替えると必ずこうなる。
+ * 秘密鍵から公開鍵は計算で出せるので、一致するかを見ておく。
+ */
+export function checkVapidPair(env: NodeJS.ProcessEnv = process.env): VapidPairCheck {
+  const vapid = vapidFromEnv(env);
+  if (!vapid) return 'not-configured';
+
+  try {
+    const privateKey = Buffer.from(vapid.privateKey, 'base64url');
+    // 長さが違えば、そもそも鍵として読めない。
+    if (privateKey.length !== 32) return 'unreadable';
+
+    const ecdh = createECDH('prime256v1');
+    ecdh.setPrivateKey(privateKey);
+    return ecdh.getPublicKey('base64url') === vapid.publicKey ? 'ok' : 'mismatch';
+  } catch {
+    return 'unreadable';
+  }
 }
 
 export interface PushPayload {

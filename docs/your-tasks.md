@@ -125,12 +125,24 @@ https://legendary-running-coach.vercel.app/setup
 ```
 "readyToShare": true                     ← true なら配れる状態
 "priceUsdPerMTok": {"in":0.5,"out":3}    ← 0.5 と 3 になっているか
+"vapidPair": "ok"                        ← 通知の鍵が対になっているか
 "pending" の中に「通知」が無い
 ```
+
+> **`"vapidPair": "mismatch"` が出たら、通知は1通も飛びません。**
+> 公開鍵と秘密鍵が別々の組になっています（鍵を作り直して片方だけ
+> 貼り替えると、こうなります）。`/setup` で作り直して、
+> **3つとも**入れ直してください。
+>
+> これを見ずに済ませると厄介です。`pushAvailable` は `true` のままで、
+> 設定は揃って見えるのに通知だけが届きません。
 
 - `readyToShare` が **false** → `"blocking"` に理由が出ます。そのまま貼ってください
 - `priceUsdPerMTok` が **`{"in":2,"out":12}`** → 1. に戻って `0.5,3` に直す
 - `pending` に **通知** が残っている → 2. の入れ忘れか、Redeploy 忘れ
+- **すでに同じ名前が登録済み** と Vercel に言われたら、追加ではなく
+  一覧からその行を開いて**値を貼り替えて**ください（Edit）。
+  その際、公開鍵と秘密鍵は**必ず同じ組**にすること
 
 > **`pending` は空になりません。** Stripe・特商法・**Strava** は、いま不要です。
 > Strava は有料契約が要るので、`pending` に残ったままで正常です。
