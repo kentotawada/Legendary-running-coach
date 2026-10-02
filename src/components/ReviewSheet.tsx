@@ -6,6 +6,8 @@ import { BarChart, LineChart } from './ReviewCharts';
 import Outlook from './Outlook';
 import FitnessCard from './FitnessCard';
 import { readFitness } from '@/lib/fitness';
+import DigestCard from './DigestCard';
+import { weeklyDigest } from '@/lib/digest';
 import {
   fourWeekComparison,
   hasHistory,
@@ -164,6 +166,13 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
             過去のグラフは「やってきたこと」を見せるが、続ける理由にはなりにくい。
             「この調子なら目標に届く」が見えた時に、人は明日も走る。
           */}
+          {/* 今週の自分。月ごとの棒は積み上げを見せるが、今週には答えていない。 */}
+          {profile && weeklyDigest(profile, now) && (
+            <Section title="この7日">
+              <DigestCard digest={weeklyDigest(profile, now)!} />
+            </Section>
+          )}
+
           {/*
             **先のことより先に、「いま届くのか」。**
             走る人がいちばん知りたいのはここで、どのアプリも答えていない。
