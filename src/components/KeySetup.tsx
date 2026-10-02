@@ -37,7 +37,18 @@ export default function KeySetup() {
       const keys = await generateVapidKeys(window.crypto.subtle);
       setRows([
         {
-          name: 'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
+          /*
+            **NEXT_PUBLIC_ を付けない。**
+
+            ブラウザはこの鍵を、ビルド時の埋め込みではなく
+            /api/push/key から実行時に取りに行っている（push-client.ts）。
+            だから公開用の接頭辞は要らない。
+
+            付けると Vercel が「ブラウザに露出する値です」と警告を出すうえ、
+            NEXT_PUBLIC_ はビルド時に焼き込まれるので、
+            値を変えるたびに再ビルドが要るようになる。何も得がない。
+          */
+          name: 'VAPID_PUBLIC_KEY',
           value: keys.publicKey,
           note: 'ブラウザに渡す公開鍵。人に見られても困りません',
           secret: false,
