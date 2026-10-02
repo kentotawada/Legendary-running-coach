@@ -70,26 +70,37 @@
 
 **ホーム画面に追加してもらう案内を出した以上、通知が動いていないと嘘になります。**
 
-### 2-1. VAPID の鍵を作る（2分）
+### 2-1. 鍵を作る（1分・スマホだけでできます）
 
-パソコンのターミナルで1回だけ：
+スマホのブラウザで、アプリの中のこの画面を開いてください。
 
 ```
-npx web-push generate-vapid-keys
+https://legendary-running-coach.vercel.app/setup
 ```
 
-Public Key と Private Key が出ます。
+**「鍵を作る」を押すだけ**です。必要な3つが、コピーボタン付きで出ます。
 
-### 2-2. Vercel に入れる
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `CRON_SECRET`
 
-| 変数名 | 入れる値 |
-|---|---|
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | 出てきた Public Key |
-| `VAPID_PRIVATE_KEY` | 出てきた Private Key |
-| `CRON_SECRET` | 自分で決めた長い文字列（32文字以上。パスワード生成でよい） |
-| `VAPID_SUBJECT`（任意） | `mailto:あなたのメールアドレス` |
+> **作った鍵は、その端末から1歩も出ません。** サーバーにも送らず、保存もしません。
+> 画面を閉じれば消えるので、貼り終わるまで閉じないでください。
+>
+> パソコンがある人は `npx web-push generate-vapid-keys` でも同じものが作れます
+> （`CRON_SECRET` は自分で決めた32文字以上の文字列）。
 
-**Redeploy。**
+### 2-2. Vercel に貼る（スマホのブラウザで）
+
+1. `vercel.com` を開いて、このプロジェクトを選ぶ
+2. **Settings → Environment Variables**
+3. 上の3つを、名前と値をそのまま貼って追加（**Production** を選ぶ）
+4. ついでに `VAPID_SUBJECT` も足す。値は `mailto:あなたのメールアドレス`
+5. **Deployments → 最新の「…」→ Redeploy**
+
+> ⚠️ **一度ベータの人に配ったあとは、鍵を作り直さないでください。**
+> 通知を登録した人がいる状態で鍵を変えると、その人たちに通知が届かなくなります。
+> **画面には何も出ません**（本人には「来なくなった」としか見えません）。
 
 > `VAPID_SUBJECT` は入れなくても動きますが、入れておくことを勧めます。
 > 配信側（Apple や Google）が不具合の連絡に使う宛先で、
