@@ -31,6 +31,48 @@ export type RacePriority = 'A' | 'B' | 'C';
  * 出場予定の大会。複数エントリーする人が珍しくないので、リストで持つ。
  * 「本番」は1つとは限らず、どれに合わせて仕上げるかがコーチングの分岐点になる。
  */
+/** 記録証に載っている通過。**累積**（スタートからの経過）で持つ。 */
+export interface RaceSplit {
+  /** 通過地点(km)。 */
+  km: number;
+  /** スタートからの経過(秒)。 */
+  elapsedSec: number;
+}
+
+export interface RaceWeather {
+  tempC?: number;
+  humidity?: number;
+  windMs?: number;
+  /**
+   * どこから来た数字か。
+   * **推測は入れない。** certificate=記録証に印字、archive=その日その場所の観測、self=本人の申告。
+   */
+  source: 'certificate' | 'archive' | 'self';
+}
+
+/** 走り終えたあとの、公式記録。 */
+export interface RaceResult {
+  /** 完走タイム(秒)。 */
+  finishSec: number;
+  /**
+   * ネット（計測開始から）かグロス（号砲から）か。
+   * 大会によってどちらを出すかが違うので、分かる時だけ入れる。
+   */
+  timing?: 'net' | 'gross';
+  splits?: RaceSplit[];
+  /** 順位。全体と、年代別。 */
+  placing?: {
+    overall?: number;
+    finishers?: number;
+    category?: string;
+    categoryPlace?: number;
+  };
+  bib?: string;
+  weather?: RaceWeather;
+  /** いつ読み取ったか。 */
+  recordedAt: string;
+}
+
 export interface RaceEntry {
   id: string;
   /** 大会名。例: 「東京マラソン」 */
@@ -44,6 +86,20 @@ export interface RaceEntry {
   priority: RacePriority;
   /** 「気温が高い」「高低差がある」など、当日を左右する条件。 */
   note?: string;
+  /**
+   * 走り終えたあとの、公式記録。
+   *
+   * **出場予定と、走った結果は別物。** 予定だけを持っていた時は、
+   * 1年かけて仕上げた1本が、名前と日付だけで残っていた。
+   * 記録証から読み取ったものを、ここへ入れる。
+   */
+  result?: RaceResult;
+  /**
+   * 会場の位置。**当日の気象を取り直すためだけに持つ。**
+   * 分からない大会のほうが多いので、無いのが既定。
+   */
+  lat?: number;
+  lon?: number;
 }
 
 export interface RunnerGoal {

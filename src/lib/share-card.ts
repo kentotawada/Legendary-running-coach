@@ -13,6 +13,7 @@
 
 import type { RunComparison } from './compare';
 import { describeComparison, paceText } from './compare';
+import { formatPace } from './goals';
 
 /** 書き出す大きさ。縦長（4:5）は、SNSで画面をいちばん広く取れる形。 */
 export const CARD_WIDTH = 1080;
@@ -404,3 +405,80 @@ export async function renderShareCard(
 
 /** 保存した時のファイル名。**日付は入れない。** いつ走ったかも、本人の情報。 */
 export const SHARE_FILE_NAME = 'runcoach.png';
+
+/**
+ * 大会の記録を、1枚に。
+ *
+ * **ここは、人に見せたくなる唯一の画面。** 練習の比較は自分のためのものだが、
+ * 大会の記録は、走り終えた日に誰かへ見せたくなる。画面を撮ると名前も体重も
+ * 一緒に写るので、そのままでは貼れない。載せるのは**大会名・距離・タイムと、
+ * 通過の形**だけ。順位も、ゼッケンも、体のことも入れない。
+ */
+export function raceCardContent(input: {
+  name: string;
+  distanceLabel: string;
+  finishTime: string;
+  /** 1kmあたりの平均（"4:58/km"）。 */
+  avgPace?: string;
+  /** 区間ごとのペース（秒/km）。棒にする。 */
+  segmentPaces?: { label: string; paceSec: number }[];
+  /** 後半の落ち率(%)。 */
+  fadePercent?: number;
+  personalBest?: boolean;
+}): ShareCardContent {
+  const paces = input.segmentPaces ?? [];
+  const slowest = paces.reduce((max, row) => Math.max(max, row.paceSec), 0);
+  const fastest = paces.reduce((min, row) => Math.min(min, row.paceSec), Infinity);
+
+  /*
+    棒は**5本まで**。42kmを5kmごとに割ると9本になり、
+    1080px の幅では文字が読めなくなる。間引いて、形だけ残す。
+  */
+  const step = paces.length > 5 ? Math.ceil(paces.length / 5) : 1;
+  const picked = paces.filter((_, index) => index % step === 0).slice(0, 5);
+
+  /*
+    棒の長さ。**0 から引くと、差が見えない。**
+    フルの区間ペースは 4:54〜5:17 くらいの幅しかなく、0起点では
+    棒の長さが 7% しか違わない。全部同じ長さに見えて、
+    「どこで落ちたか」という、この棒のただ一つの用事が果たせない。
+    いちばん速い区間を土台に置いて、そこからの差を残りで伸ばす。
+  */
+  const BASE = 0.34;
+  const ratioOf = (paceSec: number) =>
+    slowest > fastest ? BASE + (1 - BASE) * ((paceSec - fastest) / (slowest - fastest)) : 1;
+
+  const bars: ShareBars | null =
+    picked.length >= 2 && slowest > 0
+      ? {
+          caption: '区間ごとのペース',
+          rows: picked.map((row) => ({
+            label: row.label,
+            text: `${formatPace(row.paceSec)}`,
+            // 遅いほど長い棒にする。垂れた区間が、ひと目で分かる。
+            ratio: ratioOf(row.paceSec),
+            fast: row.paceSec <= fastest * 1.01,
+          })),
+          summary:
+            input.fadePercent === undefined
+              ? ''
+              : input.fadePercent < 0
+                ? `後半のほうが ${Math.abs(input.fadePercent)}% 速い`
+                : `後半は前半より ${input.fadePercent}% 遅い`,
+        }
+      : null;
+
+  const stats: ShareStat[] = [{ label: 'タイム', value: input.finishTime }];
+  if (input.avgPace) stats.push({ label: '平均ペース', value: input.avgPace });
+
+  return {
+    label: input.distanceLabel,
+    title: input.name,
+    detail: input.personalBest ? '自己ベスト' : '',
+    bars,
+    stats,
+    brand: BRAND,
+    note: '公式記録',
+    highlight: input.personalBest === true,
+  };
+}

@@ -210,3 +210,93 @@ export async function fetchWeather(
     return null;
   }
 }
+
+/**
+ * その日その場所の、観測された気象。
+ *
+ * **大会の記録に、当日の条件を添えるためだけに使う。**
+ * 25度の日の3時間40分と、8度の日の3時間40分は、別の走りです。
+ * 翌年に同じ大会へ出る時、その1行があるかどうかで判断が変わります。
+ *
+ * 予報ではなく**観測**を読む（archive）。終わった大会の話なので、
+ * 予報を読んでも意味がありません。
+ *
+ * ## 取れないことのほうが多い
+ *
+ * 記録証に会場の緯度経度は載っていません。**位置が分からなければ、何も出しません。**
+ * 「たぶん東京だからこれくらい」で埋めた気温は、翌年の判断を狂わせます。
+ */
+export interface RaceDayWeather {
+  tempC: number;
+  humidity?: number;
+  windMs?: number;
+}
+
+interface OpenMeteoArchive {
+  temperature_2m_max?: (number | null)[];
+  temperature_2m_min?: (number | null)[];
+  relative_humidity_2m_mean?: (number | null)[];
+  wind_speed_10m_max?: (number | null)[];
+}
+
+/** その日の観測を1日ぶん読む。取れなければ null。 */
+export async function fetchRaceDayWeather(
+  lat: number,
+  lon: number,
+  date: string,
+  fetchImpl: typeof fetch = (...args) => fetch(...args),
+): Promise<RaceDayWeather | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const params = new URLSearchParams({
+    latitude: lat.toFixed(2),
+    longitude: lon.toFixed(2),
+    start_date: date,
+    end_date: date,
+    daily: 'temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,wind_speed_10m_max',
+    timezone: 'auto',
+  });
+  const url = `https://archive-api.open-meteo.com/v1/archive?${params.toString()}`;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const response = await fetchImpl(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+
+    const json = (await response.json()) as { daily?: OpenMeteoArchive };
+    const daily = json.daily ?? {};
+    const max = daily.temperature_2m_max?.[0];
+    const min = daily.temperature_2m_min?.[0];
+    if (typeof max !== 'number' || typeof min !== 'number') return null;
+
+    /*
+      最高でも最低でもなく、その中間を出す。
+      市民マラソンは朝に出て昼前に終わるので、**最高気温を当てると暑すぎる**。
+      ここで出すのは「どういう日だったか」の目安で、その1点に意味を持たせない。
+    */
+    const tempC = Math.round(((max + min) / 2) * 10) / 10;
+    if (tempC < -40 || tempC > 55) return null;
+
+    const humidityRaw = daily.relative_humidity_2m_mean?.[0];
+    const windRaw = daily.wind_speed_10m_max?.[0];
+
+    return {
+      tempC,
+      humidity:
+        typeof humidityRaw === 'number' && humidityRaw >= 0 && humidityRaw <= 100
+          ? Math.round(humidityRaw)
+          : undefined,
+      // km/h で返ってくるので m/s に直す。
+      windMs:
+        typeof windRaw === 'number' && windRaw >= 0 && windRaw < 300
+          ? Math.round((windRaw / 3.6) * 10) / 10
+          : undefined,
+    };
+  } catch {
+    // 気象が取れなくても、記録は残る。**ここで止めない。**
+    return null;
+  }
+}

@@ -1,12 +1,14 @@
 'use client';
 
-import type { RunnerProfile } from '@/lib/types';
+import type { RaceEntry, RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
 import Outlook from './Outlook';
 import FitnessCard from './FitnessCard';
 import { readFitness } from '@/lib/fitness';
 import DigestCard from './DigestCard';
+import MedalRack from './MedalRack';
+import { finishedRaces } from '@/lib/race-result';
 import { weeklyDigest } from '@/lib/digest';
 import {
   fourWeekComparison,
@@ -29,6 +31,8 @@ interface Props {
   onClose: () => void;
   /** カレンダーの画面へ送る。 */
   onOpenCalendar?: () => void;
+  /** 走った大会の1本を開く。 */
+  onOpenRace?: (race: RaceEntry) => void;
 }
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
@@ -102,7 +106,13 @@ function paceDelta(recent: number, previous: number): string | null {
   return diff > 0 ? `${diff}秒/km 速くなった` : `${-diff}秒/km 遅くなった`;
 }
 
-export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose }: Props) {
+export default function ReviewSheet({
+  profile,
+  onImport,
+  onOpenCalendar,
+  onOpenRace,
+  onClose,
+}: Props) {
   const now = new Date();
   const summary = profile ? totals(profile, now) : null;
   const months = profile ? monthlyVolume(profile, 6, now) : [];
@@ -111,6 +121,8 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
   const comparison = profile ? fourWeekComparison(profile, now) : [];
   const pains = profile ? painHistory(profile, now) : [];
   const digest = profile ? weeklyDigest(profile, now) : null;
+  /** 記録まで入っている大会。入っていないものは、これまでどおり1行で出す。 */
+  const medals = finishedRaces(profile);
   const races = profile ? pastRaces(profile, now) : [];
   const shoes = profile?.shoes ?? [];
   const hasAnything = hasHistory(profile);
@@ -337,16 +349,27 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
             </Section>
           )}
 
-          {races.length > 0 && (
-            <Section title="走った大会">
-              <ul className="space-y-1.5">
-                {races.map((race) => (
-                  <li key={race.id} className="text-[13px] leading-relaxed">
-                    {describeRace(race, now)}
-                  </li>
-                ))}
-              </ul>
+          {/*
+            走った大会。**練習の積み上げとは、分けて並べる。**
+            練習は量と流れで見るものだが、大会は1本ずつが作品で、
+            10年前の1本を今でも見返す。月ごとの棒に混ぜると、そこで消える。
+          */}
+          {medals.length > 0 && onOpenRace ? (
+            <Section title="走った大会" note="記録証の写真を送れば、通過タイムまで入ります">
+              <MedalRack profile={profile} now={now} onOpen={onOpenRace} />
             </Section>
+          ) : (
+            races.length > 0 && (
+              <Section title="走った大会">
+                <ul className="space-y-1.5">
+                  {races.map((race) => (
+                    <li key={race.id} className="text-[13px] leading-relaxed">
+                      {describeRace(race, now)}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )
           )}
         </div>
       )}
