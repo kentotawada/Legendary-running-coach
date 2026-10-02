@@ -18,6 +18,7 @@ import { CONDITIONS, hasRunHistory, todayFatigue, todayPlan } from '@/lib/today'
 import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
 import { comebackPlan } from '@/lib/comeback';
+import { pacePlan } from '@/lib/pacing';
 import { coachDate } from '@/lib/day';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
@@ -101,6 +102,8 @@ export default function CoachApp() {
   const week = useMemo(() => (profile ? weekPlan(profile) : null), [profile]);
   /** 走れない時の段取り。走れる日は null になる。 */
   const comeback = useMemo(() => (profile ? comebackPlan(profile) : null), [profile]);
+  /** 大会が2週間以内の時だけ出る、当日のペース配分。 */
+  const pacing = useMemo(() => (profile ? pacePlan(profile) : null), [profile]);
 
   /**
    * 今日走ったのに、手応えがまだ入っていない記録。
@@ -627,6 +630,7 @@ export default function CoachApp() {
           plan={today}
           week={week}
           comeback={comeback}
+          pacing={pacing}
           askLocation={ready && started && !profile?.location && Boolean(today?.running)}
           onAllowLocation={(lat, lon) => void refreshWeather(lat, lon)}
           onClose={() => setTodayOpen(false)}

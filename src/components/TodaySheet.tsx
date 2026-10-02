@@ -9,6 +9,8 @@ import Sheet from './Sheet';
 import WeekStrip from './WeekStrip';
 import ComebackPanel from './ComebackPanel';
 import WeatherAsk from './WeatherAsk';
+import PacePlanPanel from './PacePlanPanel';
+import type { PacePlan } from '@/lib/pacing';
 
 /**
  * 今日やることの中身。
@@ -24,6 +26,7 @@ export default function TodaySheet({
   plan,
   week,
   comeback,
+  pacing,
   askLocation,
   onAllowLocation,
   onClose,
@@ -34,6 +37,8 @@ export default function TodaySheet({
   week?: WeekPlan | null;
   /** 走れない時の段取り。走れる日は null。 */
   comeback?: ComebackPlan | null;
+  /** 大会が近い時の、当日のペース配分。 */
+  pacing?: PacePlan | null;
   /** まだ場所を聞いていないか。聞いてよい時だけ true。 */
   askLocation?: boolean;
   onAllowLocation?: (lat: number, lon: number) => void;
@@ -152,6 +157,12 @@ export default function TodaySheet({
         痛い人が見たいのは「今週どう組むか」ではなく「で、どうすればいいのか」。
       */}
       {comeback && <ComebackPanel plan={comeback} />}
+
+      {/*
+        **大会が近い人には、週の並びより先にこれ。**
+        2週間前から出すのは、当日に初めて見ても練習で試せないため。
+      */}
+      {pacing && !comeback && <PacePlanPanel plan={pacing} />}
 
       {askLocation && onAllowLocation && <WeatherAsk onAllow={onAllowLocation} />}
 
