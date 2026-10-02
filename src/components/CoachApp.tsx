@@ -11,16 +11,19 @@ import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
 import TodayBand from './TodayBand';
 import TodaySheet from './TodaySheet';
+import QuickLogSheet from './QuickLogSheet';
 import FeltRow from './FeltRow';
 import ConditionRow from './ConditionRow';
 import InstallBanner from './InstallBanner';
 import { CONDITIONS, hasRunHistory, todayFatigue, todayPlan } from '@/lib/today';
 import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
+import type { SessionKindId } from '@/lib/quicklog';
 import { comebackPlan } from '@/lib/comeback';
 import { pacePlan } from '@/lib/pacing';
 import { shoeForToday } from '@/lib/rotation';
 import { coachDate } from '@/lib/day';
+import { clearLastSeen } from '@/lib/last-seen';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
 import RunFormSheet from './RunFormSheet';
@@ -81,6 +84,9 @@ export default function CoachApp() {
     syncStrava,
     refreshWeather,
     importFiles,
+    logRun,
+    logging,
+    stale,
     disconnectStrava,
     syncing,
     syncMessage,
@@ -93,6 +99,11 @@ export default function CoachApp() {
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [todayOpen, setTodayOpen] = useState(false);
+  /**
+   * 走ったことを手で入れる画面。
+   * **毎日いちばんよく使う操作**なので、ここだけは1タップで開けるようにする。
+   */
+  const [logOpen, setLogOpen] = useState(false);
 
   /**
    * 今日やること。**モデルには毎朝考えさせない。**
@@ -113,6 +124,19 @@ export default function CoachApp() {
         : null,
     [profile, today, pacing],
   );
+
+  /**
+   * 今日の予定の距離と種類。**手で入れる画面の初期値にする。**
+   * たいてい予定どおりに走るので、押す回数がいちばん少なくなる。
+   */
+  const plannedKm = week?.days[0]?.km;
+  const plannedKind = useMemo<SessionKindId | undefined>(() => {
+    if (!today?.running) return undefined;
+    if (today.intensity === 'hard') return 'point';
+    // ロングは距離で見る。強度の札では、ロングとイージーが同じ札になる。
+    if ((plannedKm ?? 0) >= 18) return 'long';
+    return 'jog';
+  }, [today, plannedKm]);
 
   /**
    * 今日走ったのに、手応えがまだ入っていない記録。
@@ -167,11 +191,17 @@ export default function CoachApp() {
    * 4本並んだ時には、肝心の返事が画面の外にある。
    * 急ぐもの（記録が消える・今日の手応え）を先に、急がないものは別の日に回す。
    */
-  const showKeepRecords = ready && Boolean(build?.authAvailable) && !auth.isAuthenticated;
+  /*
+    **控えを出している間は、どの案内も出さない。**
+    押した先がどれもサーバーに届かない。届かない口を並べるくらいなら、
+    今日やることだけが出ている画面のほうが、よほど役に立つ。
+  */
+  const live = ready && !stale;
+  const showKeepRecords = live && Boolean(build?.authAvailable) && !auth.isAuthenticated;
   const showConnect =
-    ready && Boolean(build?.stravaAvailable) && !profile?.connections?.strava && !showKeepRecords;
+    live && Boolean(build?.stravaAvailable) && !profile?.connections?.strava && !showKeepRecords;
   const showInstall =
-    ready &&
+    live &&
     (profile?.activities.length ?? 0) > 0 &&
     !unrated &&
     !showKeepRecords &&
@@ -380,13 +410,23 @@ export default function CoachApp() {
         ここが無いあいだ、すでに時計を持っている人がこのアプリを開く理由は
         「相談したい用事がある日」だけだった。用事は毎日は起きない。
       */}
-      {ready && today && <TodayBand plan={today} onOpen={() => setTodayOpen(true)} />}
+      {(ready || stale) && today && (
+        <TodayBand
+          plan={today}
+          onOpen={() => setTodayOpen(true)}
+          /*
+            控えを出している間は、記録を入れる口を出さない。
+            **押しても送れない口は、無いほうがいい。**
+          */
+          onLog={stale ? undefined : () => setLogOpen(true)}
+        />
+      )}
 
       {/*
         今朝の体の感じ。**時計に絶対できないこと。**
         走ったあとの日は出さない（もう終わっているので、変えようがない）。
       */}
-      {ready && started && today && !unrated && today.running && (
+      {ready && !stale && started && today && !unrated && today.running && (
         <ConditionRow
           picked={condition}
           onPick={(id) =>
@@ -400,14 +440,14 @@ export default function CoachApp() {
       {/*
         走った直後にだけ出す1行。**押すだけで、時計が取れないものが残る。**
       */}
-      {ready && unrated && (
+      {ready && !stale && unrated && (
         <FeltRow
           activity={unrated}
           onPick={(effort) => void updateProfile({ felt: { activityId: unrated.id, effort } })}
         />
       )}
 
-      {daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
+      {!stale && daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
 
       {/*
         **ホーム画面に追加していない人には、通知が1通も届かない**（iOS は追加が条件）。
@@ -443,7 +483,13 @@ export default function CoachApp() {
       )}
 
       <main className="scroll-area flex-1 space-y-6 overflow-y-auto px-4 py-5">
-        {!ready && <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>}
+        {/*
+          **出せるものが何も無い時だけ、待たせる文を出す。**
+          控えから帯が出ている時は、画面はもう用を成している。
+        */}
+        {!ready && !stale && (
+          <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>
+        )}
 
         {/*
           コーチのほうから言う一言を、**開いた時点の位置**に差し込む。
@@ -549,6 +595,7 @@ export default function CoachApp() {
           onSend={(text, images) => void send(text, images)}
           onError={reportError}
           onOpenIdeas={() => setIdeasOpen(true)}
+          onQuickLog={() => setLogOpen(true)}
           onImportFiles={(files) => void importFiles(files)}
           apiRef={composerRef}
           disabled={busy || !ready}
@@ -648,6 +695,23 @@ export default function CoachApp() {
         />
       )}
 
+      {/*
+        走ったことを入れる画面。**モデルを呼ばない道。**
+        今日の予定を先に入れておく。たいていその通りに走るので、
+        押す回数がいちばん少なくなる。
+      */}
+      {logOpen && (
+        <QuickLogSheet
+          profile={profile}
+          plannedKm={plannedKm}
+          plannedKind={plannedKind}
+          saving={logging}
+          onSave={logRun}
+          onAsk={(message) => void send(message)}
+          onClose={() => setLogOpen(false)}
+        />
+      )}
+
       {dailyOpen && daily && (
         <DailySheet
           daily={daily}
@@ -688,7 +752,11 @@ export default function CoachApp() {
           auth={auth}
           onClose={() => setAuthOpen(false)}
           onBack={cameFromCarte ? () => closeChild(() => setAuthOpen(false)) : undefined}
-          onSignedOut={() => window.location.reload()}
+          onSignedOut={() => {
+            // **別の人の記録が、次に開いた時に出てこないようにする。**
+            clearLastSeen();
+            window.location.reload();
+          }}
         />
       )}
 

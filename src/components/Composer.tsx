@@ -27,6 +27,8 @@ interface Props {
   onError: (message: string) => void;
   /** 何を聞けばいいか分からない時の相談例。 */
   onOpenIdeas?: () => void;
+  /** 走ったことを手で入れる画面を開く。**モデルを呼ばない道。** */
+  onQuickLog?: () => void;
   /** 時計から書き出した記録ファイル（FIT / TCX / GPX / zip）を取り込む。 */
   onImportFiles?: (files: File[]) => void;
   apiRef?: { current: ComposerApi | null };
@@ -43,6 +45,7 @@ export default function Composer({
   onSend,
   onError,
   onOpenIdeas,
+  onQuickLog,
   onImportFiles,
   apiRef,
   disabled = false,
@@ -419,7 +422,36 @@ export default function Composer({
           {menuOpen && (
             <div className="absolute bottom-[54px] left-0 z-20 w-[248px] overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
               {/*
-                **画像を、いちばん上に置く。**
+                **手で入れる道を、いちばん上に置く。**
+
+                ここは「記録をどうやって入れるのか」を探しに来る場所。
+                画像もファイルも、持っている人にしか通れない道で、
+                どちらも持っていない人の道が、これまでチャットしか無かった。
+                打つ手間に加えて1往復ぶんの費用がかかる道が既定だったことになる。
+              */}
+              {onQuickLog && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onQuickLog();
+                  }}
+                  className="flex w-full items-start gap-2.5 px-4 py-3 text-left active:bg-sunken"
+                >
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4 19h16" />
+                    <path d="M7 19v-6M12 19V8M17 19v-9" />
+                  </svg>
+                  <span className="min-w-0">
+                    <span className="block text-[14px]">走ったことを入れる</span>
+                    <span className="block text-[11px] leading-snug text-muted">
+                      距離と時間だけ、数タップで
+                    </span>
+                  </span>
+                </button>
+              )}
+              {/*
+                **画像を、その次に置く。**
 
                 以前は時計の記録ファイルを先頭にしていた。入る情報がいちばん多い
                 道だからだが、それは**時計を持っている人にとっての話**だった。

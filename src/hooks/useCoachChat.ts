@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMessage, RunnerProfile } from '@/lib/types';
+import { toWorkout, type SessionKindId } from '@/lib/quicklog';
+import { clearLastSeen, readLastSeen, saveLastSeen } from '@/lib/last-seen';
+import type { ActivityLog, ChatMessage, RunnerProfile } from '@/lib/types';
 import type { BuildInfo } from '@/lib/build-info';
 import { dailyStatus, type DailyStatus } from '@/lib/daily';
 import { coachDate } from '@/lib/day';
@@ -129,6 +131,24 @@ export interface CoachChat {
   syncStrava: (quiet?: boolean) => Promise<void>;
   /** 時計から書き出したファイル（GPX / TCX）を取り込む。 */
   importFiles: (files: File[]) => Promise<void>;
+  /**
+   * 走ったことを、距離と時間だけで入れる。
+   * **モデルを呼ばない。** 1往復ぶんの費用がかからない。
+   * 入った記録を返すので、呼んだ側がその場で過去と比べられる。
+   */
+  logRun: (input: {
+    date: string;
+    km: number;
+    seconds?: number;
+    kind?: SessionKindId;
+  }) => Promise<{ profile: RunnerProfile; activity: ActivityLog | null; message?: string }>;
+  /** 手で入れている最中か。 */
+  logging: boolean;
+  /**
+   * いま見えているカルテが、前回の控えか。
+   * **true の間は、サーバーに届いていない。** 送る操作は出さない。
+   */
+  stale: boolean;
   /** 連携を解除する。取り込んだ記録は消さない。 */
   disconnectStrava: () => Promise<void>;
   syncing: boolean;
@@ -171,6 +191,16 @@ export function useCoachChat(): CoachChat {
   const [profile, setProfile] = useState<RunnerProfile | null>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  /** 走ったことを手で入れている最中か。 */
+  const [logging, setLogging] = useState(false);
+  /**
+   * いま出しているカルテが、前回の控えか。
+   *
+   * **通信を待たずに帯を出すため。** これまでは `/api/chat` の返事が来るまで
+   * 画面に「コーチを呼んでいます…」しか無く、電波の弱い場所で開いた人には
+   * それが画面の全部だった。帯に今日やることを置いた意味が消えていた。
+   */
+  const [stale, setStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
@@ -588,6 +618,66 @@ export function useCoachChat(): CoachChat {
     }
   }, []);
 
+  /**
+   * 走ったことを、手で入れる。
+   *
+   * **ここはモデルを通らない。** チャットで「10km走りました」と言う道では
+   * 1往復 ¥4.32 かかっていた。記録を入れるだけで相談のぶんの予算が減るのは、
+   * どう考えても順番が逆。入口を分けて、0円で入るようにする。
+   *
+   * 取り込みの入口（/api/import）をそのまま使う。
+   * **作法を1つに保つ**ほうが、後から入口が増えても壊れない。
+   */
+  const logRun = useCallback<CoachChat['logRun']>(async (input) => {
+    const workout = toWorkout(input);
+    if (!workout) throw new Error('距離を入れてください。');
+
+    setLogging(true);
+    try {
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workouts: [workout] }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { profile?: RunnerProfile; imported?: number; skipped?: number; error?: string }
+        | null;
+
+      if (!response.ok || !data?.profile) {
+        throw new Error(data?.error ?? '保存できませんでした。通信を確かめてください。');
+      }
+
+      setProfile(data.profile);
+
+      /*
+        入ったばかりの記録を見つけて返す。
+        **同じ練習が既にあった時は、入らない**（取り込みの重複判定が弾く）。
+        その場合も、同じ日の同じ距離の記録を返しておけば、比較は出せる。
+      */
+      const activity =
+        [...data.profile.activities]
+          .reverse()
+          .find(
+            (item) =>
+              item.date.slice(0, 10) === input.date &&
+              item.type === workout.type &&
+              Math.abs((item.distanceKm ?? 0) - input.km) < 0.5,
+          ) ?? null;
+
+      return {
+        profile: data.profile,
+        activity,
+        // 弾かれた時だけ、そう言う。**黙って「入りました」と出さない。**
+        message:
+          (data.imported ?? 0) === 0 && (data.skipped ?? 0) > 0
+            ? 'この練習は、すでに入っていました。'
+            : undefined,
+      };
+    } finally {
+      setLogging(false);
+    }
+  }, []);
+
   const disconnectStrava = useCallback(async () => {
     setSyncing(true);
     try {
@@ -608,6 +698,21 @@ export function useCoachChat(): CoachChat {
     started.current = true;
 
     (async () => {
+      /*
+        **通信より先に、前回の控えを出す。**
+        ここが無いと、返事が来るまで画面には「コーチを呼んでいます…」しか無い。
+        走る前に地下鉄で開いた人には、それが画面の全部になる。
+        サーバーの返事が来たら、そのまま置き換わる。
+
+        読むのは効果の中ではなく、この中。**最初の描画は、サーバーと揃えておく。**
+        描画の前に localStorage を読むと、サーバーが出した画面と中身が食い違う。
+      */
+      const cached = readLastSeen();
+      if (cached) {
+        setProfile(cached);
+        setStale(true);
+      }
+
       try {
         const response = await fetch('/api/chat');
         if (!response.ok) {
@@ -638,6 +743,8 @@ export function useCoachChat(): CoachChat {
           .then((d: { profile?: RunnerProfile }) => d.profile && setProfile(d.profile))
           .catch(() => undefined);
         setProfile(data.profile);
+        // 届いた。ここから先は控えではない。
+        setStale(false);
         // つないであるなら、開いた時点でもう取り込んでおく。
         // 走り終えて開いた時に、記録がすでに入っている状態をつくるため。
         if (data.profile?.connections?.strava) void syncStrava(true);
@@ -688,6 +795,17 @@ export function useCoachChat(): CoachChat {
         if (letModelOpen) await turn('');
       } catch (e) {
         setReady(true);
+        /*
+          **控えがある時は、予定を消さない。**
+          通信できないことと、今日やることが分からないことは、別の話。
+          圏外で開いた人がいちばん見たいのは、エラーではなく今日の一行。
+        */
+        if (cached) {
+          setError(
+            'いまコーチにつながりません。前回のカルテで、今日やることだけ出しています。',
+          );
+          return;
+        }
         setError(
           e instanceof Error && e.message
             ? e.message
@@ -697,8 +815,22 @@ export function useCoachChat(): CoachChat {
     })();
   }, [turn, syncStrava, refreshWeather]);
 
+  /**
+   * サーバーから来たカルテを控える。
+   *
+   * **1か所にまとめる。** 更新の道は何本もある（取り込み・手入力・体調・
+   * コーチの関数呼び出し）ので、それぞれに書くと必ずどれか忘れる。
+   * 控えなのは `stale` が false の時だけ。控えを控え直しても意味が無い。
+   */
+  useEffect(() => {
+    if (!ready || stale || !profile) return;
+    saveLastSeen(profile);
+  }, [ready, stale, profile]);
+
   const reset = useCallback(async () => {
     await fetch('/api/profile', { method: 'DELETE' });
+    // **消したものが、次に開いた時に出てこないようにする。**
+    clearLastSeen();
     setMessages([]);
     setProfile(null);
     setStreamingText(null);
@@ -865,6 +997,9 @@ export function useCoachChat(): CoachChat {
     syncStrava,
     refreshWeather,
     importFiles,
+    logRun,
+    logging,
+    stale,
     disconnectStrava,
     syncing,
     syncMessage,
