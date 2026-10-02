@@ -40,7 +40,7 @@ const MAX_WORKOUTS = 300;
 const MAX_HR_BUCKETS = 220;
 
 const TYPES: ActivityType[] = ['run', 'walk', 'cross', 'strength', 'stretch', 'rest'];
-const SOURCES: WorkoutSource[] = ['health', 'file'];
+const SOURCES: WorkoutSource[] = ['health', 'file', 'self-report'];
 
 /** 上限は「あり得ない値」を弾くためのもの。正しい記録を落とさない幅に取る。 */
 const MAX_DISTANCE_M = 500_000;

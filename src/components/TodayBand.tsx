@@ -14,58 +14,93 @@ import { INTENSITY_LABEL } from '@/lib/today';
  * 帯にしているのは、**本文より上で、常に見えている**必要があるから。
  * 会話の中に置くと、送るたびに上へ流れて見えなくなる。
  */
-export default function TodayBand({ plan, onOpen }: { plan: TodayPlan; onOpen: () => void }) {
+export default function TodayBand({
+  plan,
+  onOpen,
+  onLog,
+}: {
+  plan: TodayPlan;
+  onOpen: () => void;
+  /**
+   * 走ったことを入れる。
+   *
+   * **毎日いちばんよく使う操作を、1タップの位置に置く。**
+   * これまで手で記録を入れる道はチャットしかなく、打つ手間に加えて
+   * 1往復ぶんの費用がかかっていた。記録を入れるだけで相談の予算が減る、
+   * というのは順番が逆。
+   */
+  onLog?: () => void;
+}) {
   // 走らない日は色を変える。**休む日を、失敗のように見せない。**
   const resting = !plan.running;
   /** まだ記録が無い人。強度の札を出しても、何の強度なのか指すものが無い。 */
   const starting = plan.source === 'start';
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="今日やることを開く"
+    <div
       className={[
-        'flex w-full items-center gap-3 border-b border-line px-4 py-2.5 text-left',
+        'flex w-full items-center gap-2.5 border-b border-line px-4 py-2.5',
         resting ? 'bg-sunken' : 'bg-accent-soft',
       ].join(' ')}
     >
-      {!starting && (
-        <span
-          className={[
-            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-            resting ? 'bg-bg text-muted' : 'bg-accent text-[var(--accent-fg)]',
-          ].join(' ')}
-        >
-          {INTENSITY_LABEL[plan.intensity]}
-        </span>
-      )}
-
-      <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[14px] font-bold ${resting ? '' : 'text-accent'}`}>
-          {plan.headline}
-        </span>
-        {/*
-          **一行目だけで意味が通るようにする。** 補足は出るなら出す、で足りる。
-          帯は2行までしか使わない。これ以上は本文を押し下げる。
-        */}
-        <span className="block truncate text-[11px] leading-snug text-muted">
-          {plan.summary ?? plan.why}
-        </span>
-      </span>
-
-      <svg
-        viewBox="0 0 24 24"
-        className="h-4 w-4 shrink-0 text-muted"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="今日やることを開く"
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
-        <path d="m9 18 6-6-6-6" />
-      </svg>
-    </button>
+        {!starting && (
+          <span
+            className={[
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+              resting ? 'bg-bg text-muted' : 'bg-accent text-[var(--accent-fg)]',
+            ].join(' ')}
+          >
+            {INTENSITY_LABEL[plan.intensity]}
+          </span>
+        )}
+
+        <span className="min-w-0 flex-1">
+          <span className={`block truncate text-[14px] font-bold ${resting ? '' : 'text-accent'}`}>
+            {plan.headline}
+          </span>
+          {/*
+            **一行目だけで意味が通るようにする。** 補足は出るなら出す、で足りる。
+            帯は2行までしか使わない。これ以上は本文を押し下げる。
+          */}
+          <span className="block truncate text-[11px] leading-snug text-muted">
+            {plan.summary ?? plan.why}
+          </span>
+        </span>
+
+        <svg
+          viewBox="0 0 24 24"
+          className="h-4 w-4 shrink-0 text-muted"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+
+      {/*
+        **帯を増やさずに、ここへ置く。**
+        案内の帯が並ぶと、その数だけ会話が画面の外へ出る。
+        同じ行の中なら、1本も増えない。
+      */}
+      {onLog && (
+        <button
+          type="button"
+          onClick={onLog}
+          className="shrink-0 rounded-full border border-line bg-bg px-3 py-1.5 text-[12px] font-bold active:scale-[0.97]"
+        >
+          走った
+        </button>
+      )}
+    </div>
   );
 }

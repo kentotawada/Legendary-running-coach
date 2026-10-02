@@ -23,8 +23,12 @@ import {
 } from './profile';
 import { attributeRun } from './shoes';
 
-/** どこから来た練習か。 */
-export type WorkoutSource = 'health' | 'file';
+/**
+ * どこから来た練習か。
+ * `self-report` は、本人が距離と時間を手で入れたもの。
+ * **モデルを通していない**ので、1往復ぶんの費用がかからない。
+ */
+export type WorkoutSource = 'health' | 'file' | 'self-report';
 
 /**
  * 走っている途中の1点。
