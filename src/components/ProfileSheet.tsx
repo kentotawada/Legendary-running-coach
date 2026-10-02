@@ -11,6 +11,7 @@ import { addressFor, findCharacter } from '@/lib/characters';
 import { resolveTargetPace, vdotForTarget } from '@/lib/goals';
 import { RACE_PRIORITY_LABEL, daysUntil, racesOf, targetRace } from '@/lib/races';
 import { FONT_SIZES, type FontSizeId } from '@/lib/display';
+import { THEMES, type ThemeId } from '@/lib/theme';
 import { heartRateZones } from '@/lib/zones';
 import { SHOE_ROLE_LABEL, shoeStatuses } from '@/lib/shoes';
 import {
@@ -33,6 +34,9 @@ interface Props {
   saving: boolean;
   /** 文字の大きさ。この端末だけの設定なので、カルテの保存とは別に即時反映する。 */
   fontSize: FontSizeId;
+  /** 画面の明暗。文字の大きさと同じ扱い。 */
+  theme: ThemeId;
+  onChangeTheme: (id: ThemeId) => void;
   onChangeFontSize: (id: FontSizeId) => void;
   onSave: (edit: ProfileEdit) => void;
   onClose: () => void;
@@ -191,6 +195,8 @@ export default function ProfileSheet({
   authAvailable,
   onOpenAuth,
   fontSize,
+  theme,
+  onChangeTheme,
   onChangeFontSize,
   onClose,
   onSave,
@@ -718,6 +724,33 @@ export default function ProfileSheet({
                   </div>
                   <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
                     {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
+                  </span>
+                </Row>
+                {/*
+                  画面の明暗。**端末の設定に従うだけでは足りない。**
+                  端末を暗くしていても、走る前の屋外では明るいほうが読めることがある。
+                */}
+                <Row label="画面の明るさ">
+                  <div className="flex gap-1.5">
+                    {THEMES.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onChangeTheme(item.id)}
+                        aria-pressed={theme === item.id}
+                        className={[
+                          'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
+                          theme === item.id
+                            ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                            : 'border-line text-fg',
+                        ].join(' ')}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
+                    {THEMES.find((item) => item.id === theme)?.hint}（この端末にのみ保存されます）
                   </span>
                 </Row>
             </Group>

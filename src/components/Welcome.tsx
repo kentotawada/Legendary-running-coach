@@ -27,6 +27,8 @@ export default function Welcome({
   onPick: (characterId: string, displayName: string) => void;
   busy?: boolean;
 }) {
+  /** 選んでいる途中か、決まった人が出ている画面か。 */
+  const [stage, setStage] = useState<'pick' | 'hello'>('pick');
   const [picked, setPicked] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -44,6 +46,37 @@ export default function Welcome({
     if (!picked) return;
     afterPick.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [picked]);
+
+  /**
+   * 決まった人が、中央に出てくる画面。
+   *
+   * **選んだ実感を、ここで作る。** 一覧の小さな顔のまま次の画面へ行くと、
+   * 誰にお願いしたのかが自分の中で確定しない。
+   * 中央で大きくなって、もうひとこと言う。それだけで「決めた」になる。
+   */
+  if (stage === 'hello' && chosen) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6">
+        <div className="animate-step-in flex flex-col items-center text-center">
+          <CoachAvatar character={chosen} size={132} />
+          <p className="mt-5 text-[20px] font-bold">{chosen.name}</p>
+          <p className="mt-1 text-[12px] text-muted">{chosen.title}</p>
+          <p className="mt-6 max-w-[20rem] text-[16px] font-bold leading-relaxed text-accent">
+            {chosen.welcome.chosen}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onPick(chosen.id, name.trim())}
+          className="mt-10 w-full max-w-[20rem] rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
+        >
+          {busy ? '呼んでいます…' : 'はじめる'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
@@ -115,7 +148,14 @@ export default function Welcome({
                           active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
                         ].join(' ')}
                       >
-                        <CoachAvatar character={character} size={64} />
+                        {/*
+                          押された顔が、ひと跳ねする。
+                          **選んだ手ごたえが要る。** 枠の色が変わるだけでは、
+                          押せたのかどうかが分かりにくい。
+                        */}
+                        <span key={active ? 'on' : 'off'} className={active ? 'animate-pop' : ''}>
+                          <CoachAvatar character={character} size={64} />
+                        </span>
                         <span className={`text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
                           {character.name}
                         </span>
@@ -138,7 +178,19 @@ export default function Welcome({
               難易度をもう一度出す。選ぶと afterPick で下まで送るので、
               その時には上の段の見出しが画面の外にある。
             */}
-            <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
+            {/*
+              **顔を押した瞬間に、その人の声が返ってくること。**
+              名前と肩書きだけでは、誰を選ぶかは決められない。
+              ひとこと聞ければ、合う合わないはすぐ分かる。
+            */}
+            <p
+              key={chosen.id}
+              className="animate-step-in mt-4 rounded-[16px] rounded-tl-[4px] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-accent"
+            >
+              {chosen.welcome.picked}
+            </p>
+
+            <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
               <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px]">
                 <span
                   className="rounded-full px-2 py-0.5 font-bold"
@@ -192,7 +244,7 @@ export default function Welcome({
         <button
           type="button"
           disabled={!picked || !agreed || busy}
-          onClick={() => picked && onPick(picked, name.trim())}
+          onClick={() => picked && setStage('hello')}
           className="w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy

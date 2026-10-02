@@ -15,9 +15,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 const MARK = path.join(here, 'brand', 'mark.png');
 
-/** アプリの色。globals.css の --accent / --bg-elevated と同じ値。 */
-const PLATE = { r: 0xcf, g: 0x4d, b: 0x18 };
-const INK = { r: 0xfd, g: 0xfc, b: 0xfa };
+/**
+ * アプリの色。globals.css の --bg-elevated / --accent と同じ値。
+ *
+ * **白を下地にして、絵を橙で置く。**
+ * 以前は逆（橙の板に白い絵）だった。ホーム画面にずらりとアイコンが並ぶ中では、
+ * 面で色を主張するより、白く抜けているほうが見つけやすい。
+ */
+const PLATE = { r: 0xfd, g: 0xfc, b: 0xfa };
+const INK = { r: 0xcf, g: 0x4d, b: 0x18 };
 
 /**
  * 絵が板に占める割合。
