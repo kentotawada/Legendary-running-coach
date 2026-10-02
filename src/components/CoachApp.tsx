@@ -9,6 +9,9 @@ import ProfileSheet from './ProfileSheet';
 import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
+import TodayBand from './TodayBand';
+import TodaySheet from './TodaySheet';
+import { todayPlan } from '@/lib/today';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
 import RunFormSheet from './RunFormSheet';
@@ -79,6 +82,14 @@ export default function CoachApp() {
   const [coachSheetOpen, setCoachSheetOpen] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [todayOpen, setTodayOpen] = useState(false);
+
+  /**
+   * 今日やること。**モデルには毎朝考えさせない。**
+   * 1通ぶんの費用がかかる上に、同じ日に開くたび違うことを言い出す。
+   * 決まったことが毎回変わるのは、コーチではない。
+   */
+  const today = useMemo(() => (profile ? todayPlan(profile) : null), [profile]);
   const [formOpen, setFormOpen] = useState(false);
   const [runFormOpen, setRunFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -277,6 +288,13 @@ export default function CoachApp() {
           カルテ
         </button>
       </header>
+
+      {/*
+        **開いた瞬間に、今日やることが見えている状態をつくる。**
+        ここが無いあいだ、すでに時計を持っている人がこのアプリを開く理由は
+        「相談したい用事がある日」だけだった。用事は毎日は起きない。
+      */}
+      {ready && today && <TodayBand plan={today} onOpen={() => setTodayOpen(true)} />}
 
       {daily && <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />}
 
@@ -492,6 +510,14 @@ export default function CoachApp() {
                   })
               : undefined
           }
+        />
+      )}
+
+      {todayOpen && today && (
+        <TodaySheet
+          plan={today}
+          onClose={() => setTodayOpen(false)}
+          onAsk={(message) => void send(message)}
         />
       )}
 
