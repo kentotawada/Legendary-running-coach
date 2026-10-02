@@ -17,11 +17,13 @@ import { connectionDoctrine } from './sync';
 import { runDoctrine } from './analysis';
 import { comparisonDoctrine } from './compare';
 import { workloadDoctrine } from './workload';
-import { todayDoctrine } from './today';
+import { todayDoctrine, todayPlan } from './today';
 import { weekDoctrine } from './week';
 import { comebackDoctrine } from './comeback';
 import { pacingDoctrine } from './pacing';
 import { fitnessDoctrine } from './fitness';
+import { digestDoctrine } from './digest';
+import { rotationDoctrine } from './rotation';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
@@ -294,6 +296,8 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     comebackDoctrine(profile, now),
     pacingDoctrine(profile, now),
     fitnessDoctrine(profile, now),
+    digestDoctrine(profile, now),
+    rotationDoctrine(profile, todayPlan(profile, now).intensity),
     // その場の強制指示は、いちばん最後。直前に読んだものがいちばん効く。
     safety.directives.length > 0
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')

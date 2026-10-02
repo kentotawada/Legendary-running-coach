@@ -11,6 +11,7 @@ import ComebackPanel from './ComebackPanel';
 import WeatherAsk from './WeatherAsk';
 import PacePlanPanel from './PacePlanPanel';
 import type { PacePlan } from '@/lib/pacing';
+import type { ShoePick } from '@/lib/rotation';
 
 /**
  * 今日やることの中身。
@@ -27,6 +28,7 @@ export default function TodaySheet({
   week,
   comeback,
   pacing,
+  shoe,
   askLocation,
   onAllowLocation,
   onClose,
@@ -39,6 +41,8 @@ export default function TodaySheet({
   comeback?: ComebackPlan | null;
   /** 大会が近い時の、当日のペース配分。 */
   pacing?: PacePlan | null;
+  /** 今日はどの靴で走るか。 */
+  shoe?: ShoePick | null;
   /** まだ場所を聞いていないか。聞いてよい時だけ true。 */
   askLocation?: boolean;
   onAllowLocation?: (lat: number, lon: number) => void;
@@ -104,6 +108,28 @@ export default function TodaySheet({
           {plan.headline}
         </p>
       </div>
+
+      {/*
+        今日の1足。**累計距離は出すのに、今日の判断まで運ぶアプリが無い。**
+      */}
+      {shoe?.shoe && (
+        <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
+          <p className="text-[11px] text-muted">今日の1足</p>
+          <p className="mt-0.5 text-[14px] font-bold">
+            {shoe.shoe.name}
+            <span className="ml-1.5 text-[11px] font-normal text-muted tabular-nums">
+              {Math.round(shoe.shoe.km)}km
+            </span>
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">{shoe.why}</p>
+          {shoe.caution && (
+            <p className="mt-1.5 text-[12px] leading-relaxed text-warn">{shoe.caution}</p>
+          )}
+          {shoe.suggestSecond && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{shoe.suggestSecond}</p>
+          )}
+        </div>
+      )}
 
       {/*
         今日の空気。**走る前に言うから意味がある。**
