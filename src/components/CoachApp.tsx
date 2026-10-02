@@ -17,6 +17,7 @@ import InstallBanner from './InstallBanner';
 import { CONDITIONS, todayFatigue, todayPlan } from '@/lib/today';
 import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
+import { comebackPlan } from '@/lib/comeback';
 import { coachDate } from '@/lib/day';
 import DailySheet from './DailySheet';
 import FormCoachSheet from './FormCoachSheet';
@@ -97,6 +98,8 @@ export default function CoachApp() {
    */
   const today = useMemo(() => (profile ? todayPlan(profile) : null), [profile]);
   const week = useMemo(() => (profile ? weekPlan(profile) : null), [profile]);
+  /** 走れない時の段取り。走れる日は null になる。 */
+  const comeback = useMemo(() => (profile ? comebackPlan(profile) : null), [profile]);
 
   /**
    * 今日走ったのに、手応えがまだ入っていない記録。
@@ -613,6 +616,7 @@ export default function CoachApp() {
         <TodaySheet
           plan={today}
           week={week}
+          comeback={comeback}
           onClose={() => setTodayOpen(false)}
           onAsk={(message) => void send(message)}
         />

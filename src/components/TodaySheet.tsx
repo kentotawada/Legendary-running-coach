@@ -4,8 +4,10 @@ import type { TodayPlan } from '@/lib/today';
 import { INTENSITY_LABEL } from '@/lib/today';
 import { useState } from 'react';
 import type { WeekDay, WeekPlan } from '@/lib/week';
+import type { ComebackPlan } from '@/lib/comeback';
 import Sheet from './Sheet';
 import WeekStrip from './WeekStrip';
+import ComebackPanel from './ComebackPanel';
 
 /**
  * 今日やることの中身。
@@ -20,12 +22,15 @@ import WeekStrip from './WeekStrip';
 export default function TodaySheet({
   plan,
   week,
+  comeback,
   onClose,
   onAsk,
 }: {
   plan: TodayPlan;
   /** この先7日。今日だけでは、計画の置き場所にならない。 */
   week?: WeekPlan | null;
+  /** 走れない時の段取り。走れる日は null。 */
+  comeback?: ComebackPlan | null;
   onClose: () => void;
   /** コーチに相談へ回す。押した言葉がそのまま送られる。 */
   onAsk: (message: string) => void;
@@ -113,7 +118,13 @@ export default function TodaySheet({
         </ol>
       </div>
 
-      {week && (
+      {/*
+        **走れない日は、週の並びより先にこれ。**
+        痛い人が見たいのは「今週どう組むか」ではなく「で、どうすればいいのか」。
+      */}
+      {comeback && <ComebackPanel plan={comeback} />}
+
+      {week && !comeback && (
         <div className="mt-6 border-t border-line pt-4">
           <WeekStrip
             plan={week}

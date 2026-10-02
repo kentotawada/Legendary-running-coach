@@ -19,6 +19,7 @@ import { comparisonDoctrine } from './compare';
 import { workloadDoctrine } from './workload';
 import { todayDoctrine } from './today';
 import { weekDoctrine } from './week';
+import { comebackDoctrine } from './comeback';
 import { isStravaConfigured } from './strava';
 import { figureDoctrine } from './figures';
 import { INTERNAL_PREFIX } from './markers';
@@ -288,6 +289,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     checklistDoctrine(profile, now),
     todayDoctrine(profile, now),
     weekDoctrine(profile, now),
+    comebackDoctrine(profile, now),
     // その場の強制指示は、いちばん最後。直前に読んだものがいちばん効く。
     safety.directives.length > 0
       ? ['# 安全のための強制指示', ...safety.directives.map((d) => `- ${d}`)].join('\n')
