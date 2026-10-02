@@ -4,6 +4,8 @@ import type { RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
 import Outlook from './Outlook';
+import FitnessCard from './FitnessCard';
+import { readFitness } from '@/lib/fitness';
 import {
   fourWeekComparison,
   hasHistory,
@@ -162,6 +164,16 @@ export default function ReviewSheet({ profile, onImport, onOpenCalendar, onClose
             過去のグラフは「やってきたこと」を見せるが、続ける理由にはなりにくい。
             「この調子なら目標に届く」が見えた時に、人は明日も走る。
           */}
+          {/*
+            **先のことより先に、「いま届くのか」。**
+            走る人がいちばん知りたいのはここで、どのアプリも答えていない。
+          */}
+          {profile && (
+            <Section title="目標に届くか">
+              <FitnessCard read={readFitness(profile, now)} />
+            </Section>
+          )}
+
           <Section title="このまま続けたら">
             <Outlook profile={profile} />
           </Section>
