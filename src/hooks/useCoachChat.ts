@@ -44,6 +44,8 @@ type ProfileUpdate = Partial<ProfileEdit> & {
   consent?: true;
   /** 走った直後の手応え。押すだけで入る（FeltRow）。 */
   felt?: { activityId: string; effort: number };
+  /** 今朝の体の感じ。押すだけで入る（ConditionRow）。 */
+  condition?: { fatigue: number };
 };
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
 import {

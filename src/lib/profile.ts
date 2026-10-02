@@ -189,6 +189,35 @@ export function addConditionLog(
 }
 
 /**
+ * その日の体の感じを、1日1件だけ残す。
+ *
+ * **押し直せるようにする。** 朝に「重い」と押した人が、
+ * 動いてみて違ったと思った時に、増やすしかないのでは記録が歪む。
+ * 同じ日のものは置き換える。
+ */
+export function setDayCondition(
+  profile: RunnerProfile,
+  date: string,
+  log: Omit<ConditionLog, 'id' | 'createdAt' | 'date'>,
+  now: Date = new Date(),
+): RunnerProfile {
+  const others = profile.conditionLogs.filter((entry) => entry.date !== date);
+  const existing = profile.conditionLogs.find((entry) => entry.date === date);
+  const entry: ConditionLog = {
+    ...existing,
+    ...log,
+    date,
+    id: existing?.id ?? newId(),
+    createdAt: existing?.createdAt ?? now.toISOString(),
+  };
+  return {
+    ...profile,
+    conditionLogs: tail([...others, entry].sort((a, b) => a.date.localeCompare(b.date)), MAX_CONDITION_LOGS),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/**
  * 記録は**走った日の順**に並べる。
  *
  * 追加した順に並べると、古いファイルを後から取り込んだ瞬間に順番が崩れる。

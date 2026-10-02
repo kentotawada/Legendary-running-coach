@@ -10,10 +10,12 @@ import {
   replaceInjuryHistory,
   replaceRaces,
   setActivityEffort,
+  setDayCondition,
   setGoal,
   setPhase,
 } from '@/lib/profile';
 import { parseDuration } from '@/lib/goals';
+import { coachDate } from '@/lib/day';
 import { isHeightInRange } from '@/lib/composition';
 import type { CoachingPhase, GoalKind, RacePriority, RunnerGoal } from '@/lib/types';
 
@@ -69,6 +71,8 @@ interface ProfilePatchBody {
   displayName?: unknown;
   /** 走った直後の手応え。{ activityId, effort: 1〜10 }。 */
   felt?: unknown;
+  /** 今朝の体の感じ。{ fatigue: 0〜5 }。 */
+  condition?: unknown;
 }
 
 function text(value: unknown): string | undefined {
@@ -239,6 +243,17 @@ export async function PATCH(request: NextRequest) {
     const effort = count(felt.effort);
     if (activityId && effort !== undefined) {
       profile = setActivityEffort(profile, activityId, effort, now);
+    }
+  }
+
+  /*
+    今朝の体の感じ。**押した瞬間に、今日やることが変わる。**
+    変わらなければ、ただのアンケートになって二度と押されない。
+  */
+  if (body.condition && typeof body.condition === 'object') {
+    const fatigue = count((body.condition as Record<string, unknown>).fatigue);
+    if (fatigue !== undefined && fatigue >= 0 && fatigue <= 5) {
+      profile = setDayCondition(profile, coachDate(now), { fatigue }, now);
     }
   }
 
