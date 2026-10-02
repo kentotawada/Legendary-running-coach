@@ -24,6 +24,7 @@ import { assessSafety } from './safety';
 import { coachDate } from './day';
 import { daysUntil, targetRace } from './races';
 import { workloadOf } from './workload';
+import { todayPlan } from './today';
 
 export type WeekKind = 'rest' | 'easy' | 'point' | 'long' | 'race';
 
@@ -39,6 +40,14 @@ export interface WeekDay {
   km?: number;
   /** その日にだけ添える一言。 */
   note?: string;
+  /**
+   * コーチと話して決めた日か。
+   *
+   * **自動で置いた日と、決めた日は、別物として扱う。**
+   * 決めた日を黙って組み替えると、「動かしておきました」と言われたものが
+   * 翌朝には元に戻っていることになる。
+   */
+  fromPlan?: boolean;
 }
 
 export interface WeekPlan {
@@ -176,6 +185,43 @@ export function weekPlan(profile: RunnerProfile, now: Date = new Date()): WeekPl
     days.push(makeDay(offset, shape[(offsetInShape + offset) % 7]));
   }
 
+  /*
+    **今日の枠は、帯に出ているものと必ず同じにする。**
+    帯が「脚を戻す日」で、並びの今日が「ポイント」だと、画面の中で
+    コーチが二人いることになる。今日の決め方（today.ts）が唯一の正。
+  */
+  const todays = todayPlan(profile, now);
+  days[0].kind = !todays.running
+    ? 'rest'
+    : todays.intensity === 'easy'
+      ? 'easy'
+      : todays.intensity === 'rest'
+        ? 'rest'
+        : 'point';
+  days[0].label = LABEL[days[0].kind];
+
+  /*
+    **コーチと話して決めた日を、先に置く。**
+    ここを見ないと、会話で「日曜は休みにしましょう」と決めた翌朝、
+    画面には元のロングが並んでいることになる。コーチが二人いるのと同じ。
+  */
+  const planned = new Map((profile.plans ?? []).map((plan) => [plan.date, plan]));
+  for (const day of days) {
+    const plan = planned.get(day.date);
+    if (!plan) continue;
+    day.kind =
+      plan.intensity === 'rest'
+        ? 'rest'
+        : plan.intensity === 'easy'
+          ? 'easy'
+          : /ロング|long|ＬＳＤ|LSD/i.test(plan.title)
+            ? 'long'
+            : 'point';
+    day.label = LABEL[day.kind];
+    day.note = plan.title;
+    day.fromPlan = true;
+  }
+
   // 大会が入っていれば、その日を中心に組み替える。
   const race = targetRace(profile, now);
   const left = race ? daysUntil(race.date, now) : undefined;
@@ -207,14 +253,31 @@ export function weekPlan(profile: RunnerProfile, now: Date = new Date()): WeekPl
   const easyShare = weekKm - longKm * longDays - pointKm * pointDays;
   const easyKm = easyDays > 0 ? easyShare / easyDays : 0;
 
-  let totalKm = 0;
   for (const day of days) {
     if (day.kind === 'long') day.km = Math.round(longKm);
     else if (day.kind === 'point') day.km = Math.round(pointKm);
     else if (day.kind === 'easy') day.km = Math.round(easyKm);
     if (day.km !== undefined && day.km < 1) day.km = undefined;
-    totalKm += day.km ?? 0;
   }
+
+  /*
+    **端数の積み上げで、土台を超えさせない。**
+    1日ずつ四捨五入すると、5日ぶんで2〜3kmふくらむ。
+    それは誰も決めていない増量で、毎週そのぶんずつ積み上がっていく。
+    いちばん長い日で、合計を目標ちょうどに戻す。
+  */
+  const target = Math.round(weekKm);
+  const sum = () => days.reduce((total, day) => total + (day.km ?? 0), 0);
+  const longest = days
+    .filter((day) => day.km !== undefined)
+    .sort((a, b) => (b.km ?? 0) - (a.km ?? 0))[0];
+  if (longest && target > 0) {
+    const gap = target - sum();
+    const next = (longest.km ?? 0) + gap;
+    if (next >= 1) longest.km = next;
+  }
+
+  const totalKm = sum();
 
   const note =
     base <= 0
@@ -239,11 +302,16 @@ export function weekDoctrine(profile: RunnerProfile, now: Date = new Date()): st
     ...plan.days.map(
       (day) =>
         `- ${day.date}（${day.weekday}）${day.isToday ? '【今日】' : ''} ${day.label}` +
-        `${day.km ? ` ${day.km}km` : ''}${day.note ? `（${day.note}）` : ''}`,
+        `${day.km ? ` ${day.km}km` : ''}${day.note ? `（${day.note}）` : ''}` +
+        `${day.fromPlan ? ' ★あなたが決めた日' : ''}`,
     ),
     `- 合計 ${plan.totalKm}km / 土台は1週あたり ${plan.baseKm}km`,
     '- **これは置き方の目安。** 相談されたら、その人の予定に合わせて動かしてよい。',
     '  ただし**週の合計は増やさない。** 動かすのは曜日と種類まで。',
+    '- **動かしたら、必ず `set_today_plan` に date を付けて残すこと。**',
+    '  残さないと、画面の並びは元のままになる。「動かしておきました」と言ったものが',
+    '  翌朝には戻っている、がいちばん信用を失う。',
+    '- ★の付いた日は、すでに話して決めた日。**勝手に組み替えないこと。**',
   ];
   return lines.join('\n');
 }
