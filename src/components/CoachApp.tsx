@@ -562,6 +562,11 @@ export default function CoachApp() {
               }}
               onRegenerate={message.id === lastCoachId ? () => void regenerate() : undefined}
               canEdit={message.id === lastUserId && !busy}
+              /*
+                操作のボタンは、読んだ直後の1通にだけ。
+                **全部に出すと、会話が伸びた分だけ画面が散らかる。**
+              */
+              latest={message.id === lastUserId || message.id === lastCoachId}
               onEdit={(text) => void editLast(text, message.imagePreviews ?? [])}
               onReuseImages={(previews) => composerRef.current?.attachAgain(previews)}
               onOpenImage={(index) => setLightbox({ images: message.imagePreviews ?? [], index })}
