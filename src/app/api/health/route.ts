@@ -1,4 +1,5 @@
 import { getBuildInfo } from '@/lib/build-info';
+import { checkVapidPair } from '@/lib/push';
 import { blockingSetup, pendingSetup, readyToShare } from '@/lib/setup';
 import { pricesFromEnv } from '@/lib/admin';
 import { createSupabaseAdminClient } from '@/lib/supabase';
@@ -68,6 +69,16 @@ export async function GET() {
         それを「まだ足りない」と読むか、並んでいるのを見慣れて
         本当に足りないものを見落とすか、どちらかになっていた。
       */
+      /*
+        通知の公開鍵と秘密鍵が、対になっているか。
+
+        **ここは、設定がそろって見えるのに動かない唯一の場所。**
+        web-push は長さと文字種しか見ないので、別々に作った鍵を
+        組み合わせても素通しする。pushAvailable は true のまま、
+        通知だけが1通も届かず、エラーもどこにも出ない。
+        鍵を作り直して片方だけ貼り替えると、必ずこうなる。
+      */
+      vapidPair: checkVapidPair(),
       readyToShare: readyToShare(),
       /** 無くては困るのに足りないもの。**空でなければ人に配れない。** */
       blocking: blockingSetup(),
