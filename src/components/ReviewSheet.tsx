@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import type { RaceEntry, RunnerProfile } from '@/lib/types';
 import Sheet from './Sheet';
 import { BarChart, LineChart } from './ReviewCharts';
@@ -38,6 +40,25 @@ interface Props {
   /** コーチに相談へ回す。押した言葉がそのまま送られる。 */
   onAsk?: (message: string) => void;
 }
+
+/**
+ * ふりかえりの中身を、3つに分ける。
+ *
+ * **節が10個、縦に4画面分あった。** 全部が同じ重さで並んでいるので、
+ * 見たいものを探すのに毎回スクロールすることになる。
+ * 機能を減らすのではなく、**いま見たいものだけが目に入る**ようにする。
+ *
+ *  - いま … 今の自分について分かること。開いていちばん知りたいところ
+ *  - 流れ … 時間をかけてどう変わってきたか
+ *  - ためたもの … 積み上がった記録。消えないもの
+ */
+const TABS = [
+  { id: 'now', label: 'いま' },
+  { id: 'trend', label: '流れ' },
+  { id: 'kept', label: 'ためたもの' },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -133,6 +154,8 @@ export default function ReviewSheet({
    * **1本ずつ見ていても、絶対に気づけないもの。** 並べて初めて偏りが見える。
    */
   const mix = paceMix(profile, now);
+  /** いま開いている組。**開いた時は「いま」から。** いちばん知りたいところ。 */
+  const [tab, setTab] = useState<TabId>('now');
   const races = profile ? pastRaces(profile, now) : [];
   const shoes = profile?.shoes ?? [];
   const hasAnything = hasHistory(profile);
@@ -169,6 +192,31 @@ export default function ReviewSheet({
         <div className="pb-2">
           <WorkloadNote profile={profile} />
 
+          {/*
+            **節を10個、同じ重さで縦に並べていた（4画面ぶん）。**
+            見たいものを探すのに毎回スクロールすることになっていた。
+            機能は減らさず、いま見たいものだけが目に入るようにする。
+          */}
+          <div className="sticky top-0 z-10 -mx-1 mb-3 flex gap-1.5 bg-elevated px-1 pb-2 pt-1">
+            {TABS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                aria-pressed={tab === item.id}
+                className={[
+                  'flex-1 rounded-full py-2 text-[13px] font-bold transition active:scale-[0.98]',
+                  tab === item.id
+                    ? 'bg-accent text-[var(--accent-fg)]'
+                    : 'border border-line text-muted',
+                ].join(' ')}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'kept' && (
           <Section
             title="ここまで積み上げたもの"
             note={summary?.since ? `${summary.since} から ${summary.days}日` : undefined}
@@ -183,6 +231,7 @@ export default function ReviewSheet({
               この積み上げは、ほかのどこにも持っていけません。
             </p>
           </Section>
+          )}
 
           {/*
             **先のことを、積み上げのすぐ下に置く。**
@@ -194,14 +243,14 @@ export default function ReviewSheet({
             今週どれだけ走ったかより、どう走っているかのほうが、
             この先1年の結果を大きく動かす。
           */}
-          {mix && (
+          {tab === 'now' && mix && (
             <Section title="練習の強弱" note="1本ずつ見ていても気づけない、並べて初めて見えるもの">
               <MixCard mix={mix} onAsk={onAsk} />
             </Section>
           )}
 
           {/* 今週の自分。月ごとの棒は積み上げを見せるが、今週には答えていない。 */}
-          {digest && (
+          {tab === 'now' && digest && (
             <Section title="この7日">
               <DigestCard digest={digest} />
             </Section>
@@ -211,15 +260,17 @@ export default function ReviewSheet({
             **先のことより先に、「いま届くのか」。**
             走る人がいちばん知りたいのはここで、どのアプリも答えていない。
           */}
-          {profile && (
+          {tab === 'now' && profile && (
             <Section title="目標に届くか">
               <FitnessCard read={readFitness(profile, now)} />
             </Section>
           )}
 
-          <Section title="このまま続けたら">
-            <Outlook profile={profile} />
-          </Section>
+          {tab === 'trend' && (
+            <Section title="このまま続けたら">
+              <Outlook profile={profile} />
+            </Section>
+          )}
 
           {/*
             カレンダーは、頭の列から開く独立した画面にした。
@@ -227,7 +278,7 @@ export default function ReviewSheet({
             どちらが本体なのか分からなくなるし、縦に長くなって他が埋もれる。
             ここには入口だけを置く。
           */}
-          {onOpenCalendar && (
+          {tab === 'trend' && onOpenCalendar && (
             <button
               type="button"
               onClick={onOpenCalendar}
@@ -252,6 +303,7 @@ export default function ReviewSheet({
             </button>
           )}
 
+          {tab === 'trend' && (
           <Section title="月ごとの走行距離">
             <BarChart
               bars={months.map((month) => ({ label: month.label, value: month.km }))}
@@ -267,7 +319,9 @@ export default function ReviewSheet({
               ))}
             </ul>
           </Section>
+          )}
 
+          {tab === 'trend' && (
           <Section title="直近4週と、その前の4週" note="週ごとの揺れに埋もれて、自分では見えないところ">
             <ul className="space-y-2">
               {comparison.map((row) => {
@@ -299,8 +353,9 @@ export default function ReviewSheet({
               })}
             </ul>
           </Section>
+          )}
 
-          {pace.length >= 2 && (
+          {tab === 'trend' && pace.length >= 2 && (
             <Section
               title="ペースの移り変わり"
               note="5km以上の練習を、週ごとにならした平均"
@@ -319,7 +374,7 @@ export default function ReviewSheet({
             </Section>
           )}
 
-          {weight.length >= 2 && (
+          {tab === 'trend' && weight.length >= 2 && (
             <Section title="体重" note="増えた減ったではなく、線が続いていることが値打ちです">
               <LineChart
                 points={weight.map((point) => ({
@@ -333,7 +388,7 @@ export default function ReviewSheet({
             </Section>
           )}
 
-          {shoes.length > 0 && (
+          {tab === 'kept' && shoes.length > 0 && (
             <Section title="履いてきた靴">
               <ul className="space-y-1.5">
                 {shoes.map((shoe) => (
@@ -350,7 +405,7 @@ export default function ReviewSheet({
             </Section>
           )}
 
-          {pains.length > 0 && (
+          {tab === 'kept' && pains.length > 0 && (
             <Section title="痛みの記録" note="止めた判断も、積み上げのうちです">
               <ul className="space-y-1.5">
                 {pains.map((pain) => (
@@ -375,7 +430,7 @@ export default function ReviewSheet({
             練習は量と流れで見るものだが、大会は1本ずつが作品で、
             10年前の1本を今でも見返す。月ごとの棒に混ぜると、そこで消える。
           */}
-          {medals.length > 0 && onOpenRace ? (
+          {tab === 'kept' && (medals.length > 0 && onOpenRace ? (
             <Section title="走った大会" note="記録証の写真を送れば、通過タイムまで入ります">
               <MedalRack profile={profile} now={now} onOpen={onOpenRace} />
             </Section>
@@ -391,7 +446,7 @@ export default function ReviewSheet({
                 </ul>
               </Section>
             )
-          )}
+          ))}
         </div>
       )}
     </Sheet>
