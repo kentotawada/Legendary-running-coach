@@ -8,6 +8,7 @@ import type { ComebackPlan } from '@/lib/comeback';
 import Sheet from './Sheet';
 import WeekStrip from './WeekStrip';
 import ComebackPanel from './ComebackPanel';
+import WeatherAsk from './WeatherAsk';
 
 /**
  * 今日やることの中身。
@@ -23,6 +24,8 @@ export default function TodaySheet({
   plan,
   week,
   comeback,
+  askLocation,
+  onAllowLocation,
   onClose,
   onAsk,
 }: {
@@ -31,6 +34,9 @@ export default function TodaySheet({
   week?: WeekPlan | null;
   /** 走れない時の段取り。走れる日は null。 */
   comeback?: ComebackPlan | null;
+  /** まだ場所を聞いていないか。聞いてよい時だけ true。 */
+  askLocation?: boolean;
+  onAllowLocation?: (lat: number, lon: number) => void;
   onClose: () => void;
   /** コーチに相談へ回す。押した言葉がそのまま送られる。 */
   onAsk: (message: string) => void;
@@ -91,6 +97,26 @@ export default function TodaySheet({
         </p>
       </div>
 
+      {/*
+        今日の空気。**走る前に言うから意味がある。**
+        見出しのすぐ下に置く。手順の中に埋めると、出かける前に読まれない。
+      */}
+      {plan.weather && (
+        <div
+          className={[
+            'mt-3 rounded-[14px] px-3.5 py-3',
+            plan.weather.level === 'severe' ? 'bg-warn-soft' : 'bg-sunken',
+          ].join(' ')}
+        >
+          <p
+            className={`text-[13px] font-bold ${plan.weather.level === 'severe' ? 'text-warn' : ''}`}
+          >
+            {plan.weather.headline}
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">{plan.weather.detail}</p>
+        </div>
+      )}
+
       {/* **理由を、手順より先に置く。** 納得していない手順は、途中で止まる。 */}
       <div className="mt-4">
         <p className="text-[13px] font-bold">なぜ今日これなのか</p>
@@ -123,6 +149,8 @@ export default function TodaySheet({
         痛い人が見たいのは「今週どう組むか」ではなく「で、どうすればいいのか」。
       */}
       {comeback && <ComebackPanel plan={comeback} />}
+
+      {askLocation && onAllowLocation && <WeatherAsk onAllow={onAllowLocation} />}
 
       {week && !comeback && (
         <div className="mt-6 border-t border-line pt-4">

@@ -108,6 +108,8 @@ export interface CoachChat {
   reset: () => Promise<void>;
   /** カルテ画面からの設定変更。変える項目だけを渡してよい。 */
   updateProfile: (edit: ProfileUpdate) => Promise<void>;
+  /** 場所を預かって、いまの空気を取り直す。 */
+  refreshWeather: (lat?: number, lon?: number) => Promise<void>;
   /** 規約に同意する。まだ一度も話していなければ、そのままコーチが話し始める。 */
   giveConsent: () => Promise<void>;
   savingProfile: boolean;
@@ -408,6 +410,27 @@ export function useCoachChat(): CoachChat {
    * quiet は画面を開いた時の自動実行。**新しい練習が無ければ何も言わない。**
    * 「新着0件」を毎回知らせるのは、ただの雑音になる。
    */
+  /**
+   * 場所を預かって、いまの空気を取り直す。
+   *
+   * **サーバー側でやる。** 画面だけが暑さを知っていて、コーチが知らないと、
+   * 「15秒落として」と書いてあるのに目標ペースを勧める、が起きる。
+   */
+  const refreshWeather = useCallback(async (lat?: number, lon?: number) => {
+    try {
+      const response = await fetch('/api/weather', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lat !== undefined && lon !== undefined ? { lat, lon } : {}),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { profile?: RunnerProfile };
+      if (data.profile) setProfile(data.profile);
+    } catch {
+      // 天気が取れなくても、今日やることは出る。**ここで止めない。**
+    }
+  }, []);
+
   const syncStrava = useCallback(async (quiet = false) => {
     setSyncing(true);
     try {
@@ -618,6 +641,8 @@ export function useCoachChat(): CoachChat {
         // つないであるなら、開いた時点でもう取り込んでおく。
         // 走り終えて開いた時に、記録がすでに入っている状態をつくるため。
         if (data.profile?.connections?.strava) void syncStrava(true);
+        // 場所を預けている人は、開いた時に空気を取り直す。古い読みでは意味がない。
+        if (data.profile?.location) void refreshWeather();
         setBuild(data.build ?? null);
         setGear(data.gear ?? []);
         if (data.auth) setAuth(data.auth);
@@ -670,7 +695,7 @@ export function useCoachChat(): CoachChat {
         );
       }
     })();
-  }, [turn, syncStrava]);
+  }, [turn, syncStrava, refreshWeather]);
 
   const reset = useCallback(async () => {
     await fetch('/api/profile', { method: 'DELETE' });
@@ -838,6 +863,7 @@ export function useCoachChat(): CoachChat {
     gear,
     auth,
     syncStrava,
+    refreshWeather,
     importFiles,
     disconnectStrava,
     syncing,

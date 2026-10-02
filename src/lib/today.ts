@@ -30,6 +30,7 @@ import { coachDate } from './day';
 import { daysUntil, targetRace } from './races';
 import { marathonPaceSeconds, resolveTargetPace, trainingPaces } from './goals';
 import { workloadOf } from './workload';
+import { heatAdvice, isFresh } from './weather';
 
 /** 何を根拠に決めたか。画面には出さないが、言葉を選ぶのに使う。 */
 export type TodaySource = 'pain' | 'race' | 'plan' | 'workload' | 'rhythm';
@@ -63,6 +64,8 @@ export interface TodayStep {
 
 export interface TodayPlan {
   intensity: PlanIntensity;
+  /** 今日の空気についての一言。取れていない日は無い。 */
+  weather?: { headline: string; detail: string; level: string };
   source: TodaySource;
   /** 帯に出る一行。**ここだけで意味が通ること。** */
   headline: string;
@@ -174,7 +177,8 @@ function fromPlan(plan: CoachPlan): TodayPlan {
  */
 export function todayPlan(profile: RunnerProfile, now: Date = new Date()): TodayPlan {
   const base = basePlan(profile, now);
-  return adjustForCondition(base, todayFatigue(profile, now), usualEasyKm(profile, now) || 6);
+  const adjusted = adjustForCondition(base, todayFatigue(profile, now), usualEasyKm(profile, now) || 6);
+  return withWeather(adjusted, profile, now);
 }
 
 /** 記録だけから決める、調整前の予定。 */
@@ -423,6 +427,31 @@ function adjustForCondition(plan: TodayPlan, fatigue: number | undefined, usual:
   return plan;
 }
 
+/**
+ * 今日の空気を足す。
+ *
+ * **走る前に言うから意味がある。** 走り終えてから「暑さの影響がありました」は、
+ * 記録の説明にはなっても、判断には1秒も役に立たない。
+ *
+ * ペースそのものは書き換えない。**暑さは「落とす」話で、「やめる」話ではない。**
+ * 書き換えると、涼しくなった時に元が何だったか分からなくなる。
+ */
+function withWeather(plan: TodayPlan, profile: RunnerProfile, now: Date): TodayPlan {
+  if (!plan.running) return plan;
+  if (!isFresh(profile.weather, now)) return plan;
+
+  const marathonPace = marathonPaceSeconds(profile.goal?.targetTime);
+  const easyPaceSec = marathonPace ? Math.round(marathonPace * 1.3) : undefined;
+  const advice = heatAdvice(profile.weather!, easyPaceSec);
+  if (advice.level === 'none') return plan;
+
+  return {
+    ...plan,
+    weather: { headline: advice.headline, detail: advice.detail, level: advice.level },
+    steps: [...plan.steps, { label: advice.headline, detail: advice.detail }],
+  };
+}
+
 /** 帯に出す短い札。 */
 export const INTENSITY_LABEL: Record<PlanIntensity, string> = {
   rest: '休養',
@@ -452,6 +481,15 @@ export function todayDoctrine(profile: RunnerProfile, now: Date = new Date()): s
     lines.push(
       '- これは記録から自動で出したもの。**会話で決め直してよい。**',
       '  決め直したら `set_today_plan` で残すこと。残さないと、次に開いた時に元へ戻る。',
+    );
+  }
+
+  if (plan.weather) {
+    lines.push(
+      `- 今日の空気: ${plan.weather.headline}`,
+      `  ${plan.weather.detail}`,
+      '- **目標ペースをそのまま勧めないこと。** 暑い日に同じ速度を求めるのは、ただきつくするだけ。',
+      '  落としたぶんを「遅くなった」と数えないよう、ひとこと添えること。',
     );
   }
 

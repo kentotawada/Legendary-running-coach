@@ -438,3 +438,70 @@ describe('今朝の体の感じ', () => {
     expect(todayDoctrine(regular(), NOW)).toContain('催促はしない');
   });
 });
+
+
+/**
+ * 今日の空気。
+ *
+ * **走る前に言うから意味がある。**
+ * 走り終えてから「暑さの影響がありました」は、記録の説明にはなっても、
+ * 走る前の判断には1秒も役に立たない。
+ */
+describe('暑い日の今日やること', () => {
+  const hot = (extra: Partial<RunnerProfile> = {}) => ({
+    ...regular({ goal: { kind: 'time', summary: 'サブ3.5', targetTime: '3:30:00' }, ...extra }),
+    weather: { temperatureC: 29, humidity: 80, at: NOW.toISOString() },
+  });
+
+  it('落とす目安を、手順と見出しに足す', () => {
+    const plan = todayPlan(hot(), NOW);
+
+    expect(plan.weather).toBeTruthy();
+    expect(plan.weather!.headline).toContain('29度');
+    expect(plan.steps.some((step) => step.label.includes('29度'))).toBe(true);
+  });
+
+  /** **ペースそのものは書き換えない。** 暑さは「落とす」話で、「やめる」話ではない。 */
+  it('元のペースは書き換えない', () => {
+    const plain = todayPlan(regular({ goal: { kind: 'time', summary: 'サブ3.5', targetTime: '3:30:00' } }), NOW);
+    const warm = todayPlan(hot(), NOW);
+
+    expect(warm.summary).toBe(plain.summary);
+    expect(warm.headline).toBe(plain.headline);
+  });
+
+  it('涼しい日は、何も足さない', () => {
+    const cool = {
+      ...regular(),
+      weather: { temperatureC: 12, humidity: 50, at: NOW.toISOString() },
+    };
+    expect(todayPlan(cool, NOW).weather).toBeUndefined();
+  });
+
+  /** 古い読みで「今日は暑い」と言わない。 */
+  it('3時間より古い読みは使わない', () => {
+    const stale = {
+      ...regular(),
+      weather: {
+        temperatureC: 29,
+        humidity: 80,
+        at: new Date(NOW.getTime() - 5 * 3_600_000).toISOString(),
+      },
+    };
+    expect(todayPlan(stale, NOW).weather).toBeUndefined();
+  });
+
+  it('走らない日には出さない', () => {
+    const resting = {
+      ...hot(),
+      activities: [...regular().activities, run(0, 10)],
+    };
+    expect(todayPlan(resting, NOW).weather).toBeUndefined();
+  });
+
+  it('暑さのことを、コーチにも伝える', () => {
+    const text = todayDoctrine(hot(), NOW);
+    expect(text).toContain('今日の空気');
+    expect(text).toContain('目標ペースをそのまま勧めないこと');
+  });
+});

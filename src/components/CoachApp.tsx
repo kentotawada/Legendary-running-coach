@@ -77,6 +77,7 @@ export default function CoachApp() {
     gear,
     auth,
     syncStrava,
+    refreshWeather,
     importFiles,
     disconnectStrava,
     syncing,
@@ -617,6 +618,8 @@ export default function CoachApp() {
           plan={today}
           week={week}
           comeback={comeback}
+          askLocation={ready && !profile?.location && Boolean(today?.running)}
+          onAllowLocation={(lat, lon) => void refreshWeather(lat, lon)}
           onClose={() => setTodayOpen(false)}
           onAsk={(message) => void send(message)}
         />
