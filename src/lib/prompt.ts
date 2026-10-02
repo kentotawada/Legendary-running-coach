@@ -17,6 +17,7 @@ import { connectionDoctrine } from './sync';
 import { runDoctrine } from './analysis';
 import { comparisonDoctrine } from './compare';
 import { medalDoctrine } from './race-result';
+import { mixDoctrine } from './mix';
 import { workloadDoctrine } from './workload';
 import { todayDoctrine, todayPlan } from './today';
 import { weekDoctrine } from './week';
@@ -294,6 +295,7 @@ export function buildSystemInstruction(profile: RunnerProfile, now: Date = new D
     latestRunDetail(profile),
     comparisonDoctrine(profile, now),
     medalDoctrine(profile, now),
+    mixDoctrine(profile, now),
     workloadDoctrine(profile, now),
     dailyDoctrine(profile, now),
     connectionDoctrine(profile, isStravaConfigured(), now),
