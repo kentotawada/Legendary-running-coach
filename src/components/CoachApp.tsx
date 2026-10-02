@@ -12,8 +12,10 @@ import DailyStrip from './DailyStrip';
 import TodayBand from './TodayBand';
 import TodaySheet from './TodaySheet';
 import FeltRow from './FeltRow';
+import ConditionRow from './ConditionRow';
 import InstallBanner from './InstallBanner';
-import { todayPlan } from '@/lib/today';
+import { CONDITIONS, todayFatigue, todayPlan } from '@/lib/today';
+import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
 import { coachDate } from '@/lib/day';
 import DailySheet from './DailySheet';
@@ -115,6 +117,21 @@ export default function CoachApp() {
             activity.effort === undefined &&
             (activity.distanceKm ?? 0) > 0,
         ) ?? null
+    );
+  }, [profile]);
+
+  /**
+   * 今朝の体の感じ。押していれば、その段階を返す。
+   * **押した瞬間に上の帯が変わる**ので、押したことが目に見える。
+   */
+  const condition = useMemo<ConditionId | null>(() => {
+    if (!profile) return null;
+    const fatigue = todayFatigue(profile);
+    if (fatigue === undefined) return null;
+    return (
+      CONDITIONS.reduce((best, item) =>
+        Math.abs(item.fatigue - fatigue) < Math.abs(best.fatigue - fatigue) ? item : best,
+      ).id ?? null
     );
   }, [profile]);
 
@@ -339,6 +356,21 @@ export default function CoachApp() {
         「相談したい用事がある日」だけだった。用事は毎日は起きない。
       */}
       {ready && today && <TodayBand plan={today} onOpen={() => setTodayOpen(true)} />}
+
+      {/*
+        今朝の体の感じ。**時計に絶対できないこと。**
+        走ったあとの日は出さない（もう終わっているので、変えようがない）。
+      */}
+      {ready && today && !unrated && today.running && (
+        <ConditionRow
+          picked={condition}
+          onPick={(id) =>
+            void updateProfile({
+              condition: { fatigue: CONDITIONS.find((item) => item.id === id)?.fatigue ?? 2 },
+            })
+          }
+        />
+      )}
 
       {/*
         走った直後にだけ出す1行。**押すだけで、時計が取れないものが残る。**

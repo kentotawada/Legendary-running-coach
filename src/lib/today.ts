@@ -34,6 +34,28 @@ import { workloadOf } from './workload';
 /** 何を根拠に決めたか。画面には出さないが、言葉を選ぶのに使う。 */
 export type TodaySource = 'pain' | 'race' | 'plan' | 'workload' | 'rhythm';
 
+/**
+ * 朝に押してもらう、今日の体の感じ。
+ *
+ * **これが、時計に絶対できないこと。**
+ * 心拍変動をいくら測っても、昨日の残業も、子どもの夜泣きも、出張の移動も分からない。
+ * ここまで記録からしか決めていなかったので、寝不足の日も同じものが出ていた。
+ *
+ * 聞くのは**1つだけ**。朝に3つも4つも押させたら、誰も押さなくなる。
+ */
+export const CONDITIONS = [
+  { id: 'light', label: '軽い', fatigue: 1 },
+  { id: 'normal', label: 'ふつう', fatigue: 2 },
+  { id: 'heavy', label: '重い', fatigue: 4 },
+] as const;
+
+export type ConditionId = (typeof CONDITIONS)[number]['id'];
+
+/** 「重い」と言える境目。 */
+const HEAVY_FATIGUE = 4;
+/** 「軽い」と言える境目。 */
+const LIGHT_FATIGUE = 1;
+
 export interface TodayStep {
   label: string;
   detail?: string;
@@ -56,6 +78,12 @@ export interface TodayPlan {
 }
 
 const DAY_MS = 86_400_000;
+
+/** 今日、本人が押した体の感じ。押していなければ undefined。 */
+export function todayFatigue(profile: RunnerProfile, now: Date = new Date()): number | undefined {
+  const today = coachDate(now);
+  return profile.conditionLogs?.find((log) => log.date === today)?.fatigue;
+}
 
 function dayIndex(date: string): number | undefined {
   const at = Date.parse(`${(date ?? '').slice(0, 10)}T00:00:00Z`);
@@ -145,6 +173,12 @@ function fromPlan(plan: CoachPlan): TodayPlan {
  * いちばん最初に開いた人にいちばん多く出ることになる。
  */
 export function todayPlan(profile: RunnerProfile, now: Date = new Date()): TodayPlan {
+  const base = basePlan(profile, now);
+  return adjustForCondition(base, todayFatigue(profile, now), usualEasyKm(profile, now) || 6);
+}
+
+/** 記録だけから決める、調整前の予定。 */
+function basePlan(profile: RunnerProfile, now: Date): TodayPlan {
   const today = coachDate(now);
 
   // 1. 痛み。**ここは何があっても動かさない。**
@@ -338,6 +372,57 @@ export function todayPlan(profile: RunnerProfile, now: Date = new Date()): Today
   };
 }
 
+/**
+ * 朝に押した体の感じで、組み直す。
+ *
+ * **押した意味が無いと、二度と押されない。**
+ * 「重い」と言ったのに同じメニューが出ていたら、それはただのアンケートになる。
+ *
+ * ただし**痛みとレースには触らない。** あちらは体の感じより強い理由で決まっている。
+ */
+function adjustForCondition(plan: TodayPlan, fatigue: number | undefined, usual: number): TodayPlan {
+  if (fatigue === undefined) return plan;
+  if (plan.source === 'pain' || plan.source === 'race') return plan;
+  if (!plan.running) return plan;
+
+  if (fatigue >= HEAVY_FATIGUE) {
+    const shorter = Math.max(3, Math.round(usual * 0.5));
+    return {
+      ...plan,
+      intensity: 'easy',
+      headline: plan.intensity === 'easy' ? '今日は、短めに' : '今日は軽くします',
+      summary: `${shorter}km くらいまで`,
+      why:
+        '今朝、体が重いと押しています。' +
+        (plan.intensity === 'easy'
+          ? '重い日に距離を踏んでも、残るのは疲れだけです。短く切り上げて、明日につなげます。'
+          : 'そこに強い練習を乗せると、効果より先に疲れが積みます。今日は軽い日に替えます。') +
+        '（元の予定は「' + plan.headline + '」でした）',
+      steps: [
+        { label: 'ジョグ', detail: `${shorter}km。息が上がらない速さで` },
+        { label: '途中でやめてよい', detail: '走り出して変わらなければ、そこで切り上げる' },
+      ],
+      alternatives: [
+        { when: 'それでも重い時', what: '完全に休む。1日休んで遅くなることはありません' },
+        { when: '3日続けて重い時', what: '疲れではなく、別の理由があるかもしれません。相談してください' },
+      ],
+    };
+  }
+
+  if (fatigue <= LIGHT_FATIGUE && plan.intensity === 'easy' && plan.source !== 'workload') {
+    return {
+      ...plan,
+      why: `${plan.why}（今朝「体が軽い」と押しています。軽い日でも、イージーの日に距離は足しません。足すのは最後の流しだけです。）`,
+      steps: [
+        ...plan.steps,
+        { label: '流し', detail: '100m を4本。速く走る感覚だけ戻す。距離は増やさない' },
+      ],
+    };
+  }
+
+  return plan;
+}
+
 /** 帯に出す短い札。 */
 export const INTENSITY_LABEL: Record<PlanIntensity, string> = {
   rest: '休養',
@@ -368,6 +453,20 @@ export function todayDoctrine(profile: RunnerProfile, now: Date = new Date()): s
       '- これは記録から自動で出したもの。**会話で決め直してよい。**',
       '  決め直したら `set_today_plan` で残すこと。残さないと、次に開いた時に元へ戻る。',
     );
+  }
+
+  const fatigue = todayFatigue(profile, now);
+  if (fatigue !== undefined) {
+    lines.push(
+      fatigue >= HEAVY_FATIGUE
+        ? '- **本人は今朝「体が重い」と押している。** それを踏まえて組み直した予定が上のもの。'
+        : fatigue <= LIGHT_FATIGUE
+          ? '- 本人は今朝「体が軽い」と押している。**それでも距離は足さない。** 足すのは流しだけ。'
+          : '- 本人は今朝「ふつう」と押している。',
+      '  **押した意味が無いと、二度と押されない。** 触れる時は、押した内容に沿って話すこと。',
+    );
+  } else {
+    lines.push('- 今日の体の感じは、まだ押されていない。**催促はしない。** 聞くなら会話の流れで一度だけ。');
   }
 
   lines.push(

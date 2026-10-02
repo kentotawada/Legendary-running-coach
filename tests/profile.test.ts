@@ -4,6 +4,7 @@ import {
   applyProfileUpdate,
   removeExternalActivity,
   setActivityEffort,
+  setDayCondition,
   replaceInjuryHistory,
   setGoal,
   setPhase,
@@ -302,5 +303,34 @@ describe('手応えを残す', () => {
   it('あとから選び直せる', () => {
     const once = setActivityEffort(base(), 'a1', 3, NOW);
     expect(setActivityEffort(once, 'a1', 8, NOW).activities[0].effort).toBe(8);
+  });
+});
+
+
+/** その日の体の感じは、1日1件。押し直せること。 */
+describe('今日の体の感じ', () => {
+  const base = () => createDefaultProfile('u1', NOW.toISOString());
+
+  it('その日の分として残す', () => {
+    const after = setDayCondition(base(), '2026-09-24', { fatigue: 4 }, NOW);
+    expect(after.conditionLogs).toHaveLength(1);
+    expect(after.conditionLogs[0]).toMatchObject({ date: '2026-09-24', fatigue: 4 });
+  });
+
+  /** **押し直せるようにする。** 増やすしかないのでは、記録が歪む。 */
+  it('同じ日に押し直したら、置き換える', () => {
+    const once = setDayCondition(base(), '2026-09-24', { fatigue: 4 }, NOW);
+    const twice = setDayCondition(once, '2026-09-24', { fatigue: 1 }, NOW);
+
+    expect(twice.conditionLogs).toHaveLength(1);
+    expect(twice.conditionLogs[0].fatigue).toBe(1);
+    expect(twice.conditionLogs[0].id).toBe(once.conditionLogs[0].id);
+  });
+
+  it('別の日は、別の記録として残る', () => {
+    const first = setDayCondition(base(), '2026-09-23', { fatigue: 2 }, NOW);
+    const second = setDayCondition(first, '2026-09-24', { fatigue: 4 }, NOW);
+
+    expect(second.conditionLogs.map((log) => log.date)).toEqual(['2026-09-23', '2026-09-24']);
   });
 });

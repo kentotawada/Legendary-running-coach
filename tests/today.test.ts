@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { todayDoctrine, todayPlan } from '@/lib/today';
+import { CONDITIONS, todayDoctrine, todayFatigue, todayPlan } from '@/lib/today';
 import { createDefaultProfile } from '@/lib/types';
 import type { ActivityLog, RunnerProfile } from '@/lib/types';
 
@@ -340,5 +340,101 @@ describe('プロンプトに差し込む今日の予定', () => {
       ],
     });
     expect(todayDoctrine(profile, NOW)).toContain('あなたが会話の中で決めたもの');
+  });
+});
+
+
+/**
+ * 朝に押した、今日の体の感じ。
+ *
+ * **押した意味が無いと、二度と押されない。**
+ * 「重い」と言ったのに同じメニューが出ていたら、それはただのアンケート。
+ */
+describe('今朝の体の感じ', () => {
+  const todayDate = dateDaysAgo(0);
+  const withCondition = (fatigue: number, extra: Partial<RunnerProfile> = {}) => ({
+    ...regular(extra),
+    conditionLogs: [
+      { id: 'c1', date: todayDate, fatigue, createdAt: `${todayDate}T07:00:00.000Z` },
+    ],
+  });
+
+  it('押した段階を読み取る', () => {
+    expect(todayFatigue(withCondition(4), NOW)).toBe(4);
+    expect(todayFatigue(regular(), NOW)).toBeUndefined();
+  });
+
+  it('3つだけ。朝に4つも押させない', () => {
+    expect(CONDITIONS.map((item) => item.label)).toEqual(['軽い', 'ふつう', '重い']);
+  });
+
+  it('重い日は、短くする', () => {
+    const plan = todayPlan(withCondition(4), NOW);
+
+    expect(plan.intensity).toBe('easy');
+    expect(plan.headline).toMatch(/短め|軽くします/);
+    expect(plan.why).toContain('体が重い');
+    // **元が何だったかを言う。** 黙って変えると、決まりが毎日動いて見える。
+    expect(plan.why).toContain('元の予定は');
+    expect(plan.alternatives.some((a) => a.when.includes('3日続けて'))).toBe(true);
+  });
+
+  it('重い日でも、途中でやめてよいと書く', () => {
+    const plan = todayPlan(withCondition(4), NOW);
+    expect(plan.steps.some((step) => step.label.includes('途中でやめて'))).toBe(true);
+  });
+
+  /** **軽い日に距離を足さない。** 気分のいい日の上積みが、いちばん多い故障の入口。 */
+  it('軽い日でも距離は足さず、流しだけ足す', () => {
+    const light = todayPlan(withCondition(1), NOW);
+    const plain = todayPlan(regular(), NOW);
+
+    expect(light.summary).toBe(plain.summary);
+    expect(light.steps.some((step) => step.label === '流し')).toBe(true);
+    expect(light.why).toContain('距離は足しません');
+  });
+
+  it('ふつうなら、何も変えない', () => {
+    expect(todayPlan(withCondition(2), NOW).headline).toBe(todayPlan(regular(), NOW).headline);
+  });
+
+  /** **痛みとレースは、体の感じより強い理由で決まっている。** */
+  it('痛みの日には触らない', () => {
+    const plan = todayPlan(
+      withCondition(1, {
+        pains: [
+          {
+            id: 'p1',
+            site: '右膝の外側',
+            severity: 2,
+            status: 'active',
+            since: dateDaysAgo(3),
+            updatedAt: `${dateDaysAgo(1)}T10:00:00.000Z`,
+          },
+        ],
+      }),
+      NOW,
+    );
+    expect(plan.source).toBe('pain');
+    expect(plan.running).toBe(false);
+  });
+
+  it('レース当日にも触らない', () => {
+    const plan = todayPlan(
+      withCondition(4, {
+        races: [
+          { id: 'r1', name: '湘南国際', date: dateDaysAgo(0), distance: 'フル', priority: 'A' as const },
+        ],
+      }),
+      NOW,
+    );
+    expect(plan.source).toBe('race');
+    expect(plan.headline).toContain('いってらっしゃい');
+  });
+
+  it('押したことを、コーチにも伝える', () => {
+    expect(todayDoctrine(withCondition(4), NOW)).toContain('体が重い');
+    expect(todayDoctrine(withCondition(1), NOW)).toContain('距離は足さない');
+    expect(todayDoctrine(regular(), NOW)).toContain('催促はしない');
   });
 });
