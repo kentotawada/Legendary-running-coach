@@ -8,6 +8,8 @@ import FitnessCard from './FitnessCard';
 import { readFitness } from '@/lib/fitness';
 import DigestCard from './DigestCard';
 import MedalRack from './MedalRack';
+import MixCard from './MixCard';
+import { paceMix } from '@/lib/mix';
 import { finishedRaces } from '@/lib/race-result';
 import { weeklyDigest } from '@/lib/digest';
 import {
@@ -33,6 +35,8 @@ interface Props {
   onOpenCalendar?: () => void;
   /** 走った大会の1本を開く。 */
   onOpenRace?: (race: RaceEntry) => void;
+  /** コーチに相談へ回す。押した言葉がそのまま送られる。 */
+  onAsk?: (message: string) => void;
 }
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
@@ -111,6 +115,7 @@ export default function ReviewSheet({
   onImport,
   onOpenCalendar,
   onOpenRace,
+  onAsk,
   onClose,
 }: Props) {
   const now = new Date();
@@ -123,6 +128,11 @@ export default function ReviewSheet({
   const digest = profile ? weeklyDigest(profile, now) : null;
   /** 記録まで入っている大会。入っていないものは、これまでどおり1行で出す。 */
   const medals = finishedRaces(profile);
+  /**
+   * 練習の強弱の形。
+   * **1本ずつ見ていても、絶対に気づけないもの。** 並べて初めて偏りが見える。
+   */
+  const mix = paceMix(profile, now);
   const races = profile ? pastRaces(profile, now) : [];
   const shoes = profile?.shoes ?? [];
   const hasAnything = hasHistory(profile);
@@ -179,6 +189,17 @@ export default function ReviewSheet({
             過去のグラフは「やってきたこと」を見せるが、続ける理由にはなりにくい。
             「この調子なら目標に届く」が見えた時に、人は明日も走る。
           */}
+          {/*
+            練習の強弱。**「この7日」より先に置く。**
+            今週どれだけ走ったかより、どう走っているかのほうが、
+            この先1年の結果を大きく動かす。
+          */}
+          {mix && (
+            <Section title="練習の強弱" note="1本ずつ見ていても気づけない、並べて初めて見えるもの">
+              <MixCard mix={mix} onAsk={onAsk} />
+            </Section>
+          )}
+
           {/* 今週の自分。月ごとの棒は積み上げを見せるが、今週には答えていない。 */}
           {digest && (
             <Section title="この7日">

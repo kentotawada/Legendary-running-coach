@@ -15,6 +15,8 @@ import QuickLogSheet from './QuickLogSheet';
 import FeltRow from './FeltRow';
 import ConditionRow from './ConditionRow';
 import InstallBanner from './InstallBanner';
+import MixBanner from './MixBanner';
+import { paceMix } from '@/lib/mix';
 import { CONDITIONS, hasRunHistory, todayFatigue, todayPlan } from '@/lib/today';
 import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
@@ -198,11 +200,27 @@ export default function CoachApp() {
     今日やることだけが出ている画面のほうが、よほど役に立つ。
   */
   const live = ready && !stale;
-  const showKeepRecords = live && Boolean(build?.authAvailable) && !auth.isAuthenticated;
+
+  /*
+    練習の形が偏っていること。**案内の中では、これをいちばん上に置く。**
+    ほかの3つ（ログイン・連携・ホーム画面）はこのアプリの都合だが、
+    これは走る人の結果が変わる話で、しかも**他のどのアプリも言わない。**
+    乗り換えてきた人が「ここは自分の走りを見ている」と気づく唯一の場所。
+  */
+  const mix = useMemo(() => (profile ? paceMix(profile) : null), [profile]);
+  const showMix = live && (mix?.verdict === 'grey' || mix?.verdict === 'no-easy');
+
+  const showKeepRecords =
+    live && !showMix && Boolean(build?.authAvailable) && !auth.isAuthenticated;
   const showConnect =
-    live && Boolean(build?.stravaAvailable) && !profile?.connections?.strava && !showKeepRecords;
+    live &&
+    !showMix &&
+    Boolean(build?.stravaAvailable) &&
+    !profile?.connections?.strava &&
+    !showKeepRecords;
   const showInstall =
     live &&
+    !showMix &&
     (profile?.activities.length ?? 0) > 0 &&
     !unrated &&
     !showKeepRecords &&
@@ -460,6 +478,12 @@ export default function CoachApp() {
         上に帯が4本並んだ時点で、肝心の会話が画面の外へ出てしまう。
         急がないもの（これ）は、ほかに言うことが無い日まで待つ。
       */}
+      {/*
+        **ここだけは、このアプリの都合ではない話。**
+        ほかの案内より先に出す。閉じたら、もう出さない。
+      */}
+      {showMix && mix && <MixBanner mix={mix} onOpen={() => setReviewOpen(true)} />}
+
       {showInstall && <InstallBanner />}
 
       {activePains.length > 0 && (
@@ -648,6 +672,10 @@ export default function CoachApp() {
           onOpenRace={(race) => {
             setReviewOpen(false);
             setOpenRace(race);
+          }}
+          onAsk={(message) => {
+            setReviewOpen(false);
+            void send(message);
           }}
           onClose={() => setReviewOpen(false)}
         />

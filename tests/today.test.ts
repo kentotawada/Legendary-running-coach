@@ -275,10 +275,22 @@ describe('どんな人にも、必ず何かを返す', () => {
     expect(plan.why).toBeTruthy();
   });
 
-  it('目標が無くても、強度の目安を言葉で渡す', () => {
+  /**
+   * **目標が無くても、走っていれば数字が出せる。**
+   * イージーの土台は走れている力から出すので、目標の有無では決まらない。
+   */
+  it('目標が無くても、走った記録があればペースで渡す', () => {
     const plan = todayPlan(regular(), NOW);
     const text = plan.steps.map((step) => step.detail ?? '').join(' ');
-    expect(text).toContain('鼻呼吸で会話できる速さ');
+    expect(text).toMatch(/\d:\d\d\/km〜\d:\d\d\/km/);
+  });
+
+  /** 目標も記録も無い人にだけ、言葉で渡す。**ここでも黙らない。** */
+  it('目標も記録も無ければ、言葉で渡す', () => {
+    const plan = todayPlan(profileOf({ activities: [] }), NOW);
+    const text = `${plan.headline} ${plan.why} ${plan.steps.map((step) => step.detail ?? '').join(' ')}`;
+    expect(text).not.toMatch(/\d:\d\d\/km〜\d:\d\d\/km/);
+    expect(text.length).toBeGreaterThan(0);
   });
 
   it('目標があれば、その人のペースで出す', () => {

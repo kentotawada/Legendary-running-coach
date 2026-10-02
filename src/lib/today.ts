@@ -29,6 +29,7 @@ import { assessSafety } from './safety';
 import { coachDate } from './day';
 import { daysUntil, targetRace } from './races';
 import { marathonPaceSeconds, resolveTargetPace, trainingPaces } from './goals';
+import { fitnessAnchor } from './mix';
 import { workloadOf } from './workload';
 import { heatAdvice, isFresh } from './weather';
 
@@ -139,14 +140,23 @@ function recentRuns(profile: RunnerProfile, now: Date): RecentRun[] {
   return runs.sort((a, b) => a.daysAgo - b.daysAgo);
 }
 
-/** イージーの言い方。目標が無い人にも、必ず言葉で基準を渡す。 */
-function easyPaceText(profile: RunnerProfile): string {
-  const marathonPace = marathonPaceSeconds(profile.goal?.targetTime);
-  if (marathonPace === undefined) {
+/**
+ * イージーの言い方。目標が無い人にも、必ず言葉で基準を渡す。
+ *
+ * **走れている力を先に見る。目標からではない。**
+ * 3時間半を目指しているが実際は4時間の力、という人に目標から出した
+ * イージーを渡すと、本人がいつも走っている速さより速い数字が並ぶことがある。
+ * 届いていない目標から日々の練習ペースを決めるのは、順番が逆。
+ *
+ * 同じ土台を「練習の強弱」でも使う。**画面に2つの「イージー」を出さない。**
+ */
+function easyPaceText(profile: RunnerProfile, now: Date): string {
+  const anchor = fitnessAnchor(profile, now)?.paceSec ?? marathonPaceSeconds(profile.goal?.targetTime);
+  if (anchor === undefined) {
     const target = resolveTargetPace(profile.goal);
     return target ? `${target} より、はっきり遅く` : '鼻呼吸で会話できる速さで';
   }
-  const paces = trainingPaces(marathonPace);
+  const paces = trainingPaces(anchor);
   return `${paces.easyFrom}〜${paces.easyTo}`;
 }
 
@@ -249,7 +259,7 @@ function basePlan(profile: RunnerProfile, now: Date): TodayPlan {
         'ここから積んでも間に合いませんし、疲れだけが残ります。' +
         '体を眠らせないために、短く動かすだけにします。',
       steps: [
-        { label: 'ジョグ', detail: `20〜30分 ${easyPaceText(profile)}` },
+        { label: 'ジョグ', detail: `20〜30分 ${easyPaceText(profile, now)}` },
         { label: '流し', detail: '100m を2〜3本。速く走る感覚を戻すだけ' },
         { label: '持ち物の確認', detail: '新しい物は使わない。試した物だけで' },
       ],
@@ -292,7 +302,7 @@ function basePlan(profile: RunnerProfile, now: Date): TodayPlan {
     };
   }
 
-  const easy = easyPaceText(profile);
+  const easy = easyPaceText(profile, now);
   const runs = recentRuns(profile, now);
   const ranToday = runs.some((run) => run.daysAgo === 0);
   const yesterday = runs.find((run) => run.daysAgo === 1);

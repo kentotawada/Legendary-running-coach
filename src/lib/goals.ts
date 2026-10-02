@@ -163,13 +163,27 @@ export interface TrainingPaces {
  * レースペースを起点に各強度を導く。
  * 比率で置くことで、サブ3でもサブ5でも同じ理屈が成り立つようにしている。
  */
+/**
+ * マラソンペースに対する、各ペースの倍率。
+ *
+ * **1か所に置く。** 練習ペースを出す側と、走った練習をその帯で数える側
+ * （mix.ts）で別々に持つと、片方を直した時にもう片方がずれて、
+ * 画面に出ている「イージー」と、集計上の「イージー」が別物になる。
+ */
+export const PACE_RATIO = {
+  easyFrom: 1.25,
+  easyTo: 1.4,
+  threshold: 0.955,
+  interval: 0.885,
+} as const;
+
 export function trainingPaces(marathonPaceSec: number): TrainingPaces {
   return {
     marathon: formatPace(marathonPaceSec),
-    easyFrom: formatPace(marathonPaceSec * 1.25),
-    easyTo: formatPace(marathonPaceSec * 1.4),
-    threshold: formatPace(marathonPaceSec * 0.955),
-    interval: formatPace(marathonPaceSec * 0.885),
+    easyFrom: formatPace(marathonPaceSec * PACE_RATIO.easyFrom),
+    easyTo: formatPace(marathonPaceSec * PACE_RATIO.easyTo),
+    threshold: formatPace(marathonPaceSec * PACE_RATIO.threshold),
+    interval: formatPace(marathonPaceSec * PACE_RATIO.interval),
   };
 }
 
