@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONDITIONS, todayDoctrine, todayFatigue, todayPlan } from '@/lib/today';
+import { CONDITIONS, hasRunHistory, todayDoctrine, todayFatigue, todayPlan } from '@/lib/today';
 import { createDefaultProfile } from '@/lib/types';
 import type { ActivityLog, RunnerProfile } from '@/lib/types';
 
@@ -290,11 +290,13 @@ describe('どんな人にも、必ず何かを返す', () => {
     expect(text).toMatch(/\d:\d\d\/km〜\d:\d\d\/km/);
   });
 
-  /** **崩せない予定は、守れなかった日にアプリを開かない理由になる。** */
-  it('どの日にも、逃げ道を必ず置く', () => {
+  /**
+   * **崩せない予定は、守れなかった日にアプリを開かない理由になる。**
+   * ただし初日（記録ゼロ）は別。まだ、できない予定そのものが無い。
+   */
+  it('予定を出す日には、逃げ道を必ず置く', () => {
     const cases = [
       regular(),
-      profileOf(),
       regular({ activities: [...regular().activities, run(1, 12, '閾値走')] }),
       profileOf({ activities: [run(9, 8), run(11, 8), run(13, 8)] }),
     ];
@@ -503,5 +505,57 @@ describe('暑い日の今日やること', () => {
     const text = todayDoctrine(hot(), NOW);
     expect(text).toContain('今日の空気');
     expect(text).toContain('目標ペースをそのまま勧めないこと');
+  });
+});
+
+
+/**
+ * 記録が1本も無い人。
+ *
+ * **募集で来るのは、全員この状態。** ここで距離を断定すると、
+ * 週40km走る人には少なすぎ、これから始める人には多すぎる。どちらにも外れる。
+ */
+describe('まだ記録が無い人', () => {
+  it('記録を持っているかを見分ける', () => {
+    expect(hasRunHistory(profileOf())).toBe(false);
+    expect(hasRunHistory(regular())).toBe(true);
+    // 歩きだけ、距離の無い記録だけなら、まだ分からない。
+    expect(
+      hasRunHistory(profileOf({ activities: [{ ...run(1, 5), type: 'walk' as const }] })),
+    ).toBe(false);
+    expect(hasRunHistory(profileOf({ activities: [{ ...run(1, 5), distanceKm: undefined }] }))).toBe(false);
+  });
+
+  it('距離を断定しない', () => {
+    const plan = todayPlan(profileOf(), NOW);
+
+    expect(plan.source).toBe('start');
+    expect(plan.headline).toBe('まず、1本おしえてください');
+    expect(plan.summary).toBeUndefined();
+    // 画面に出る文に、km の数字を置かない。
+    expect(`${plan.headline}${plan.why}`).not.toMatch(/\d+km/);
+  });
+
+  it('なぜ出せないのかを、正直に書く', () => {
+    const plan = todayPlan(profileOf(), NOW);
+    expect(plan.why).toContain('まだ分かりません');
+    expect(plan.why).toContain('1本入れば');
+  });
+
+  it('次にやれば中身が埋まることを、順に出す', () => {
+    const steps = todayPlan(profileOf(), NOW).steps.map((step) => step.label);
+    expect(steps).toContain('走った記録を送る');
+    expect(steps).toContain('つないでおく');
+  });
+
+  /** **初日に「できない日のために」は要らない。** まだ、できない予定が無い。 */
+  it('逃げ道は置かない', () => {
+    expect(todayPlan(profileOf(), NOW).alternatives).toEqual([]);
+  });
+
+  it('1本入ったら、ふつうの出し方に戻る', () => {
+    const plan = todayPlan(profileOf({ activities: [run(1, 8)] }), NOW);
+    expect(plan.source).not.toBe('start');
+    expect(plan.headline).toBeTruthy();
   });
 });

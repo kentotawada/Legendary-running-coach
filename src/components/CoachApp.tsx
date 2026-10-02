@@ -14,7 +14,7 @@ import TodaySheet from './TodaySheet';
 import FeltRow from './FeltRow';
 import ConditionRow from './ConditionRow';
 import InstallBanner from './InstallBanner';
-import { CONDITIONS, todayFatigue, todayPlan } from '@/lib/today';
+import { CONDITIONS, hasRunHistory, todayFatigue, todayPlan } from '@/lib/today';
 import type { ConditionId } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
 import { comebackPlan } from '@/lib/comeback';
@@ -138,6 +138,15 @@ export default function CoachApp() {
       ).id ?? null
     );
   }, [profile]);
+
+  /**
+   * 記録が1本でもあるか。
+   *
+   * **初日の人に、まだ意味を持たないものを出さない。**
+   * 予定が本物になっていないのに体調を聞いても、何に効くのか分からないまま押すだけ。
+   * 位置情報にいたっては、まだ1回も走っていない相手にいちばん重い要求をすることになる。
+   */
+  const started = profile ? hasRunHistory(profile) : false;
 
   /**
    * 画面の上に出す案内は、**同時にひとつまで。**
@@ -365,7 +374,7 @@ export default function CoachApp() {
         今朝の体の感じ。**時計に絶対できないこと。**
         走ったあとの日は出さない（もう終わっているので、変えようがない）。
       */}
-      {ready && today && !unrated && today.running && (
+      {ready && started && today && !unrated && today.running && (
         <ConditionRow
           picked={condition}
           onPick={(id) =>
@@ -618,7 +627,7 @@ export default function CoachApp() {
           plan={today}
           week={week}
           comeback={comeback}
-          askLocation={ready && !profile?.location && Boolean(today?.running)}
+          askLocation={ready && started && !profile?.location && Boolean(today?.running)}
           onAllowLocation={(lat, lon) => void refreshWeather(lat, lon)}
           onClose={() => setTodayOpen(false)}
           onAsk={(message) => void send(message)}

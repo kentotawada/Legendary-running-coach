@@ -33,7 +33,7 @@ import { workloadOf } from './workload';
 import { heatAdvice, isFresh } from './weather';
 
 /** 何を根拠に決めたか。画面には出さないが、言葉を選ぶのに使う。 */
-export type TodaySource = 'pain' | 'race' | 'plan' | 'workload' | 'rhythm';
+export type TodaySource = 'pain' | 'race' | 'plan' | 'workload' | 'rhythm' | 'start';
 
 /**
  * 朝に押してもらう、今日の体の感じ。
@@ -81,6 +81,19 @@ export interface TodayPlan {
 }
 
 const DAY_MS = 86_400_000;
+
+/**
+ * 走った記録を、1本でも持っているか。
+ *
+ * **持っていない人に、距離を断定してはいけない。**
+ * その人のことを何も知らないのに「イージー6km」と出すのは、
+ * 作った側の都合でしかなく、見る人は一目で見抜く。
+ */
+export function hasRunHistory(profile: RunnerProfile): boolean {
+  return (profile.activities ?? []).some(
+    (activity) => activity.type === 'run' && (activity.distanceKm ?? 0) > 0,
+  );
+}
 
 /** 今日、本人が押した体の感じ。押していなければ undefined。 */
 export function todayFatigue(profile: RunnerProfile, now: Date = new Date()): number | undefined {
@@ -248,6 +261,36 @@ function basePlan(profile: RunnerProfile, now: Date): TodayPlan {
   // 3. コーチが会話の中で決めたもの。**本人と話して決めたものが、いちばん合っている。**
   const planned = (profile.plans ?? []).find((plan) => plan.date === today);
   if (planned) return fromPlan(planned);
+
+  /*
+    記録が1本も無い人。
+
+    **ここで距離を断定しない。** その人がどのくらい走る人なのかを何も知らないのに
+    「イージー6km」と出すのは、作った側の都合でしかない。
+    週40km走る人には少なすぎ、これから始める人には多すぎる。どちらにも外れる。
+
+    出すのは、**次にやれば中身が埋まる、ひとつのこと**だけ。
+  */
+  if (!hasRunHistory(profile)) {
+    return {
+      intensity: 'easy',
+      source: 'start',
+      headline: 'まず、1本おしえてください',
+      why:
+        'あなたがどのくらい走る人なのか、まだ分かりません。' +
+        '知らないまま距離を決めても、多すぎるか少なすぎるかのどちらかになります。' +
+        '1本入れば、次の日からは、あなたの記録に合わせて出します。',
+      steps: [
+        { label: '走った記録を送る', detail: '時計やアプリの画面を撮って送るだけ。1枚で足ります' },
+        { label: 'つないでおく', detail: 'Strava をつなぐと、走り終えた記録がひとりでに届きます' },
+        { label: '今日走るなら', detail: '会話できる速さで、気持ちよく終われる範囲で。距離は数えなくて大丈夫です' },
+        { label: '過去の記録があるなら', detail: 'まとめて取り込めます。入れた分だけ、初日から中身が濃くなります' },
+      ],
+      // **初日に「できない日のために」は要らない。** まだ、できない予定が無い。
+      alternatives: [],
+      running: true,
+    };
+  }
 
   const easy = easyPaceText(profile);
   const runs = recentRuns(profile, now);
