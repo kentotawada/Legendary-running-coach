@@ -216,6 +216,155 @@ function StepList({ steps }: { steps: ConnectSource['steps'] }) {
  * そこで **使っている物をひとつ選んでもらい、その1本だけを出します。**
  * 届いた記録から出どころが分かっている道具は、手順ごと畳みます。済んだ作業を見せないためです。
  */
+/**
+ * 時計・アプリを選んで、その道具ごとの送り方を見せる。
+ *
+ * **Strava が使えない設定でも、ここは丸ごと出す。**
+ * 以前は自動連携が無い環境で、この一覧ごと隠して
+ * 「スクリーンショットを送ってください」の一行だけにしていた。
+ * だが自動連携が無い時こそ、**Garmin はブラウザ版の歯車から書き出す**
+ * といった道具ごとの手順がいちばん要る。いちばん要る時に消していた。
+ */
+function SourceGuide({
+  source,
+  detected,
+  done,
+  available,
+  onChoose,
+}: {
+  source: ConnectSource | undefined;
+  detected: SourceId[];
+  done: boolean;
+  /** Strava 連携が使える設定か。使えない時は、その節だけ出さない。 */
+  available: boolean;
+  onChoose: (id: SourceId) => void;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {CONNECT_SOURCES.map((item) => {
+          const active = source?.id === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChoose(item.id)}
+              aria-pressed={active}
+              className={[
+                'flex items-center gap-2 rounded-[14px] border px-3 py-2.5 text-left transition active:scale-[0.98]',
+                active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+              ].join(' ')}
+            >
+              <span aria-hidden="true" className="shrink-0 text-[17px]">
+                {item.emoji}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate text-[13px] font-semibold ${active ? 'text-accent' : ''}`}
+                >
+                  {item.name}
+                </span>
+                {item.hint && (
+                  <span className="block truncate text-[10px] leading-tight text-muted">
+                    {item.hint}
+                  </span>
+                )}
+              </span>
+              {detected.includes(item.id) && (
+                <span aria-label="記録が届いています" className="shrink-0 text-[12px] font-bold text-accent">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {source && (
+        <div className="mt-3">
+          <Card>
+            <div className="flex items-baseline gap-2">
+              <p className="min-w-0 flex-1 text-[14px] font-bold">{source.name}</p>
+              {done && <p className="shrink-0 text-[11px] font-semibold text-accent">もう届いています</p>}
+            </div>
+
+            {done && (
+              <p className="mt-1.5 text-[13px] leading-relaxed text-accent">
+                {source.route === 'direct'
+                  ? '✓ ①だけで終わりです。ほかに設定はありません。'
+                  : `✓ ${source.name}から記録が届いています。設定は完了しています。`}
+              </p>
+            )}
+
+            {/*
+              **記録ファイルを先に出す。** いちばん情報が入る道なので、
+              そこに辿り着けなかった人だけがスクリーンショットへ降りればいい。
+            */}
+            <div className="mt-3">
+              <p className="text-[12px] font-bold">
+                記録ファイルで送る
+                <span className="ml-1.5 font-normal text-muted">いちばん詳しい</span>
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">{source.exportHint}</p>
+              {source.canExport !== 'none' && (
+                <>
+                  {source.exportFormats && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      形式: <strong className="font-semibold text-fg">{source.exportFormats}</strong>
+                    </p>
+                  )}
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted">{FORMAT_ORDER}</p>
+                </>
+              )}
+            </div>
+
+            {/* どこで詰まっても、ここへ降りれば必ず届く。 */}
+            <div className="mt-3 border-t border-line pt-2.5">
+              <p className="text-[12px] font-bold">
+                スクリーンショットで送る
+                <span className="ml-1.5 font-normal text-muted">どのアプリでも</span>
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                入力欄の「＋」→「記録の画像を送る」。
+                距離・ペース・心拍・ピッチまで読み取ります。
+                {source.canExport === 'none' && (
+                  <strong className="font-semibold text-fg">
+                    {' '}
+                    このアプリではこちらが確実です。
+                  </strong>
+                )}
+              </p>
+            </div>
+
+            {/* Strava 連携が使える環境でだけ出す。今は設定が無ければ出ない。 */}
+            {available && source.route === 'link' && !done && (
+              <details className="mt-3 border-t border-line pt-2.5">
+                <summary className="cursor-pointer text-[12px] font-bold">
+                  Strava につないで、書き出しをやめる
+                </summary>
+                <StepList steps={source.steps} />
+                <a
+                  href={STRAVA_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent"
+                >
+                  Strava を開く
+                </a>
+                {source.caution && (
+                  <p className="mt-3 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
+                    {source.caution}
+                  </p>
+                )}
+              </details>
+            )}
+          </Card>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function ConnectSheet({
   connection,
   available,
@@ -248,26 +397,61 @@ export default function ConnectSheet({
     savePick(id);
   };
 
+  /*
+    自動連携が使えない設定の時。
+
+    **以前はここで一覧ごと隠して、一行だけにしていた。**
+    だが自動連携が無い時こそ、「Garmin はブラウザ版の歯車から書き出す」
+    といった道具ごとの手順がいちばん要る。いちばん要る時に消していた。
+    出さないのは Strava の節だけでよく、残りは全部そのまま役に立つ。
+  */
   if (!available) {
     return (
       <Sheet
-        label="ランニングアプリとの連携"
-        title="連携する"
+        label="記録の送り方"
+        title="記録を送る"
         onClose={onClose}
         onBack={onBack}
         backLabel={onBack ? 'カルテ' : undefined}
       >
         <p className="text-[13px] leading-relaxed text-muted">
-          このアプリでは、いま自動連携を使える設定になっていません。
-          記録は、これまでどおり<strong className="font-semibold text-fg">画面のスクリーンショット</strong>
-          を送ってください。距離・ペース・心拍・ピッチまで読み取ります。
+          使っている時計やアプリを選ぶと、
+          <strong className="font-semibold text-fg">そこから記録を書き出す手順</strong>
+          が出ます。書き出せないアプリでも、画面を撮って送れば読み取ります。
+          <span className="mt-1 block">
+            距離と時間だけでよければ、
+            <strong className="font-semibold text-fg">上の「走った」から数タップで入ります。</strong>
+          </span>
         </p>
+
+        <div className="mt-4">
+          <SourceGuide
+            source={source}
+            detected={detected}
+            done={done}
+            available={false}
+            onChoose={choose}
+          />
+        </div>
+
         <FileImport
           onImportFiles={onImportFiles}
           onPick={() => setUsedFile(true)}
           busy={syncing}
-          message={syncMessage}
+          message={usedFile ? syncMessage : null}
         />
+
+        <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
+          <p className="text-[12px] font-semibold">スクリーンショットで送る時のコツ</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            何枚も撮らなくて済む方法があります。Safari で開いた画面なら、
+            スクリーンショットを撮った直後に左下の小さい画像を押し、上の
+            <strong className="font-semibold text-fg">「フルページ」</strong>
+            を選ぶと、
+            <strong className="font-semibold text-fg">スクロールした先まで1枚（PDF）で保存できます。</strong>
+            それをそのまま送れば、全部まとめて読み取ります。
+          </p>
+        </div>
       </Sheet>
     );
   }
@@ -415,126 +599,13 @@ export default function ConnectSheet({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {CONNECT_SOURCES.map((item) => {
-            const active = source?.id === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => choose(item.id)}
-                aria-pressed={active}
-                className={[
-                  'flex items-center gap-2 rounded-[14px] border px-3 py-2.5 text-left transition active:scale-[0.98]',
-                  active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
-                ].join(' ')}
-              >
-                <span aria-hidden="true" className="shrink-0 text-[17px]">
-                  {item.emoji}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate text-[13px] font-semibold ${active ? 'text-accent' : ''}`}
-                  >
-                    {item.name}
-                  </span>
-                  {item.hint && (
-                    <span className="block truncate text-[10px] leading-tight text-muted">
-                      {item.hint}
-                    </span>
-                  )}
-                </span>
-                {detected.includes(item.id) && (
-                  <span aria-label="記録が届いています" className="shrink-0 text-[12px] font-bold text-accent">
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {source && (
-          <div className="mt-3">
-            <Card>
-              <div className="flex items-baseline gap-2">
-                <p className="min-w-0 flex-1 text-[14px] font-bold">{source.name}</p>
-                {done && <p className="shrink-0 text-[11px] font-semibold text-accent">もう届いています</p>}
-              </div>
-
-              {done && (
-                <p className="mt-1.5 text-[13px] leading-relaxed text-accent">
-                  {source.route === 'direct'
-                    ? '✓ ①だけで終わりです。ほかに設定はありません。'
-                    : `✓ ${source.name}から記録が届いています。設定は完了しています。`}
-                </p>
-              )}
-
-              {/*
-                **記録ファイルを先に出す。** いちばん情報が入る道なので、
-                そこに辿り着けなかった人だけがスクリーンショットへ降りればいい。
-              */}
-              <div className="mt-3">
-                <p className="text-[12px] font-bold">
-                  記録ファイルで送る
-                  <span className="ml-1.5 font-normal text-muted">いちばん詳しい</span>
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted">{source.exportHint}</p>
-                {source.canExport !== 'none' && (
-                  <>
-                    {source.exportFormats && (
-                      <p className="mt-1 text-[11px] text-muted">
-                        形式: <strong className="font-semibold text-fg">{source.exportFormats}</strong>
-                      </p>
-                    )}
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted">{FORMAT_ORDER}</p>
-                  </>
-                )}
-              </div>
-
-              {/* どこで詰まっても、ここへ降りれば必ず届く。 */}
-              <div className="mt-3 border-t border-line pt-2.5">
-                <p className="text-[12px] font-bold">
-                  スクリーンショットで送る
-                  <span className="ml-1.5 font-normal text-muted">どのアプリでも</span>
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                  入力欄の「＋」→「記録の画像を送る」。
-                  距離・ペース・心拍・ピッチまで読み取ります。
-                  {source.canExport === 'none' && (
-                    <strong className="font-semibold text-fg">
-                      {' '}
-                      このアプリではこちらが確実です。
-                    </strong>
-                  )}
-                </p>
-              </div>
-
-              {/* Strava 連携が使える環境でだけ出す。今は設定が無ければ出ない。 */}
-              {available && source.route === 'link' && !done && (
-                <details className="mt-3 border-t border-line pt-2.5">
-                  <summary className="cursor-pointer text-[12px] font-bold">
-                    Strava につないで、書き出しをやめる
-                  </summary>
-                  <StepList steps={source.steps} />
-                  <a
-                    href={STRAVA_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent"
-                  >
-                    Strava を開く
-                  </a>
-                  {source.caution && (
-                    <p className="mt-3 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
-                      {source.caution}
-                    </p>
-                  )}
-                </details>
-              )}
-            </Card>
-          </div>
-        )}
+        <SourceGuide
+          source={source}
+          detected={detected}
+          done={done}
+          available={available}
+          onChoose={choose}
+        />
       </div>
 
       <FileImport

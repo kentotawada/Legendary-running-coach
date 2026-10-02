@@ -96,6 +96,32 @@ describe('選べる道具の一覧', () => {
   });
 });
 
+/**
+ * 画面にそのまま出る文字。
+ *
+ * **ここは素の <p> に入る。** マークダウンは解釈されないので、
+ * `**強調**` と書くと、画面にアスタリスクがそのまま2つ出る。
+ * 実際に Garmin の案内で「**スマホのアプリには…**」と出ていた。
+ * 強調したい時は、画面側で <strong> を当てる。文字列には混ぜない。
+ */
+describe('画面に出す文字に、記号を混ぜない', () => {
+  it('どの道具の案内にも ** が入っていない', () => {
+    for (const source of CONNECT_SOURCES) {
+      const texts = [
+        source.name,
+        source.hint ?? '',
+        source.exportHint ?? '',
+        source.exportFormats ?? '',
+        source.caution ?? '',
+        ...source.steps.flatMap((step) => [step.title, step.detail ?? '', step.english ?? '']),
+      ];
+      for (const text of texts) {
+        expect(text, `${source.id}: ${text}`).not.toContain('**');
+      }
+    }
+  });
+});
+
 describe('届いた記録の出どころ', () => {
   it('Garmin の自動連携を見分ける', () => {
     expect(detectSource('garmin_push_1234567890')).toBe('garmin');

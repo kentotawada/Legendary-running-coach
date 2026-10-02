@@ -131,7 +131,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
       'リンクした後の練習から流れます。リンクより前の記録は Garmin からは遡りません（Strava にすでにある分は取り込みます）。',
     canExport: 'yes',
     exportHint:
-      'ブラウザ版のアクティビティ画面で、右上の歯車（⚙）→「ファイルのエクスポート」。**スマホのアプリには書き出しがありません**（実機で確認済み）。',
+      'ブラウザ版のアクティビティ画面で、右上の歯車（⚙）→「ファイルのエクスポート」。スマホのアプリには書き出しがありません（実機で確認済み）。',
     exportFormats: 'FIT / TCX / GPX',
     matchers: ['garmin'],
   },
@@ -200,10 +200,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
       },
     ],
     caution:
-      '**歩数だけを記録している人は、3つ目は要りません。** 橋渡しアプリは有料の機能があり、入れる手間に見合うのは「毎回きちんと記録している人」だけです。',
+      '歩数だけを記録している人は、3つ目は要りません。 橋渡しアプリは有料の機能があり、入れる手間に見合うのは「毎回きちんと記録している人」だけです。',
     canExport: 'none',
     exportHint:
-      'ヘルスケアの中身は、こちらから直接は読めません（ブラウザからは読む窓口がそもそもありません）。**画面を撮って送るのがいちばん確実です。**',
+      'ヘルスケアの中身は、こちらから直接は読めません（ブラウザからは読む窓口がそもそもありません）。画面を撮って送るのがいちばん確実です。',
     matchers: ['health', 'ヘルスケア', 'フィットネス', 'iphone'],
   },
   {
@@ -243,10 +243,10 @@ export const CONNECT_SOURCES: ConnectSource[] = [
       },
     ],
     caution:
-      '**連携した後の記録から流れます。** それより前の記録は遡れないので、過去の分はスクリーンショットで送ってください。心拍は、心拍計をつないでいるか Apple Watch で記録していれば一緒に入ります。',
+      '連携した後の記録から流れます。 それより前の記録は遡れないので、過去の分はスクリーンショットで送ってください。心拍は、心拍計をつないでいるか Apple Watch で記録していれば一緒に入ります。',
     canExport: 'none',
     exportHint:
-      'Nike Run Club には記録ファイルの書き出しがありません。**まず上の連携（設定 → パートナー → Strava）を済ませてください。**それより前の記録は、スクリーンショットがいちばん確実です。',
+      'Nike Run Club には記録ファイルの書き出しがありません。まず上の連携（設定 → パートナー → Strava）を済ませてください。それより前の記録は、スクリーンショットがいちばん確実です。',
     matchers: ['nike'],
   },
   {
@@ -258,7 +258,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     minutes: 3,
     steps: linkInStrava('COROS', 'COROS'),
     caution:
-      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
+      'リンクした後の練習から流れます。 それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint:
       'アプリかウェブ版の、その練習の画面で「エクスポート」「書き出し」を探してください。FIT があれば FIT を選びます。',
@@ -274,7 +274,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     minutes: 3,
     steps: linkInStrava('Polar', 'Polar Flow'),
     caution:
-      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
+      'リンクした後の練習から流れます。 それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint:
       'Polar Flow（ウェブ版）の練習の画面で「エクスポート」を探してください。',
@@ -289,7 +289,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     minutes: 3,
     steps: linkInStrava('Suunto', 'Suunto'),
     caution:
-      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
+      'リンクした後の練習から流れます。 それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'アプリかウェブ版の練習の画面で「エクスポート」を探してください。',
     exportFormats: 'FIT / GPX',
@@ -303,7 +303,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     minutes: 3,
     steps: linkInStrava('Fitbit', 'Fitbit'),
     caution:
-      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
+      'リンクした後の練習から流れます。 それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'ウェブ版の運動の記録から書き出せます。アプリ側には無いことがあります。',
     exportFormats: 'TCX',
@@ -318,7 +318,7 @@ export const CONNECT_SOURCES: ConnectSource[] = [
     minutes: 3,
     steps: linkInStrava('adidas Running', 'adidas Running'),
     caution:
-      '**リンクした後の練習から流れます。** それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
+      'リンクした後の練習から流れます。 それより前の記録は遡らないので、過去の分はスクリーンショットで送ってください。',
     canExport: 'yes',
     exportHint: 'ウェブ版の練習の画面で「エクスポート」を探してください。',
     exportFormats: 'GPX / TCX',
