@@ -9,6 +9,7 @@ import {
   publicProfile,
   replaceInjuryHistory,
   replaceRaces,
+  setActivityEffort,
   setGoal,
   setPhase,
 } from '@/lib/profile';
@@ -66,6 +67,8 @@ interface ProfilePatchBody {
   lthr?: unknown;
   weeklyVolumeKm?: unknown;
   displayName?: unknown;
+  /** 走った直後の手応え。{ activityId, effort: 1〜10 }。 */
+  felt?: unknown;
 }
 
 function text(value: unknown): string | undefined {
@@ -224,6 +227,19 @@ export async function PATCH(request: NextRequest) {
    */
   if (typeof body.displayName === 'string' && !body.displayName.trim() && profile.displayName) {
     profile = { ...profile, displayName: undefined, updatedAt: now.toISOString() };
+  }
+
+  /*
+    走った直後の手応え。**時計が取れない唯一のデータ**なので、
+    文章ではなく押すだけで入るようにしてある（FeltRow）。
+  */
+  if (body.felt && typeof body.felt === 'object') {
+    const felt = body.felt as Record<string, unknown>;
+    const activityId = text(felt.activityId);
+    const effort = count(felt.effort);
+    if (activityId && effort !== undefined) {
+      profile = setActivityEffort(profile, activityId, effort, now);
+    }
   }
 
   profile = applyProfileUpdate(

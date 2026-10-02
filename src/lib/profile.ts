@@ -310,6 +310,34 @@ export function addActivity(
 }
 
 /**
+ * 走った直後の手応えを残す。
+ *
+ * **時計が絶対に取れない、唯一のデータ。**
+ * 同じ5:30/km・心拍148でも、「余裕だった」のか「必死だった」のかで意味が正反対になる。
+ * 睡眠・気温・仕事の疲れは、そこにしか出ない。
+ *
+ * 文章で聞くと、ほとんどの人は書かない。だから**押すだけ**にする。
+ */
+export function setActivityEffort(
+  profile: RunnerProfile,
+  activityId: string,
+  effort: number,
+  now: Date = new Date(),
+): RunnerProfile {
+  if (!Number.isFinite(effort) || effort < 1 || effort > 10) return profile;
+  const target = profile.activities.find((activity) => activity.id === activityId);
+  if (!target) return profile;
+
+  return {
+    ...profile,
+    activities: profile.activities.map((activity) =>
+      activity.id === activityId ? { ...activity, effort: Math.round(effort) } : activity,
+    ),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/**
  * 外部サービス側で消された練習を、こちらからも消す。
  *
  * **消えた記録を残しておくと、週の走行距離がずっと狂ったままになる。**

@@ -40,7 +40,11 @@ import { hasConsent } from '@/lib/legal';
  * カルテへの書き込み。**同意は「同意した」という事実だけを送る。**
  * どの版に・いつ同意したかはサーバーが決める。
  */
-type ProfileUpdate = Partial<ProfileEdit> & { consent?: true };
+type ProfileUpdate = Partial<ProfileEdit> & {
+  consent?: true;
+  /** 走った直後の手応え。押すだけで入る（FeltRow）。 */
+  felt?: { activityId: string; effort: number };
+};
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
 import {
   describeColumns,
