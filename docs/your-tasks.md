@@ -120,8 +120,13 @@ Public Key と Private Key が出ます。
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | 出てきた Public Key |
 | `VAPID_PRIVATE_KEY` | 出てきた Private Key |
 | `CRON_SECRET` | 自分で決めた長い文字列（32文字以上。パスワード生成でよい） |
+| `VAPID_SUBJECT`（任意） | `mailto:あなたのメールアドレス` |
 
 **Redeploy。**
+
+> `VAPID_SUBJECT` は入れなくても動きますが、入れておくことを勧めます。
+> 配信側（Apple や Google）が不具合の連絡に使う宛先で、
+> 既定のままだと届かない宛先（`noreply@example.com`）が入ります。
 
 > ⚠️ **`VAPID_PRIVATE_KEY` と `CRON_SECRET` は GitHub に入れないでください。**
 > 入れる場所は Vercel だけです。チャットにも貼らないでください。
