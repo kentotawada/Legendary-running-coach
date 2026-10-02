@@ -80,9 +80,13 @@ https://legendary-running-coach.vercel.app/setup
 
 **「鍵を作る」を押すだけ**です。必要な3つが、コピーボタン付きで出ます。
 
-- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- `VAPID_PUBLIC_KEY`
 - `VAPID_PRIVATE_KEY`
 - `CRON_SECRET`
+
+> **`NEXT_PUBLIC_` は付けません。** ブラウザはこの鍵を実行時に
+> `/api/push/key` から受け取るので、公開用の接頭辞は要りません。
+> 付けると Vercel が「ブラウザに露出する値です」と警告を出します。
 
 > **作った鍵は、その端末から1歩も出ません。** サーバーにも送らず、保存もしません。
 > 画面を閉じれば消えるので、貼り終わるまで閉じないでください。
