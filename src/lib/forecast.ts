@@ -310,5 +310,4 @@ function round2(value: number): number {
 }
 
 /** 画面に必ず添える、条件の但し書き。 */
-export const OUTLOOK_NOTE =
-  'いまの記録の傾きが、このまま続いた場合の見込みです。約束ではありません。体調・気温・生活の変化で簡単に変わります。';
+export const OUTLOOK_NOTE = 'いまの傾きが続いた場合の見込みです。約束ではありません。';

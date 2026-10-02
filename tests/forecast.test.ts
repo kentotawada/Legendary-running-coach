@@ -257,5 +257,6 @@ describe('目標に届きそうか', () => {
 
 it('約束ではないことを、但し書きが言っている', () => {
   expect(OUTLOOK_NOTE).toContain('約束ではありません');
-  expect(OUTLOOK_NOTE).toContain('このまま続いた場合');
+  // 見込みであって確定ではない、と分かる書き方であること。
+  expect(OUTLOOK_NOTE).toContain('見込み');
 });
