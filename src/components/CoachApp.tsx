@@ -9,7 +9,6 @@ import ProfileSheet from './ProfileSheet';
 import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
 import DailyStrip from './DailyStrip';
-import TodayBand from './TodayBand';
 import TodaySheet from './TodaySheet';
 import QuickLogSheet from './QuickLogSheet';
 import FeltRow from './FeltRow';
@@ -535,23 +534,6 @@ export default function CoachApp() {
       </header>
 
       {/*
-        **開いた瞬間に、今日やることが見えている状態をつくる。**
-        ここが無いあいだ、すでに時計を持っている人がこのアプリを開く理由は
-        「相談したい用事がある日」だけだった。用事は毎日は起きない。
-      */}
-      {(ready || stale) && today && (
-        <TodayBand
-          plan={today}
-          onOpen={() => setTodayOpen(true)}
-          /*
-            控えを出している間は、記録を入れる口を出さない。
-            **押しても送れない口は、無いほうがいい。**
-          */
-          onLog={stale ? undefined : () => setLogOpen(true)}
-        />
-      )}
-
-      {/*
         痛みだけは、ここに残す。
         **今日やることより上に出す唯一のもの。** 走らない日だと言っているのに、
         その知らせが会話の下にあったら、上の行だけ見て走りに行く人が出る。
@@ -693,6 +675,7 @@ export default function CoachApp() {
         <Composer
           onSend={(text, images) => void send(text, images)}
           onError={reportError}
+          onOpenToday={today ? () => setTodayOpen(true) : undefined}
           onOpenIdeas={() => setIdeasOpen(true)}
           onQuickLog={() => setLogOpen(true)}
           onImportFiles={(files) => void importFiles(files)}
