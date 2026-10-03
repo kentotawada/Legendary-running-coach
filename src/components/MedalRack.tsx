@@ -46,13 +46,13 @@ export default function MedalRack({
           {bests.map((best) => (
             <div
               key={best.distanceKm}
-              className="rounded-[12px] border border-[color:var(--accent)] bg-accent-soft px-3 py-2"
+              className="rounded-[12px] bg-accent-soft px-3 py-2"
             >
-              <p className="text-[10px] font-bold text-accent">{best.label}</p>
-              <p className="text-[15px] font-bold leading-tight text-accent tabular-nums">
+              <p className="t-note font-bold text-accent">{best.label}</p>
+              <p className="t-body font-bold leading-tight text-accent tabular-nums">
                 {raceTime(best.race.result!.finishSec)}
               </p>
-              <p className="text-[10px] text-muted">{best.race.date.slice(0, 4)}年</p>
+              <p className="t-note text-muted">{best.race.date.slice(0, 4)}年</p>
             </div>
           ))}
         </div>
@@ -69,7 +69,7 @@ export default function MedalRack({
               <button
                 type="button"
                 onClick={() => onOpen(race)}
-                className="flex w-full items-center gap-3 rounded-[14px] border border-line bg-sunken px-3.5 py-3 text-left active:scale-[0.99]"
+                className="flex w-full items-center gap-3 rounded-[14px] bg-sunken px-3.5 py-3 text-left active:scale-[0.99]"
               >
                 {/*
                   メダル。**同じ形を並べることに意味がある。**
@@ -77,19 +77,19 @@ export default function MedalRack({
                 */}
                 <span
                   className={[
-                    'flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full border-2 text-[10px] font-bold leading-none',
+                    'flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full border-2 t-note font-bold leading-none',
                     best
-                      ? 'border-[color:var(--accent)] bg-accent text-[var(--accent-fg)]'
-                      : 'border-line bg-bg text-muted',
+                      ? 'bg-accent text-[var(--accent-fg)]'
+                      : 'bg-sunken text-muted',
                   ].join(' ')}
                 >
                   <span>{km ? distanceLabel(km) : '完走'}</span>
-                  {best && <span className="mt-0.5 text-[8px]">自己ベスト</span>}
+                  {best && <span className="mt-0.5 t-note">自己ベスト</span>}
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-bold">{race.name}</span>
-                  <span className="block text-[11px] text-muted tabular-nums">
+                  <span className="block truncate t-body font-bold">{race.name}</span>
+                  <span className="block t-note text-muted tabular-nums">
                     {race.date}
                     {race.result?.placing?.overall
                       ? ` ・ ${race.result.placing.overall.toLocaleString()}位`
@@ -98,12 +98,12 @@ export default function MedalRack({
                 </span>
 
                 <span className="shrink-0 text-right">
-                  <span className="block text-[16px] font-bold leading-tight tabular-nums">
+                  <span className="block t-body font-bold leading-tight tabular-nums">
                     {raceTime(race.result!.finishSec)}
                   </span>
                   {fade && (
                     <span
-                      className={`block text-[10px] tabular-nums ${fade.negative ? 'text-accent' : 'text-muted'}`}
+                      className={`block t-note tabular-nums ${fade.negative ? 'text-accent' : 'text-muted'}`}
                     >
                       後半 {fade.percent > 0 ? '+' : ''}
                       {fade.percent}%

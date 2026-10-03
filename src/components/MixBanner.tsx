@@ -48,20 +48,23 @@ export default function MixBanner({ mix, onOpen }: { mix: PaceMix; onOpen: () =>
   };
 
   return (
-    <div className="flex items-center gap-3 border-b border-line bg-accent-soft px-4 py-2.5">
+    <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-        <span className="block text-[13px] font-semibold leading-tight text-accent">
-          {mix.headline}
-        </span>
-        <span className="mt-0.5 block text-[11px] leading-tight text-muted tabular-nums">
-          直近{mix.runs}本を並べました。ゆっくり{mix.bands[0].percent}% / 中くらい
-          {mix.bands[1].percent}% / 速い{mix.bands[2].percent}%
+        <span className="block t-note font-semibold leading-tight">{mix.headline}</span>
+        {/*
+          **根拠は、1行に収まる長さまで。**
+          帯で全部を説明しきろうとすると、会話がそのぶん画面の外へ出る。
+          詳しくは「見る」の先にある。
+        */}
+        <span className="mt-0.5 block t-note leading-tight text-muted tabular-nums">
+          {mix.runs}本中 ゆっくり{mix.bands[0].percent}%・中{mix.bands[1].percent}%・速い
+          {mix.bands[2].percent}%
         </span>
       </button>
       <button
         type="button"
         onClick={onOpen}
-        className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-[12px] font-semibold text-[var(--accent-fg)]"
+        className="shrink-0 px-1 t-note font-bold text-accent"
       >
         見る
       </button>
@@ -69,7 +72,7 @@ export default function MixBanner({ mix, onOpen }: { mix: PaceMix; onOpen: () =>
         type="button"
         onClick={dismiss}
         aria-label="この案内を閉じる"
-        className="-mr-1 shrink-0 px-1 text-[15px] leading-none text-muted"
+        className="-mr-1 shrink-0 px-1 t-body leading-none text-muted"
       >
         ×
       </button>

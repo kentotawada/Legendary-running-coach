@@ -38,26 +38,26 @@ export default function WeekStrip({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[13px] font-bold">この先7日</p>
-        <p className="text-[11px] text-muted tabular-nums">
+        <p className="t-note font-bold">この先7日</p>
+        <p className="t-note text-muted tabular-nums">
           合計 {plan.totalKm}km
           {plan.baseKm > 0 && <span className="ml-1">/ 土台 週{plan.baseKm}km</span>}
         </p>
       </div>
 
-      {hint && <p className="mt-1.5 text-[12px] font-semibold text-accent">{hint}</p>}
+      {hint && <p className="mt-1.5 t-note font-semibold text-accent">{hint}</p>}
 
       <ul className="mt-2 flex gap-1">
         {plan.days.map((day) => {
           const body = (
             <>
-              <span className="text-[10px] opacity-80">{day.weekday}</span>
-              <span className="mt-0.5 truncate text-[10px] font-bold leading-tight">{day.label}</span>
+              <span className="t-note opacity-80">{day.weekday}</span>
+              <span className="mt-0.5 truncate t-note font-bold leading-tight">{day.label}</span>
               {day.km !== undefined && (
-                <span className="mt-0.5 text-[11px] font-bold tabular-nums">{day.km}</span>
+                <span className="mt-0.5 t-note font-bold tabular-nums">{day.km}</span>
               )}
               {/* 話して決めた日は、自動で置いた日と見分けが付くようにする。 */}
-              {day.fromPlan && <span className="mt-0.5 text-[9px] leading-none opacity-70">決めた</span>}
+              {day.fromPlan && <span className="mt-0.5 t-note leading-none opacity-70">決めた</span>}
             </>
           );
           const shape = [
@@ -93,7 +93,7 @@ export default function WeekStrip({
         **理由を必ず添える。** 並びだけ出すと、どこから来た数字なのかが分からず、
         「アプリが勝手に決めたノルマ」になる。
       */}
-      <p className="mt-2 text-[11px] leading-relaxed text-muted">{plan.note}</p>
+      <p className="mt-2 t-note leading-relaxed text-muted">{plan.note}</p>
     </div>
   );
 }

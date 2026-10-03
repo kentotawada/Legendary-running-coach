@@ -28,7 +28,7 @@ export default function TermsPage() {
           本サービスは、AI（人工知能）が、利用者の目標・練習の記録・体の状態をもとに、ランニングに関する助言をするものです。
         </p>
         <Callout>
-          <p className="text-[14px] leading-[1.8]">
+          <p className="t-body leading-[1.8]">
             <strong>本サービスは医療ではありません。</strong>
             診断や治療をするものではなく、医師などの専門家の判断に代わるものでもありません。詳しくは
             <Link href="/disclaimer" className="underline underline-offset-4">

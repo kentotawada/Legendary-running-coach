@@ -307,12 +307,12 @@ export default function Composer({
       }}
     >
       {dragging && (
-        <p className="mb-2 rounded-xl border border-dashed border-[color:var(--accent)] py-3 text-center text-[13px] text-accent">
+        <p className="mb-2 rounded-xl border border-dashed border-[color:var(--accent)] py-3 text-center t-note text-accent">
           ここに落とすと画像を添付します
         </p>
       )}
       {images.length > 0 && (
-        <p className="mb-1.5 text-[12px] text-muted">
+        <p className="mb-1.5 t-note text-muted">
           {files.length} / {MAX_IMAGES} 枚
           {/*
             切り分けた時は、送る枚数が添付した枚数より多くなる。
@@ -325,7 +325,7 @@ export default function Composer({
       )}
 
       {oversize && (
-        <p className="mb-2 rounded-xl bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn">
+        <p className="mb-2 rounded-xl bg-warn-soft px-3 py-2 t-note leading-relaxed text-warn">
           画像の合計が大きすぎます。<strong className="font-semibold">× で何枚か外してください。</strong>
         </p>
       )}
@@ -350,7 +350,7 @@ export default function Composer({
                 type="button"
                 aria-label={`添付画像 ${index + 1} を外す`}
                 onClick={() => removeImage(index)}
-                className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--user-bubble)] text-[13px] text-[var(--user-bubble-fg)]"
+                className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--user-bubble)] t-note text-[var(--user-bubble-fg)]"
               >
                 ×
               </button>
@@ -359,12 +359,12 @@ export default function Composer({
         </div>
       )}
 
-      {preparing && <p className="mb-2 text-[12px] text-muted">画像を準備しています…</p>}
+      {preparing && <p className="mb-2 t-note text-muted">画像を準備しています…</p>}
 
       {voice.listening && (
-        <p className="mb-2 text-[12px] text-accent">聞いています… 話し終えたらマイクをもう一度押してください</p>
+        <p className="mb-2 t-note text-accent">聞いています… 話し終えたらマイクをもう一度押してください</p>
       )}
-      {voice.error && !voice.listening && <p className="mb-2 text-[12px] text-warn">{voice.error}</p>}
+      {voice.error && !voice.listening && <p className="mb-2 t-note text-warn">{voice.error}</p>}
 
       <div className="flex items-end gap-1.5">
         <input
@@ -443,8 +443,8 @@ export default function Composer({
                     <path d="M7 19v-6M12 19V8M17 19v-9" />
                   </svg>
                   <span className="min-w-0">
-                    <span className="block text-[14px]">走ったことを入れる</span>
-                    <span className="block text-[11px] leading-snug text-muted">
+                    <span className="block t-body">走ったことを入れる</span>
+                    <span className="block t-note leading-snug text-muted">
                       距離と時間だけ、数タップで
                     </span>
                   </span>
@@ -476,9 +476,9 @@ export default function Composer({
                   <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
                 </svg>
                 <span className="min-w-0">
-                  <span className="block text-[14px]">記録の画像を送る</span>
+                  <span className="block t-body">記録の画像を送る</span>
                   {/* 歩数から時計まで、両端を1行で挙げる。どちらの人も自分の話だと分かる。 */}
-                  <span className="block text-[11px] leading-snug text-muted">
+                  <span className="block t-note leading-snug text-muted">
                     歩数でも、時計の画面でも
                   </span>
                 </span>
@@ -498,13 +498,13 @@ export default function Composer({
                     <path d="M9 2h6M9.5 5.2 10 2.4M14.5 5.2 14 2.4" />
                   </svg>
                   <span className="min-w-0">
-                    <span className="block text-[14px]">記録のファイルを送る</span>
+                    <span className="block t-body">記録のファイルを送る</span>
                     {/*
                       **拡張子より先に、どこから来るファイルかを言う。**
                       FIT / TCX / GPX だけでは、持っている人にしか意味が通らない。
                       持っていない人が「自分には関係ない」と判断できることも大事。
                     */}
-                    <span className="block text-[11px] leading-snug text-muted">
+                    <span className="block t-note leading-snug text-muted">
                       時計やアプリから書き出したもの
                       <br />
                       FIT / TCX / GPX / zip / PDF
@@ -527,9 +527,9 @@ export default function Composer({
                     <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3z" />
                   </svg>
                   <span className="min-w-0">
-                    <span className="block text-[14px]">何を話せばいいか迷ったら</span>
+                    <span className="block t-body">何を話せばいいか迷ったら</span>
                     {/* 送るものが何も無い人が、ここで行き止まりにならないように。 */}
-                    <span className="block text-[11px] leading-snug text-muted">
+                    <span className="block t-note leading-snug text-muted">
                       記録が無くても話せます
                     </span>
                   </span>
@@ -582,7 +582,7 @@ export default function Composer({
           */
           placeholder="今日の調子は"
           aria-label="コーチへのメッセージ"
-          className="scroll-area chat-input max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] border border-line bg-elevated px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted focus:border-[color:var(--accent)] disabled:opacity-60"
+          className="scroll-area chat-input max-h-[140px] min-h-[46px] min-w-0 flex-1 resize-none rounded-[22px] bg-sunken px-4 py-3 leading-relaxed text-fg outline-none placeholder:text-muted disabled:opacity-60"
         />
 
         <button

@@ -37,7 +37,7 @@ export default function FeltRow({
 
   if (picked !== null) {
     return (
-      <div className="border-b border-line bg-elevated px-4 py-2 text-[12px] text-muted">
+      <div className="border-b border-line bg-elevated px-4 py-2 t-note text-muted">
         ありがとうございます。次の比較に使います。
       </div>
     );
@@ -45,7 +45,7 @@ export default function FeltRow({
 
   return (
     <div className="flex items-center gap-2 border-b border-line bg-elevated px-4 py-2">
-      <span className="shrink-0 text-[12px] text-muted">
+      <span className="shrink-0 t-note text-muted">
         {activity.distanceKm ? `${activity.distanceKm}km、` : ''}どうでした？
       </span>
       <div className="flex min-w-0 flex-1 justify-end gap-1.5">
@@ -55,7 +55,7 @@ export default function FeltRow({
             type="button"
             onClick={() => choose(choice.effort)}
             title={choice.hint}
-            className="rounded-full border border-line px-2.5 py-1 text-[12px] font-semibold active:scale-[0.97]"
+            className="rounded-full bg-sunken px-2.5 py-1 t-note font-semibold active:scale-[0.97]"
           >
             {choice.label}
           </button>

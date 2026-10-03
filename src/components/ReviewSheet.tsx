@@ -70,8 +70,8 @@ type TabId = (typeof TABS)[number]['id'];
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-line py-4 first:border-t-0 first:pt-0">
-      <h3 className="text-[13px] font-bold">{title}</h3>
-      {note && <p className="mt-0.5 text-[12px] leading-relaxed text-muted">{note}</p>}
+      <h3 className="t-note font-bold">{title}</h3>
+      {note && <p className="mt-0.5 t-note leading-relaxed text-muted">{note}</p>}
       <div className="mt-2.5">{children}</div>
     </section>
   );
@@ -93,13 +93,13 @@ function WorkloadNote({ profile }: { profile: RunnerProfile | null }) {
   return (
     <div
       className={[
-        'mb-4 rounded-[14px] border px-3.5 py-3',
-        urgent ? 'border-[color:var(--warn)] bg-warn-soft' : 'border-line bg-sunken',
+        'mb-4 rounded-[14px] px-3.5 py-3',
+        urgent ? 'border-[color:var(--warn)] bg-warn-soft' : 'bg-sunken',
       ].join(' ')}
     >
-      <p className={`text-[14px] font-bold leading-snug ${urgent ? 'text-warn' : ''}`}>{text.title}</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">{text.detail}</p>
-      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] tabular-nums text-muted">
+      <p className={`t-body font-bold leading-snug ${urgent ? 'text-warn' : ''}`}>{text.title}</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">{text.detail}</p>
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 t-note tabular-nums text-muted">
         <span>
           直近7日 <strong className="font-bold text-fg">{workload.acuteKm}km</strong>
         </span>
@@ -121,11 +121,11 @@ function WorkloadNote({ profile }: { profile: RunnerProfile | null }) {
 function Tile({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
     <div className="flex-1 rounded-[14px] bg-sunken px-3 py-2.5">
-      <p className="whitespace-nowrap text-[22px] font-bold leading-none">
+      <p className="whitespace-nowrap t-title font-bold leading-none">
         {value}
-        {unit && <span className="ml-0.5 text-[12px] font-semibold text-muted">{unit}</span>}
+        {unit && <span className="ml-0.5 t-note font-semibold text-muted">{unit}</span>}
       </p>
-      <p className="mt-1 text-[11px] text-muted">{label}</p>
+      <p className="mt-1 t-note text-muted">{label}</p>
     </div>
   );
 }
@@ -175,7 +175,7 @@ export default function ReviewSheet({
           次に何をすればここが埋まるのかが分からない。進む先を置く。
         */
         <div className="py-8 text-center">
-          <p className="text-[13px] leading-relaxed text-muted">
+          <p className="t-note leading-relaxed text-muted">
             まだ記録がありません。
             <br />
             走った日のことを教えてもらえれば、ここに積み上がっていきます。
@@ -185,11 +185,11 @@ export default function ReviewSheet({
               <button
                 type="button"
                 onClick={onImport}
-                className="mt-4 rounded-full bg-accent px-5 py-2.5 text-[14px] font-bold text-[var(--accent-fg)]"
+                className="mt-4 rounded-full bg-accent px-5 py-2.5 t-body font-bold text-[var(--accent-fg)]"
               >
                 記録をまとめて取り込む
               </button>
-              <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              <p className="mt-2 t-note leading-relaxed text-muted">
                 過去の練習をまとめて入れると、いきなりここが埋まります。
               </p>
             </>
@@ -212,10 +212,10 @@ export default function ReviewSheet({
                 onClick={() => setTab(item.id)}
                 aria-pressed={tab === item.id}
                 className={[
-                  'flex-1 rounded-full py-2 text-[13px] font-bold transition active:scale-[0.98]',
+                  'flex-1 rounded-full py-2 t-note font-bold transition active:scale-[0.98]',
                   tab === item.id
                     ? 'bg-accent text-[var(--accent-fg)]'
-                    : 'border border-line text-muted',
+                    : 'bg-sunken text-muted',
                 ].join(' ')}
               >
                 {item.label}
@@ -233,7 +233,7 @@ export default function ReviewSheet({
               <Tile value={`${summary?.runs ?? 0}`} unit="回" label="走った回数" />
               <Tile value={`${summary?.hours ?? 0}`} unit="時間" label="動いた時間" />
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-muted">
+            <p className="mt-2 t-note leading-relaxed text-muted">
               記録のある日: {summary?.loggedDays ?? 0}日。
               この積み上げは、ほかのどこにも持っていけません。
             </p>
@@ -289,7 +289,7 @@ export default function ReviewSheet({
             <button
               type="button"
               onClick={onOpenCalendar}
-              className="mb-4 flex w-full items-center gap-3 rounded-[14px] border border-line px-3.5 py-3 text-left active:scale-[0.99]"
+              className="mb-4 flex w-full items-center gap-3 rounded-[14px] bg-sunken px-3.5 py-3 text-left active:scale-[0.99]"
             >
               <svg viewBox="0 0 24 24" className="h-[20px] w-[20px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="3" y="5" width="18" height="16" rx="3" />
@@ -299,8 +299,8 @@ export default function ReviewSheet({
                 <circle cx="15.5" cy="18" r="1.1" fill="currentColor" stroke="none" />
               </svg>
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-bold">カレンダーで見る</span>
-                <span className="block text-[11px] leading-snug text-muted">
+                <span className="block t-body font-bold">カレンダーで見る</span>
+                <span className="block t-note leading-snug text-muted">
                   走った日と、空いた日。消費カロリーの目安も
                 </span>
               </span>
@@ -317,7 +317,7 @@ export default function ReviewSheet({
               unit="km"
               ariaLabel={`月ごとの走行距離。${months.map((m) => `${m.label} ${m.km}km`).join('、')}`}
             />
-            <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted tabular-nums">
+            <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 t-note text-muted tabular-nums">
               {months.map((month) => (
                 <li key={month.month}>
                   {month.label} {month.km}km
@@ -348,12 +348,12 @@ export default function ReviewSheet({
                       : `${row.changePercent > 0 ? '+' : ''}${row.changePercent}%`;
                 return (
                   <li key={row.label} className="flex items-baseline justify-between gap-3">
-                    <span className="text-[13px]">{row.label}</span>
-                    <span className="text-[13px] tabular-nums">
+                    <span className="t-note">{row.label}</span>
+                    <span className="t-note tabular-nums">
                       <span className="font-semibold">{recent}</span>
                       <span className="mx-1.5 text-muted">←</span>
                       <span className="text-muted">{previous}</span>
-                      {delta && <span className="ml-2 text-[12px] text-muted">{delta}</span>}
+                      {delta && <span className="ml-2 t-note text-muted">{delta}</span>}
                     </span>
                   </li>
                 );
@@ -399,11 +399,11 @@ export default function ReviewSheet({
             <Section title="履いてきた靴">
               <ul className="space-y-1.5">
                 {shoes.map((shoe) => (
-                  <li key={shoe.id} className="flex items-baseline justify-between gap-3 text-[13px]">
+                  <li key={shoe.id} className="flex items-baseline justify-between gap-3 t-note">
                     <span className={shoe.retiredAt ? 'text-muted' : ''}>
                       {shoe.name}
-                      <span className="ml-1.5 text-[11px] text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
-                      {shoe.retiredAt && <span className="ml-1.5 text-[11px] text-muted">引退</span>}
+                      <span className="ml-1.5 t-note text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
+                      {shoe.retiredAt && <span className="ml-1.5 t-note text-muted">引退</span>}
                     </span>
                     <span className="shrink-0 tabular-nums text-muted">{Math.round(shoe.km)} km</span>
                   </li>
@@ -416,13 +416,13 @@ export default function ReviewSheet({
             <Section title="痛みの記録">
               <ul className="space-y-1.5">
                 {pains.map((pain) => (
-                  <li key={`${pain.site}-${pain.since ?? ''}`} className="text-[13px]">
+                  <li key={`${pain.site}-${pain.since ?? ''}`} className="t-note">
                     <span className={pain.resolved ? 'text-good' : 'text-warn'}>
                       {pain.site}
                       {pain.resolved ? '（解消）' : '（継続中）'}
                     </span>
                     {pain.days !== undefined && (
-                      <span className="ml-1.5 text-[12px] text-muted">
+                      <span className="ml-1.5 t-note text-muted">
                         {pain.since} から {pain.days}日
                       </span>
                     )}
@@ -446,7 +446,7 @@ export default function ReviewSheet({
               <Section title="走った大会">
                 <ul className="space-y-1.5">
                   {races.map((race) => (
-                    <li key={race.id} className="text-[13px] leading-relaxed">
+                    <li key={race.id} className="t-note leading-relaxed">
                       {describeRace(race, now)}
                     </li>
                   ))}

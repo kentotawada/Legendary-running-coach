@@ -22,7 +22,7 @@ interface Props {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6 first:mt-0">
-      <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      <h3 className="t-note font-semibold uppercase tracking-wide text-muted">{title}</h3>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -32,7 +32,7 @@ function Bullets({ items, marker }: { items: string[]; marker: string }) {
   return (
     <ul className="space-y-2">
       {items.map((item) => (
-        <li key={item} className="flex gap-2.5 text-[14px] leading-relaxed">
+        <li key={item} className="flex gap-2.5 t-body leading-relaxed">
           <span aria-hidden="true" className="mt-[0.45em] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: marker }} />
           <span className="min-w-0 flex-1">{item}</span>
         </li>
@@ -66,7 +66,7 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
           >
             <CoachAvatar character={item} size={54} ring={item.id === viewingId} />
             <span
-              className={`w-full truncate text-center text-[11px] ${
+              className={`w-full truncate text-center t-note ${
                 item.id === viewingId ? 'font-semibold text-fg' : 'text-muted'
               }`}
             >
@@ -79,9 +79,9 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
       <div className="mt-5 flex items-start gap-4">
         <CoachAvatar character={coach} size={72} />
         <div className="min-w-0 flex-1">
-          <p className="text-[19px] font-bold leading-tight">{coach.name}</p>
-          <p className="mt-0.5 text-[12px] text-muted">{coach.reading}</p>
-          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px]">
+          <p className="t-title font-bold leading-tight">{coach.name}</p>
+          <p className="mt-0.5 t-note text-muted">{coach.reading}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 t-note">
             <span
               className="rounded-full px-2 py-0.5 font-semibold"
               style={{ background: `${coach.color}1f`, color: coach.color }}
@@ -104,12 +104,12 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
         </div>
       </div>
 
-      <p className="mt-2 text-[12px] leading-relaxed text-muted">
+      <p className="mt-2 t-note leading-relaxed text-muted">
         「{levelInfo(coach.level).label}」は{levelInfo(coach.level).demand}
         。{levelInfo(coach.level).who}
       </p>
 
-      <p className="mt-4 text-[15px] leading-relaxed">{coach.description}</p>
+      <p className="mt-4 t-body leading-relaxed">{coach.description}</p>
 
       <Section title="こういう人におすすめ">
         <Bullets items={coach.recommendedFor} marker={coach.color} />
@@ -117,7 +117,7 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
 
       <Section title="話し方の例">
         <blockquote
-          className="rounded-[14px] border-l-[3px] bg-sunken px-4 py-3 text-[14px] leading-relaxed"
+          className="rounded-[14px] border-l-[3px] bg-sunken px-4 py-3 t-body leading-relaxed"
           style={{ borderColor: coach.color }}
         >
           {coach.sample}
@@ -127,7 +127,7 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
       <Section title="得意なこと">
         <div className="flex flex-wrap gap-1.5">
           {coach.strengths.map((item) => (
-            <span key={item} className="rounded-full border border-line px-3 py-1.5 text-[13px]">
+            <span key={item} className="rounded-full bg-sunken px-3 py-1.5 t-note">
               {item}
             </span>
           ))}
@@ -138,7 +138,7 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
         <Bullets items={coach.career} marker="var(--fg-muted)" />
       </Section>
 
-      <p className="mt-6 rounded-[14px] bg-sunken px-4 py-3 text-[12px] leading-relaxed text-muted">
+      <p className="mt-6 rounded-[14px] bg-sunken px-4 py-3 t-note leading-relaxed text-muted">
         変わるのは話し方だけです。指導の中身、痛みへの配慮、走れなかった日を責めない原則は、
         どのコーチを選んでも変わりません。
       </p>
@@ -148,7 +148,7 @@ export default function CoachProfileSheet({ currentId, saving, onSelect, onClose
           type="button"
           disabled={saving || isCurrent}
           onClick={() => onSelect(coach.id)}
-          className="w-full rounded-full bg-accent px-4 py-3.5 text-[15px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+          className="w-full rounded-full bg-accent px-4 py-3.5 t-body font-semibold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {isCurrent ? `${coach.name} が担当しています` : saving ? '切り替えています…' : `${coach.name} に担当してもらう`}
         </button>

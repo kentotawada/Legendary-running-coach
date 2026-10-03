@@ -59,9 +59,9 @@ export default function Welcome({
       <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6">
         <div className="animate-step-in flex flex-col items-center text-center">
           <CoachAvatar character={chosen} size={132} />
-          <p className="mt-5 text-[20px] font-bold">{chosen.name}</p>
-          <p className="mt-1 text-[12px] text-muted">{chosen.title}</p>
-          <p className="mt-6 max-w-[20rem] text-[16px] font-bold leading-relaxed text-accent">
+          <p className="mt-5 t-title font-bold">{chosen.name}</p>
+          <p className="mt-1 t-note text-muted">{chosen.title}</p>
+          <p className="mt-6 max-w-[20rem] t-body font-bold leading-relaxed text-accent">
             {chosen.welcome.chosen}
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function Welcome({
           type="button"
           disabled={busy}
           onClick={() => onPick(chosen.id, name.trim())}
-          className="mt-10 w-full max-w-[20rem] rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
+          className="mt-10 w-full max-w-[20rem] rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy ? '呼んでいます…' : 'はじめる'}
         </button>
@@ -88,7 +88,7 @@ export default function Welcome({
         <div className="mb-6 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon-192.png" alt="" width={32} height={32} className="rounded-[9px]" />
-          <span className="text-[15px] font-bold tracking-[0.12em]">RUNCOACH</span>
+          <span className="t-body font-bold tracking-[0.12em]">RUNCOACH</span>
         </div>
 
         {/*
@@ -96,12 +96,12 @@ export default function Welcome({
           自分向けではないと判断して閉じる。いちばん軽い入口（歩くところ）を
           先に置いて、いちばん重いところ（大会）まで幅があることを一行で見せる。
         */}
-        <h1 className="text-[22px] font-bold leading-snug">
+        <h1 className="t-title font-bold leading-snug">
           歩くところから、大会まで。
           <br />
           あなたに、専属のコーチを。
         </h1>
-        <p className="mt-2.5 text-[13px] leading-relaxed text-muted">
+        <p className="mt-2.5 t-note leading-relaxed text-muted">
           これから走ってみようかな、という人も。目標タイムがある人も。
           記録を見て、その日その日で言葉をかけます。
           <strong className="font-semibold text-fg">
@@ -109,8 +109,8 @@ export default function Welcome({
           </strong>
         </p>
 
-        <h2 className="mt-7 text-[15px] font-bold">まず、誰に見てもらいますか</h2>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+        <h2 className="mt-7 t-body font-bold">まず、誰に見てもらいますか</h2>
+        <p className="mt-1 t-note leading-relaxed text-muted">
           上の段ほど、求められることが軽いです。変わるのは話し方と求める量だけで、
           安全のルールは全員同じ。あとからいつでも変えられます。
         </p>
@@ -125,14 +125,14 @@ export default function Welcome({
             <section key={level.id}>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span
-                  className="rounded-full px-2.5 py-0.5 text-[12px] font-bold"
+                  className="rounded-full px-2.5 py-0.5 t-note font-bold"
                   style={{ background: `${level.color}1f`, color: level.color }}
                 >
                   {level.label}
                 </span>
-                <span className="text-[11px] font-semibold text-fg">{level.demand}</span>
+                <span className="t-note font-semibold text-fg">{level.demand}</span>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted">{level.who}</p>
+              <p className="mt-1 t-note leading-relaxed text-muted">{level.who}</p>
 
               <ul className="mt-2.5 grid grid-cols-2 gap-2.5">
                 {characters.map((character) => {
@@ -144,8 +144,8 @@ export default function Welcome({
                         onClick={() => setPicked(character.id)}
                         aria-pressed={active}
                         className={[
-                          'flex h-full w-full flex-col items-center gap-2 rounded-[16px] border p-3 text-center transition active:scale-[0.98]',
-                          active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                          'flex h-full w-full flex-col items-center gap-2 rounded-[16px] p-3 text-center transition active:scale-[0.98]',
+                          active ? 'bg-accent-soft' : 'bg-sunken',
                         ].join(' ')}
                       >
                         {/*
@@ -156,11 +156,11 @@ export default function Welcome({
                         <span key={active ? 'on' : 'off'} className={active ? 'animate-pop' : ''}>
                           <CoachAvatar character={character} size={64} />
                         </span>
-                        <span className={`text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
+                        <span className={`t-note font-bold ${active ? 'text-accent' : ''}`}>
                           {character.name}
                         </span>
                         {/* 顔の下は、肩書きではなく本人が言いそうな一言。 */}
-                        <span className="text-[11px] leading-snug text-muted">
+                        <span className="t-note leading-snug text-muted">
                           {character.tagline}
                         </span>
                       </button>
@@ -185,13 +185,13 @@ export default function Welcome({
             */}
             <p
               key={chosen.id}
-              className="animate-step-in mt-4 rounded-[16px] rounded-tl-[4px] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-accent"
+              className="animate-step-in mt-4 rounded-[16px] rounded-tl-[4px] bg-accent-soft px-4 py-3 t-body font-bold leading-relaxed text-accent"
             >
               {chosen.welcome.picked}
             </p>
 
             <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
-              <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px]">
+              <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 t-note">
                 <span
                   className="rounded-full px-2 py-0.5 font-bold"
                   style={{
@@ -203,7 +203,7 @@ export default function Welcome({
                 </span>
                 <span className="font-semibold text-fg">{levelInfo(chosen.level).demand}</span>
               </p>
-              <p className="mt-2 text-[12px] leading-relaxed text-muted">{chosen.description}</p>
+              <p className="mt-2 t-note leading-relaxed text-muted">{chosen.description}</p>
             </div>
 
             {/*
@@ -212,8 +212,8 @@ export default function Welcome({
               任意にしてあるが、ここで入れてもらえると初回の一言から名前で呼べる。
             */}
             <label className="mt-5 block">
-              <span className="text-[14px] font-bold">何と呼べばいいですか</span>
-              <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+              <span className="t-body font-bold">何と呼べばいいですか</span>
+              <span className="mt-1 block t-note leading-relaxed text-muted">
                 {chosen.speech.honorific
                   ? `${chosen.name}さんは「なまえ${chosen.speech.honorific}」と呼びかけます。`
                   : `${chosen.name}さんは呼び捨てで話します。`}
@@ -225,7 +225,7 @@ export default function Welcome({
                 onChange={(event) => setName(event.target.value)}
                 placeholder="ニックネームでも構いません"
                 maxLength={20}
-                className="mt-2 w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                className="mt-2 w-full rounded-xl border border-transparent bg-sunken px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
               />
             </label>
           </div>
@@ -245,7 +245,7 @@ export default function Welcome({
           type="button"
           disabled={!picked || !agreed || busy}
           onClick={() => picked && setStage('hello')}
-          className="w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
+          className="w-full rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy
             ? '呼んでいます…'

@@ -44,13 +44,13 @@ export default function ImageLightbox({ images, startIndex, onClose }: Props) {
       aria-label="送信した画像"
     >
       <div className="safe-top flex items-center justify-between px-4 pb-2 text-white">
-        <span className="text-[13px] tabular-nums opacity-80">
+        <span className="t-note tabular-nums opacity-80">
           {index + 1} / {images.length}
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-white/30 px-3.5 py-2 text-[13px] active:scale-95"
+          className="rounded-full border border-white/30 px-3.5 py-2 t-note active:scale-95"
         >
           閉じる
         </button>
@@ -79,7 +79,7 @@ export default function ImageLightbox({ images, startIndex, onClose }: Props) {
             type="button"
             onClick={() => setIndex((i) => Math.max(i - 1, 0))}
             disabled={index === 0}
-            className="rounded-full border border-white/30 px-5 py-2.5 text-[14px] text-white disabled:opacity-30"
+            className="rounded-full border border-white/30 px-5 py-2.5 t-body text-white disabled:opacity-30"
           >
             前へ
           </button>
@@ -87,7 +87,7 @@ export default function ImageLightbox({ images, startIndex, onClose }: Props) {
             type="button"
             onClick={() => setIndex((i) => Math.min(i + 1, images.length - 1))}
             disabled={index === images.length - 1}
-            className="rounded-full border border-white/30 px-5 py-2.5 text-[14px] text-white disabled:opacity-30"
+            className="rounded-full border border-white/30 px-5 py-2.5 t-body text-white disabled:opacity-30"
           >
             次へ
           </button>

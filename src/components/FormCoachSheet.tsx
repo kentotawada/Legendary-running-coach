@@ -32,7 +32,7 @@ function Ready({ exercise, onStart }: { exercise: ExerciseSpec; onStart: () => v
 
   return (
     <div>
-      <p className="text-[13px] leading-relaxed text-muted">{exercise.setup}</p>
+      <p className="t-note leading-relaxed text-muted">{exercise.setup}</p>
 
       {art && (
         <div className="mt-3 overflow-hidden rounded-[14px] bg-sunken px-3 py-2">
@@ -50,12 +50,12 @@ function Ready({ exercise, onStart }: { exercise: ExerciseSpec; onStart: () => v
       <button
         type="button"
         onClick={onStart}
-        className="mt-4 w-full rounded-full bg-accent py-3 text-[15px] font-bold text-[var(--accent-fg)]"
+        className="mt-4 w-full rounded-full bg-accent py-3 t-body font-bold text-[var(--accent-fg)]"
       >
         カメラを始める
       </button>
 
-      <p className="mt-2 text-[11px] leading-relaxed text-muted">
+      <p className="mt-2 t-note leading-relaxed text-muted">
         映像はこの端末の中だけで見ます。どこにも送りません。
       </p>
     </div>
@@ -188,7 +188,7 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
     >
       {!exercise && (
         <div>
-          <p className="text-[13px] leading-relaxed text-muted">
+          <p className="t-note leading-relaxed text-muted">
             カメラに映すと、その場で形を見ます。
             <strong className="font-semibold text-fg">映像はこの端末から出ません。</strong>
           </p>
@@ -198,16 +198,16 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   onClick={() => setExercise(item)}
-                  className="flex w-full items-center gap-3 rounded-[14px] border border-line bg-bg px-3.5 py-3 text-left active:opacity-70"
+                  className="flex w-full items-center gap-3 rounded-[14px] bg-sunken px-3.5 py-3 text-left active:opacity-70"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-semibold">{item.name}</span>
-                    <span className="block text-[11px] text-muted">
+                    <span className="block t-body font-semibold">{item.name}</span>
+                    <span className="block t-note text-muted">
                       {item.view === 'side' ? '横から撮ります' : '正面から撮ります'} ／
                       {item.count === 'hold' ? '時間で数えます' : '回数で数えます'}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[13px] text-muted">›</span>
+                  <span className="shrink-0 t-note text-muted">›</span>
                 </button>
               </li>
             ))}
@@ -219,7 +219,7 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
         <>
           <Ready exercise={exercise} onStart={() => void start(exercise)} />
           {error && (
-            <p className="mt-3 rounded-[12px] bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn">
+            <p className="mt-3 rounded-[12px] bg-warn-soft px-3 py-2 t-note leading-relaxed text-warn">
               {error}
             </p>
           )}
@@ -234,7 +234,7 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
 
         {/* 言うのは一度に1つ。 */}
         <p
-          className={`mt-3 rounded-[14px] px-3.5 py-3 text-[15px] font-semibold leading-relaxed ${
+          className={`mt-3 rounded-[14px] px-3.5 py-3 t-body font-semibold leading-relaxed ${
             fix ? 'bg-warn-soft text-warn' : 'bg-accent-soft text-accent'
           }`}
         >
@@ -242,11 +242,11 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
         </p>
 
         <div className="mt-3 flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-[13px] text-muted">
+          <p className="min-w-0 flex-1 t-note text-muted">
             {exercise?.count === 'hold' ? '保てている時間' : '数えた回数'}
-            <strong className="ml-2 text-[20px] font-bold tabular-nums text-fg">
+            <strong className="ml-2 t-title font-bold tabular-nums text-fg">
               {score}
-              <span className="ml-0.5 text-[12px] font-medium text-muted">
+              <span className="ml-0.5 t-note font-medium text-muted">
                 {exercise?.count === 'hold' ? '秒' : '回'}
               </span>
             </strong>
@@ -254,7 +254,7 @@ export default function FormCoachSheet({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={stop}
-            className="shrink-0 rounded-full border border-line px-4 py-2 text-[13px] font-semibold"
+            className="shrink-0 rounded-full bg-sunken px-4 py-2 t-note font-semibold"
           >
             やめる
           </button>

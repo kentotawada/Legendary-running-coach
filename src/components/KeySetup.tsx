@@ -90,8 +90,8 @@ export default function KeySetup() {
 
   return (
     <main className="mx-auto max-w-[680px] px-4 py-8">
-      <h1 className="text-[22px] font-bold">通知の鍵を作る</h1>
-      <p className="mt-2 text-[13px] leading-relaxed text-muted">
+      <h1 className="t-title font-bold">通知の鍵を作る</h1>
+      <p className="mt-2 t-note leading-relaxed text-muted">
         押すと、この端末の中だけで鍵を作ります。
         <strong className="font-semibold text-fg">
           作った鍵は、どこにも送信されません。
@@ -103,13 +103,13 @@ export default function KeySetup() {
         type="button"
         onClick={() => void make()}
         disabled={busy}
-        className="mt-5 w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] active:scale-[0.99] disabled:opacity-40"
+        className="mt-5 w-full rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)] active:scale-[0.99] disabled:opacity-40"
       >
         {busy ? '作っています…' : rows ? 'もう一度作り直す' : '鍵を作る'}
       </button>
 
       {error && (
-        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-2.5 text-[13px] leading-relaxed text-warn">
+        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-2.5 t-note leading-relaxed text-warn">
           {error}
         </p>
       )}
@@ -121,18 +121,18 @@ export default function KeySetup() {
             鍵を変えると、すでに通知を登録した人の宛先が全部無効になる。
             本人には「通知が来なくなった」としか見えず、原因に辿り着けない。
           */}
-          <p className="mt-5 rounded-[12px] bg-warn-soft px-3.5 py-2.5 text-[13px] leading-relaxed text-warn">
+          <p className="mt-5 rounded-[12px] bg-warn-soft px-3.5 py-2.5 t-note leading-relaxed text-warn">
             <strong className="font-bold">作り直すのは、人に配る前だけ。</strong>
             通知を登録した人がいる状態で鍵を変えると、
             その人たちに通知が届かなくなります（画面には何も出ません）。
           </p>
 
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-[13px] font-bold">Vercel に貼る3つ</p>
+            <p className="t-note font-bold">Vercel に貼る3つ</p>
             <button
               type="button"
               onClick={() => setRevealed((value) => !value)}
-              className="rounded-full border border-line px-3 py-1.5 text-[12px] font-semibold"
+              className="rounded-full bg-sunken px-3 py-1.5 t-note font-semibold"
             >
               {revealed ? '秘密の値を隠す' : '秘密の値を表示'}
             </button>
@@ -140,16 +140,16 @@ export default function KeySetup() {
 
           <ul className="mt-2 space-y-3">
             {rows.map((row) => (
-              <li key={row.name} className="rounded-[14px] border border-line bg-sunken px-3.5 py-3">
-                <p className="text-[12px] font-bold tabular-nums">{row.name}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{row.note}</p>
-                <p className="mt-2 break-all rounded-[10px] bg-bg px-3 py-2 font-mono text-[11px] leading-relaxed">
+              <li key={row.name} className="rounded-[14px] bg-sunken px-3.5 py-3">
+                <p className="t-note font-bold tabular-nums">{row.name}</p>
+                <p className="mt-0.5 t-note leading-relaxed text-muted">{row.note}</p>
+                <p className="mt-2 break-all rounded-[10px] bg-bg px-3 py-2 font-mono t-note leading-relaxed">
                   {row.secret && !revealed ? '•'.repeat(32) : row.value}
                 </p>
                 <button
                   type="button"
                   onClick={() => void copy(row)}
-                  className="mt-2 rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                  className="mt-2 rounded-full bg-bg px-3.5 py-2 t-note font-semibold active:scale-[0.98]"
                 >
                   {copied === row.name ? 'コピーしました' : 'コピー'}
                 </button>
@@ -158,8 +158,8 @@ export default function KeySetup() {
           </ul>
 
           <div className="mt-6 rounded-[14px] bg-sunken px-3.5 py-3">
-            <p className="text-[13px] font-bold">このあと（スマホのブラウザで）</p>
-            <ol className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-muted">
+            <p className="t-note font-bold">このあと（スマホのブラウザで）</p>
+            <ol className="mt-2 space-y-1.5 t-note leading-relaxed text-muted">
               <li>1. vercel.com を開いて、このプロジェクトを選ぶ</li>
               <li>2. Settings → Environment Variables</li>
               <li>
@@ -175,7 +175,7 @@ export default function KeySetup() {
                 「通知」が <code className="font-mono">ready: true</code> になっていれば完了
               </li>
             </ol>
-            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            <p className="mt-2 t-note leading-relaxed text-muted">
               <strong className="font-semibold text-fg">貼り終わったら、この画面は閉じてください。</strong>
               値はどこにも保存していないので、閉じれば消えます。
             </p>

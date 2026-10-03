@@ -29,7 +29,7 @@ function Inline({ parts }: { parts: InlineText[] }) {
         }
         if (part.type === 'code') {
           return (
-            <code key={index} className="rounded bg-sunken px-1 py-0.5 text-[0.92em] tabular-nums">
+            <code key={index} className="rounded bg-sunken px-1 py-0.5 t-body tabular-nums">
               {part.value}
             </code>
           );
@@ -43,29 +43,29 @@ function Inline({ parts }: { parts: InlineText[] }) {
 /** 練習メニューは、手順として縦に読めた方が速い。 */
 function MenuCard({ block }: { block: MenuBlock }) {
   return (
-    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <div className="my-2 overflow-hidden rounded-[14px] bg-bg">
       {block.title && (
-        <p className="border-b border-line bg-accent-soft px-3.5 py-2 text-[0.87em] font-bold text-accent">
+        <p className="border-b border-line px-3.5 py-2 t-body font-bold">
           {block.title}
         </p>
       )}
       <ol className="divide-y divide-[color:var(--border)]">
         {block.items.map((item, index) => (
           <li key={`${item.label}-${index}`} className="flex gap-3 px-3.5 py-2.5">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken text-[0.74em] font-bold tabular-nums">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken t-note font-bold tabular-nums">
               {index + 1}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.87em] font-semibold">{item.label}</span>
+              <span className="block t-body font-semibold">{item.label}</span>
               {item.detail && (
-                <span className="block text-[0.87em] leading-relaxed text-muted">{item.detail}</span>
+                <span className="block t-body leading-relaxed text-muted">{item.detail}</span>
               )}
             </span>
           </li>
         ))}
       </ol>
       {block.note && (
-        <p className="border-t border-line px-3.5 py-2 text-[0.8em] leading-relaxed text-muted">{block.note}</p>
+        <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed text-muted">{block.note}</p>
       )}
     </div>
   );
@@ -82,25 +82,25 @@ const ZONE_TONE: Record<string, string> = {
 
 function ZonesCard({ block }: { block: ZonesBlock }) {
   return (
-    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <div className="my-2 overflow-hidden rounded-[14px] bg-bg">
       {block.basis && (
-        <p className="border-b border-line px-3.5 py-2 text-[0.8em] text-muted">{block.basis}</p>
+        <p className="border-b border-line px-3.5 py-2 t-note text-muted">{block.basis}</p>
       )}
       <ul className="divide-y divide-[color:var(--border)]">
         {block.rows.map((row) => (
           <li key={row.zone} className="flex items-center gap-3 px-3.5 py-2.5">
             <span
-              className={`flex h-7 w-8 shrink-0 items-center justify-center rounded-md text-[0.74em] font-bold ${
+              className={`flex h-7 w-8 shrink-0 items-center justify-center rounded-md t-note font-bold ${
                 ZONE_TONE[row.zone.toUpperCase()] ?? 'bg-sunken text-fg'
               }`}
             >
               {row.zone}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.87em] font-semibold">{row.name ?? row.zone}</span>
-              {row.note && <span className="block text-[0.8em] leading-relaxed text-muted">{row.note}</span>}
+              <span className="block t-body font-semibold">{row.name ?? row.zone}</span>
+              {row.note && <span className="block t-note leading-relaxed text-muted">{row.note}</span>}
             </span>
-            {row.range && <span className="shrink-0 text-[0.87em] font-semibold tabular-nums">{row.range}</span>}
+            {row.range && <span className="shrink-0 t-body font-semibold tabular-nums">{row.range}</span>}
           </li>
         ))}
       </ul>
@@ -121,21 +121,21 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
   const sponsored = items.some((item) => hasAffiliate(item.links));
 
   return (
-    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <div className="my-2 overflow-hidden rounded-[14px] bg-bg">
       <p className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
-        <span className="text-[0.87em] font-bold">検討したい道具</span>
-        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
+        <span className="t-body font-bold">検討したい道具</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 t-note text-muted">
           {sponsored ? 'PR・広告リンクを含みます' : '検索リンク'}
         </span>
       </p>
 
-      {block.note && <p className="px-3.5 pt-2.5 text-[0.87em] leading-relaxed">{block.note}</p>}
+      {block.note && <p className="px-3.5 pt-2.5 t-body leading-relaxed">{block.note}</p>}
 
       <ul className="divide-y divide-[color:var(--border)]">
         {items.map((item) => (
           <li key={item.id} className="px-3.5 py-3">
-            <p className="text-[0.87em] font-semibold">{item.title}</p>
-            <p className="mt-0.5 text-[0.8em] leading-relaxed text-muted">{item.why}</p>
+            <p className="t-body font-semibold">{item.title}</p>
+            <p className="mt-0.5 t-note leading-relaxed text-muted">{item.why}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {item.links.map((link) => (
                 <a
@@ -143,7 +143,7 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer sponsored"
-                  className="rounded-full border border-line px-3 py-1.5 text-[0.8em] font-medium text-accent"
+                  className="rounded-full bg-sunken px-3 py-1.5 t-note font-medium text-accent"
                 >
                   {link.shop}で探す
                 </a>
@@ -153,7 +153,7 @@ function GearCard({ block, catalog }: { block: GearBlock; catalog: ResolvedGear[
         ))}
       </ul>
 
-      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
+      <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed text-muted">
         商品はモールの検索結果です。実際の仕様と価格は、購入前に必ずご確認ください。
       </p>
     </div>
@@ -181,22 +181,22 @@ function ProductCard({ block }: { block: ProductBlock }) {
   const sponsored = block.items.some((item) => item.affiliate);
 
   return (
-    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <div className="my-2 overflow-hidden rounded-[14px] bg-bg">
       <p className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
-        <span className="text-[0.87em] font-bold">あなたに合わせた候補</span>
-        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
+        <span className="t-body font-bold">あなたに合わせた候補</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 t-note text-muted">
           {sponsored ? 'PR・広告リンクを含みます' : '商品リンク'}
         </span>
       </p>
 
-      {block.note && <p className="px-3.5 pt-2.5 text-[0.87em] leading-relaxed">{block.note}</p>}
+      {block.note && <p className="px-3.5 pt-2.5 t-body leading-relaxed">{block.note}</p>}
 
       {block.spec && block.spec.length > 0 && (
         <div className="mx-3.5 mt-2.5 rounded-[10px] bg-sunken px-3 py-2">
-          <p className="text-[0.72em] font-semibold text-muted">この条件で選んでいます</p>
+          <p className="t-note font-semibold text-muted">この条件で選んでいます</p>
           <ul className="mt-1 space-y-0.5">
             {block.spec.map((line, index) => (
-              <li key={index} className="flex gap-1.5 text-[0.78em] leading-relaxed text-muted">
+              <li key={index} className="flex gap-1.5 t-note leading-relaxed text-muted">
                 <span aria-hidden="true" className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-accent" />
                 <span className="min-w-0 flex-1">{line}</span>
               </li>
@@ -227,8 +227,8 @@ function ProductCard({ block }: { block: ProductBlock }) {
                   />
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 block text-[0.84em] font-semibold leading-snug">{item.name}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.76em] text-muted">
+                  <span className="line-clamp-2 block t-body font-semibold leading-snug">{item.name}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 t-note text-muted">
                     {item.price !== undefined && (
                       <span className="font-semibold tabular-nums text-fg">{yen(item.price)}</span>
                     )}
@@ -238,7 +238,7 @@ function ProductCard({ block }: { block: ProductBlock }) {
                 </span>
               </a>
               {item.why && (
-                <p className="mt-2 rounded-[10px] bg-accent-soft px-3 py-2 text-[0.8em] leading-relaxed text-accent">
+                <p className="mt-2 t-note leading-relaxed text-accent">
                   {item.why}
                 </p>
               )}
@@ -248,12 +248,12 @@ function ProductCard({ block }: { block: ProductBlock }) {
       </ul>
 
       {block.skipIf && (
-        <p className="border-t border-line px-3.5 py-2 text-[0.78em] leading-relaxed text-muted">
+        <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed text-muted">
           <span className="font-semibold">買わなくていい場合:</span> {block.skipIf}
         </p>
       )}
 
-      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
+      <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed text-muted">
         価格とレビューは{block.asOf ? `${block.asOf} 時点` : '取得した時点'}のものです。
         在庫・サイズ・仕様は、購入前に必ずご確認ください。
       </p>
@@ -315,13 +315,13 @@ function ChecklistCard({ block }: { block: ChecklistBlock }) {
   const done = ready ? checked.length : 0;
 
   return (
-    <div className="my-2 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <div className="my-2 overflow-hidden rounded-[14px] bg-bg">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
         <div className="min-w-0">
-          <p className="truncate text-[0.87em] font-bold">{block.race}の持ち物と段取り</p>
-          {block.date && <p className="text-[0.72em] text-muted">{block.date}</p>}
+          <p className="truncate t-body font-bold">{block.race}の持ち物と段取り</p>
+          {block.date && <p className="t-note text-muted">{block.date}</p>}
         </div>
-        <span className="shrink-0 rounded bg-sunken px-2 py-0.5 text-[0.72em] font-semibold text-muted tabular-nums">
+        <span className="shrink-0 rounded bg-sunken px-2 py-0.5 t-note font-semibold text-muted tabular-nums">
           {block.daysLeft !== undefined
             ? block.daysLeft === 0
               ? '当日'
@@ -332,7 +332,7 @@ function ChecklistCard({ block }: { block: ChecklistBlock }) {
 
       {block.sections.map((section) => (
         <div key={section.title} className="border-b border-line last:border-b-0">
-          <p className="px-3.5 pt-2.5 text-[0.76em] font-semibold text-muted">{section.title}</p>
+          <p className="px-3.5 pt-2.5 t-note font-semibold text-muted">{section.title}</p>
           <ul className="px-1.5 pb-2 pt-1">
             {section.items.map((item) => {
               const id = `${section.title}/${item.label}`;
@@ -347,9 +347,9 @@ function ChecklistCard({ block }: { block: ChecklistBlock }) {
                   >
                     <span
                       aria-hidden="true"
-                      className={`mt-[0.15em] flex h-[1.15em] w-[1.15em] shrink-0 items-center justify-center rounded-[5px] border text-[0.7em] font-bold ${
+                      className={`mt-[0.15em] flex h-[1.15em] w-[1.15em] shrink-0 items-center justify-center rounded-[5px] border t-note font-bold ${
                         isChecked
-                          ? 'border-[color:var(--accent)] bg-accent text-[var(--accent-fg)]'
+                          ? 'bg-accent text-[var(--accent-fg)]'
                           : 'border-line text-transparent'
                       }`}
                     >
@@ -357,14 +357,14 @@ function ChecklistCard({ block }: { block: ChecklistBlock }) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span
-                        className={`block text-[0.84em] font-medium leading-snug ${
+                        className={`block t-body font-medium leading-snug ${
                           isChecked ? 'text-muted line-through' : ''
                         }`}
                       >
                         {item.label}
                       </span>
                       {item.detail && (
-                        <span className="mt-0.5 block text-[0.76em] leading-relaxed text-muted">
+                        <span className="mt-0.5 block t-note leading-relaxed text-muted">
                           {item.detail}
                         </span>
                       )}
@@ -377,7 +377,7 @@ function ChecklistCard({ block }: { block: ChecklistBlock }) {
         </div>
       ))}
 
-      <p className="border-t border-line px-3.5 py-2 text-[0.74em] leading-relaxed text-muted">
+      <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed text-muted">
         チェックはこの端末にだけ残ります（{done}/{total}）。当日の朝、もう一度開いてください。
       </p>
     </div>
@@ -395,10 +395,10 @@ function FigureCard({ block }: { block: FigureBlock }) {
   if (!figure || !art) return null;
 
   return (
-    <figure className="my-3 overflow-hidden rounded-[14px] border border-line bg-bg">
+    <figure className="my-3 overflow-hidden rounded-[14px] bg-bg">
       <figcaption className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
-        <span className="text-[0.87em] font-bold">{figure.title}</span>
-        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 text-[0.68em] text-muted">
+        <span className="t-body font-bold">{figure.title}</span>
+        <span className="shrink-0 rounded bg-sunken px-1.5 py-0.5 t-note text-muted">
           {FIGURE_CATEGORY_LABEL[figure.category]}
         </span>
       </figcaption>
@@ -414,12 +414,12 @@ function FigureCard({ block }: { block: FigureBlock }) {
         </svg>
       </div>
 
-      <p className="px-3.5 pt-2.5 text-[0.8em] leading-relaxed text-muted">{figure.purpose}</p>
+      <p className="px-3.5 pt-2.5 t-note leading-relaxed text-muted">{figure.purpose}</p>
 
       <ol className="mt-1.5 space-y-1.5 px-3.5">
         {figure.steps.map((step, index) => (
-          <li key={index} className="flex gap-2.5 text-[0.87em] leading-relaxed">
-            <span className="mt-[0.15em] flex h-[1.35em] w-[1.35em] shrink-0 items-center justify-center rounded-full bg-sunken text-[0.76em] font-bold tabular-nums">
+          <li key={index} className="flex gap-2.5 t-body leading-relaxed">
+            <span className="mt-[0.15em] flex h-[1.35em] w-[1.35em] shrink-0 items-center justify-center rounded-full bg-sunken t-note font-bold tabular-nums">
               {index + 1}
             </span>
             <span className="min-w-0 flex-1">
@@ -431,7 +431,7 @@ function FigureCard({ block }: { block: FigureBlock }) {
 
       <ul className="mt-2.5 space-y-1 border-t border-line px-3.5 py-2.5">
         {figure.cautions.map((caution) => (
-          <li key={caution} className="flex gap-2 text-[0.8em] leading-relaxed text-warn">
+          <li key={caution} className="flex gap-2 t-note leading-relaxed text-warn">
             <span aria-hidden="true" className="mt-[0.5em] h-1 w-1 shrink-0 rounded-full bg-[color:var(--warn)]" />
             <span className="min-w-0 flex-1">
               <Inline parts={parseInline(caution)} />
@@ -441,7 +441,7 @@ function FigureCard({ block }: { block: FigureBlock }) {
       </ul>
 
       {(figure.dose || block.note) && (
-        <p className="border-t border-line px-3.5 py-2 text-[0.8em] leading-relaxed">
+        <p className="border-t border-line px-3.5 py-2 t-note leading-relaxed">
           {figure.dose && <span className="font-semibold">{figure.dose}</span>}
           {figure.dose && block.note && <span className="text-muted"> / </span>}
           {block.note && <span className="text-muted">{block.note}</span>}
@@ -455,7 +455,7 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
   switch (block.type) {
     case 'heading':
       return (
-        <p className="mt-3 text-[0.94em] font-bold first:mt-0">
+        <p className="mt-3 t-body font-bold first:mt-0">
           <Inline parts={block.content} />
         </p>
       );
@@ -498,7 +498,7 @@ function Block({ block, catalog }: { block: RichBlock; catalog: ResolvedGear[] }
     case 'figure':
       return <FigureCard block={block} />;
     case 'pending':
-      return <p className="my-1 text-[0.8em] text-muted">…</p>;
+      return <p className="my-1 t-note text-muted">…</p>;
     case 'paragraph':
     default:
       return (

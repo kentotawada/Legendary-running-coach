@@ -72,7 +72,7 @@ export default function Sheet({
                   type="button"
                   onClick={onBack}
                   aria-label={backLabel ? `${backLabel}に戻る` : '前の画面に戻る'}
-                  className="-ml-2 flex h-9 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 text-[13px] font-medium text-accent transition active:scale-95"
+                  className="-ml-2 flex h-9 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 t-note font-medium text-accent transition active:scale-95"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m15 18-6-6 6-6" />
@@ -80,7 +80,7 @@ export default function Sheet({
                   {backLabel && <span className="whitespace-nowrap">{backLabel}</span>}
                 </button>
               )}
-              <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-tight">{title}</h2>
+              <h2 className="min-w-0 flex-1 truncate t-body font-bold tracking-tight">{title}</h2>
               {action}
               <button
                 type="button"

@@ -27,19 +27,19 @@ export default function ConsentGate({
         <div className="mb-6 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon-192.png" alt="" width={32} height={32} className="rounded-[9px]" />
-          <span className="text-[15px] font-bold tracking-[0.12em]">RUNCOACH</span>
+          <span className="t-body font-bold tracking-[0.12em]">RUNCOACH</span>
         </div>
 
-        <h1 className="text-[22px] font-bold leading-snug">利用規約とプライバシーポリシーへの同意のお願い</h1>
-        <p className="mt-3 text-[14px] leading-[1.9]">
+        <h1 className="t-title font-bold leading-snug">利用規約とプライバシーポリシーへの同意のお願い</h1>
+        <p className="mt-3 t-body leading-[1.9]">
           RUNCOACH は、痛み・故障歴・体重・心拍といった、<strong>体に関する記録</strong>
           をお預かりしています。その扱いを、利用規約・プライバシーポリシー・免責事項にまとめました。
         </p>
-        <p className="mt-3 text-[14px] leading-[1.9]">
+        <p className="mt-3 t-body leading-[1.9]">
           コーチの返答を作るために、会話の内容を海外（米国）の事業者に送っていることも書いています。続けて使うには、内容を確かめて同意してください。
         </p>
 
-        <ul className="mt-5 space-y-2 text-[14px]">
+        <ul className="mt-5 space-y-2 t-body">
           {[
             { href: '/terms', label: '利用規約' },
             { href: '/privacy', label: 'プライバシーポリシー' },
@@ -50,7 +50,7 @@ export default function ConsentGate({
                 href={link.href}
                 target="_blank"
                 rel="noopener"
-                className="flex items-center justify-between rounded-[12px] border border-line px-4 py-3 font-medium"
+                className="flex items-center justify-between rounded-[12px] bg-sunken px-4 py-3 font-medium"
               >
                 {link.label}
                 <span aria-hidden className="text-muted">
@@ -61,7 +61,7 @@ export default function ConsentGate({
           ))}
         </ul>
 
-        <p className="mt-8 text-[12px] leading-relaxed text-muted">
+        <p className="mt-8 t-note leading-relaxed text-muted">
           同意しない場合は、ここでこれまでの記録を消去できます。<button
             type="button"
             disabled={busy}
@@ -83,7 +83,7 @@ export default function ConsentGate({
           type="button"
           disabled={!agreed || busy}
           onClick={onAgree}
-          className="w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-40"
+          className="w-full rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {busy ? '保存しています…' : '同意して続ける'}
         </button>

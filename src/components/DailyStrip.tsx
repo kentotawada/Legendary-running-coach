@@ -34,9 +34,9 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
             key={stamp.id}
             title={stamp.label}
             className={[
-              'flex h-7 w-7 items-center justify-center rounded-full border transition',
+              'flex h-7 w-7 items-center justify-center rounded-full transition',
               stamp.done
-                ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                ? 'bg-accent text-[var(--accent-fg)]'
                 : 'border-line bg-sunken text-muted opacity-50',
             ].join(' ')}
           >
@@ -45,7 +45,7 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
         ))}
       </span>
 
-      <span className="min-w-0 flex-1 text-[12px] leading-tight">
+      <span className="min-w-0 flex-1 t-note leading-tight">
         {/*
           **1日目を「1日連続」と言わない。** まだ何も続いていないのに
           続いていることにすると、この数字そのものが信用されなくなる。
@@ -58,7 +58,7 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
         <span className="block truncate text-muted">{remaining}</span>
       </span>
 
-      <span aria-hidden="true" className="text-[13px] text-muted">
+      <span aria-hidden="true" className="t-note text-muted">
         ›
       </span>
     </button>

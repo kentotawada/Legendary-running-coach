@@ -204,12 +204,12 @@ function drawGap(
 function Stat({ label, value, unit, note }: { label: string; value: string; unit?: string; note?: string }) {
   return (
     <div className="min-w-0 flex-1 border-t border-line pt-1.5">
-      <p className="text-[11px] text-muted">{label}</p>
-      <p className="mt-0.5 truncate text-[19px] font-bold leading-tight tabular-nums">
+      <p className="t-note text-muted">{label}</p>
+      <p className="mt-0.5 truncate t-title font-bold leading-tight tabular-nums">
         {value}
-        {unit && <span className="ml-1 text-[11px] font-medium text-muted">{unit}</span>}
+        {unit && <span className="ml-1 t-note font-medium text-muted">{unit}</span>}
       </p>
-      {note && <p className="mt-0.5 text-[10px] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-0.5 t-note leading-relaxed text-muted">{note}</p>}
     </div>
   );
 }
@@ -479,13 +479,13 @@ export default function RunFormSheet({
 
   return (
     <Sheet label="走りを見てもらう" title="走りを見てもらう" onClose={onClose}>
-      <p className="text-[13px] leading-relaxed text-muted">
+      <p className="t-note leading-relaxed text-muted">
         走っているところを<strong className="font-semibold text-fg">横から数秒</strong>撮って、
         その動画を選んでください。1コマずつ見て、接地の位置やピッチを数字にします。
         <strong className="font-semibold text-fg">動画はこの端末から出ません。</strong>
       </p>
 
-      <ul className="mt-3 space-y-1 rounded-[14px] bg-sunken px-3.5 py-3 text-[11px] leading-relaxed text-muted">
+      <ul className="mt-3 space-y-1 rounded-[14px] bg-sunken px-3.5 py-3 t-note leading-relaxed text-muted">
         <li>・進む向きに対して、<strong className="font-semibold text-fg">真横</strong>から撮る</li>
         <li>・頭から足まで、全身が入るように</li>
         <li>・5〜10秒でじゅうぶんです</li>
@@ -507,7 +507,7 @@ export default function RunFormSheet({
         type="button"
         disabled={busy}
         onClick={() => pickRef.current?.click()}
-        className="mt-4 w-full rounded-full bg-accent py-3 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-50"
+        className="mt-4 w-full rounded-full bg-accent py-3 t-body font-bold text-[var(--accent-fg)] disabled:opacity-50"
       >
         {busy ? `読んでいます… ${progress}%` : '動画を選ぶ'}
       </button>
@@ -526,13 +526,13 @@ export default function RunFormSheet({
       />
 
       {error && (
-        <p className="mt-3 rounded-[12px] bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn">
+        <p className="mt-3 rounded-[12px] bg-warn-soft px-3 py-2 t-note leading-relaxed text-warn">
           {error}
         </p>
       )}
 
       {report && !report.measured && (
-        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-3 text-[13px] leading-relaxed text-warn">
+        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-3 t-note leading-relaxed text-warn">
           {report.note}
         </p>
       )}
@@ -554,14 +554,14 @@ export default function RunFormSheet({
                 onClick={() => step(-1)}
                 disabled={now <= 0}
                 aria-label="1コマ戻る"
-                className="h-11 w-14 shrink-0 rounded-[12px] border border-line text-[17px] font-bold disabled:opacity-30"
+                className="h-11 w-14 shrink-0 rounded-[12px] bg-sunken t-body font-bold disabled:opacity-30"
               >
                 ◀
               </button>
-              <p className="min-w-0 flex-1 text-center text-[12px] leading-tight text-muted">
-                <span className="block text-[15px] font-bold tabular-nums text-fg">
+              <p className="min-w-0 flex-1 text-center t-note leading-tight text-muted">
+                <span className="block t-body font-bold tabular-nums text-fg">
                   {(film.frames[now].t - film.frames[0].t).toFixed(2)}
-                  <span className="ml-0.5 text-[11px] font-medium text-muted">秒</span>
+                  <span className="ml-0.5 t-note font-medium text-muted">秒</span>
                 </span>
                 {now + 1} / {film.frames.length} コマ
                 {here && <span className="ml-1.5 font-bold" style={{ color: MARK }}>接地</span>}
@@ -571,7 +571,7 @@ export default function RunFormSheet({
                 onClick={() => step(1)}
                 disabled={now >= last}
                 aria-label="1コマ進む"
-                className="h-11 w-14 shrink-0 rounded-[12px] border border-line text-[17px] font-bold disabled:opacity-30"
+                className="h-11 w-14 shrink-0 rounded-[12px] bg-sunken t-body font-bold disabled:opacity-30"
               >
                 ▶
               </button>
@@ -604,7 +604,7 @@ export default function RunFormSheet({
                 type="button"
                 onClick={() => jump(-1)}
                 disabled={beats.every((i) => i >= now)}
-                className="h-10 flex-1 rounded-[12px] border border-line text-[12px] font-semibold disabled:opacity-30"
+                className="h-10 flex-1 rounded-[12px] bg-sunken t-note font-semibold disabled:opacity-30"
               >
                 ◀ 前の接地
               </button>
@@ -612,7 +612,7 @@ export default function RunFormSheet({
                 type="button"
                 onClick={() => jump(1)}
                 disabled={beats.every((i) => i <= now)}
-                className="h-10 flex-1 rounded-[12px] border border-line text-[12px] font-semibold disabled:opacity-30"
+                className="h-10 flex-1 rounded-[12px] bg-sunken t-note font-semibold disabled:opacity-30"
               >
                 次の接地 ▶
               </button>
@@ -620,7 +620,7 @@ export default function RunFormSheet({
           </div>
 
           {/* **絵の読み方を書く。** 色が何を指しているか分からないと、線はただの落書き。 */}
-          <dl className="mt-3 space-y-1 text-[11px] leading-relaxed text-muted">
+          <dl className="mt-3 space-y-1 t-note leading-relaxed text-muted">
             <div className="flex gap-2">
               <dt className="shrink-0 font-semibold" style={{ color: MARK }}>
                 オレンジの脚
@@ -632,7 +632,7 @@ export default function RunFormSheet({
               <dd className="min-w-0">縦は腰の真下、横は地面。地面はコマを送っても動きません。</dd>
             </div>
           </dl>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+          <p className="mt-1.5 t-note leading-relaxed text-muted">
             絵の中の数字は<strong className="font-semibold text-fg">そのコマの値</strong>、
             下の「接地位置」は{report.contacts.length}回の平均です。
           </p>
@@ -677,12 +677,12 @@ export default function RunFormSheet({
               setSent(true);
               onClose();
             }}
-            className="mt-5 w-full rounded-full bg-accent py-3 text-[15px] font-bold text-[var(--accent-fg)] disabled:opacity-50"
+            className="mt-5 w-full rounded-full bg-accent py-3 t-body font-bold text-[var(--accent-fg)] disabled:opacity-50"
           >
             この数字をコーチに見てもらう
           </button>
 
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          <p className="mt-2 t-note leading-relaxed text-muted">
             数字の良し悪しは、走る速度と体の作りで変わります。
             <strong className="font-semibold text-fg">同じ撮り方で何度か測って、自分の中での変化を見てください。</strong>
             真横から撮れていないと、角度そのものがずれます。

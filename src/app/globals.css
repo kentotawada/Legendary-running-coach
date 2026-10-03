@@ -5,6 +5,17 @@
   将来 iOS / Android の WebView に載せても破綻しないよう、
   色・角丸・余白はすべてここに集約している。
 */
+/*
+  面と枠の決まりごと。
+
+  **色の付いた面は「いま押せる」と「危ない」だけ。**
+  案内にも、見出しにも、帯にも色を敷かない。敷いた数だけ橙の意味が薄まり、
+  最後は全部が同じ強さで主張して、どれから見ればいいのか分からなくなる。
+  一画面に出す橙の面は1つまで。
+
+  **枠線で箱を作らない。** 区切りが要るところは、下に1本だけ線を引く。
+  箱は中身を囲うたびに画面を細かく割る。線は割らずに分ける。
+*/
 :root {
   --bg: #fcfcfb;
   --bg-elevated: #ffffff;
@@ -194,7 +205,7 @@ body {
   倍率を変えると発言全体が同じ比率で拡大・縮小する。
 */
 .chat-body {
-  font-size: calc(15px * var(--chat-font-scale, 1));
+  font-size: calc(16px * var(--chat-font-scale, 1));
 }
 
 /*
@@ -210,10 +221,10 @@ select {
 /*
   本文と同じ大きさで打ちたい入力欄。
   「大」では本文に追従して大きくなり、「小」「中」では 16px で止める。
-  ここを .chat-body にすると 15px（小なら 13px）になり、上の拡大が起きる。
+  ここを .chat-body にすると「小」で 16px を下回り、上の拡大が起きる。
 */
 .chat-input {
-  font-size: max(16px, calc(15px * var(--chat-font-scale, 1)));
+  font-size: max(16px, calc(16px * var(--chat-font-scale, 1)));
 }
 
 .safe-top {
@@ -300,6 +311,52 @@ select {
   **顔が動くこと自体が、このアプリで最初に起きる出来事になる。**
   名前と肩書きが並んでいるだけの画面から、人を選んだ実感に変える。
 */
+/*
+  文字の段。
+
+  **17種類を4段に畳んだ。**
+  以前は 8px から 32px まで17種類が655箇所に散っていた。
+  種類が多いことは階層が細かいことではなく、**階層が無いこと**を意味する。
+  どれが大事なのか、大きさからは何も読み取れない状態だった。
+
+  いま使ってよいのはこの4つだけ。新しい大きさを足す時は、
+  **まず既存の4つで足りないかを疑うこと。**
+
+   t-title … 結論。シートの題、カードの見出し
+   t-body  … 読ませる文章
+   t-note  … ラベル、注記、単位
+   t-num   … 数字そのものを見せる時（タイム・距離）
+
+  **文字の大きさの設定（カルテ）が、ここ全部に効く。**
+  以前は会話の本文にしか効いていなかった。
+*/
+.t-title {
+  font-size: calc(19px * var(--chat-font-scale));
+  line-height: 1.5;
+}
+
+.t-body {
+  font-size: calc(16px * var(--chat-font-scale));
+  line-height: 1.75;
+}
+
+.t-note {
+  font-size: calc(13px * var(--chat-font-scale));
+  line-height: 1.7;
+}
+
+.t-num {
+  font-size: calc(26px * var(--chat-font-scale));
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-num-l {
+  font-size: calc(34px * var(--chat-font-scale));
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes coach-step-in {
   from {
     opacity: 0;

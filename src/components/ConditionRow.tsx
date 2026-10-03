@@ -21,8 +21,8 @@ export default function ConditionRow({
   onPick: (condition: ConditionId) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-line bg-elevated px-4 py-2">
-      <span className="shrink-0 text-[12px] text-muted">今日の体は？</span>
+    <div className="flex items-center gap-2 border-b border-line px-4 py-2">
+      <span className="shrink-0 t-note text-muted">今日の体は？</span>
       <div className="flex min-w-0 flex-1 justify-end gap-1.5">
         {CONDITIONS.map((condition) => {
           const active = picked === condition.id;
@@ -33,10 +33,13 @@ export default function ConditionRow({
               onClick={() => onPick(condition.id)}
               aria-pressed={active}
               className={[
-                'rounded-full border px-3 py-1 text-[12px] font-semibold active:scale-[0.97]',
-                active
-                  ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
-                  : 'border-line',
+                /*
+                  枠線で囲わず、薄い面で置く。
+                  **押してあるものだけが濃い。** 押す前の3つが縁取られていると、
+                  どれか1つが選ばれているように見えて、押す必要が無いと思われる。
+                */
+                'rounded-full px-3 py-1 t-note font-semibold active:scale-[0.97]',
+                active ? 'bg-accent text-[var(--accent-fg)]' : 'bg-sunken',
               ].join(' ')}
             >
               {condition.label}

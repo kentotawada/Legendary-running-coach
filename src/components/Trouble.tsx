@@ -63,26 +63,26 @@ export default function Trouble({
         <div className="mb-8 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon-192.png" alt="" width={28} height={28} className="rounded-[8px]" />
-          <span className="text-[14px] font-bold tracking-[0.12em]">RUNCOACH</span>
+          <span className="t-body font-bold tracking-[0.12em]">RUNCOACH</span>
         </div>
 
-        <h1 className="text-[20px] font-bold leading-snug">{title}</h1>
+        <h1 className="t-title font-bold leading-snug">{title}</h1>
 
         {/*
           **ここが本題。** 記録が無事であることを、いちばん強く出す。
           消えたと思って開き直さない人を、ここで引き止める。
         */}
-        <p className="mt-4 rounded-[14px] bg-good-soft px-4 py-3.5 text-[14px] font-semibold leading-relaxed text-good">
+        <p className="mt-4 rounded-[14px] bg-good-soft px-4 py-3.5 t-body font-semibold leading-relaxed text-good">
           これまでの記録は消えていません。
         </p>
 
-        <p className="mt-4 text-[13px] leading-relaxed text-muted">{lead}</p>
+        <p className="mt-4 t-note leading-relaxed text-muted">{lead}</p>
 
         {onRetry && (
           <button
             type="button"
             onClick={onRetry}
-            className="mt-6 w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)]"
+            className="mt-6 w-full rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)]"
           >
             {retryLabel}
           </button>
@@ -100,20 +100,20 @@ export default function Trouble({
             // eslint-disable-next-line @next/next/no-location-assign-relative-destination
             window.location.href = '/';
           }}
-          className="mt-3 block w-full rounded-full border border-line py-3.5 text-center text-[15px] font-semibold"
+          className="mt-3 block w-full rounded-full bg-sunken py-3.5 text-center t-body font-semibold"
         >
           最初の画面へ
         </button>
 
         <div className="mt-10 border-t border-line pt-5">
-          <p className="text-[12px] leading-relaxed text-muted">
+          <p className="t-note leading-relaxed text-muted">
             何度やっても同じなら、教えてください。どの画面で何をした時かが分かると、直せます。
           </p>
           <button
             type="button"
             disabled={told}
             onClick={() => setTold(true)}
-            className="mt-2.5 text-[13px] font-semibold text-accent underline underline-offset-4 disabled:text-muted disabled:no-underline"
+            className="mt-2.5 t-note font-semibold text-accent underline underline-offset-4 disabled:text-muted disabled:no-underline"
           >
             {told ? '受け取りました。ありがとうございます。' : 'この不具合を知らせる'}
           </button>
@@ -124,7 +124,7 @@ export default function Trouble({
         </div>
 
         {error?.digest && (
-          <p className="mt-6 text-[11px] text-muted">
+          <p className="mt-6 t-note text-muted">
             識別子: <span className="font-mono">{error.digest}</span>
           </p>
         )}

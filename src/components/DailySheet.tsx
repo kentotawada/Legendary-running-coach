@@ -78,29 +78,29 @@ export default function DailySheet({
               ここに 🎉 を置くと、文章のほうが軽く見える。
               数字を大きく出すだけで、祝いにはじゅうぶん足りる。
             */
-            <div className="mb-4 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3.5">
-              <p className="text-[13px] font-bold text-accent">
+            <div className="mb-4 animate-rise rounded-[var(--radius)] bg-accent-soft px-4 py-3.5">
+              <p className="t-note font-bold text-accent">
                 {daily.milestone}日連続です。
               </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-accent opacity-90">
+              <p className="mt-1 t-note leading-relaxed text-accent opacity-90">
                 続けられていること自体が、いちばん再現しにくい才能です。
               </p>
             </div>
           )}
 
           <div className="mb-4 flex items-baseline gap-2">
-            <span className="text-[32px] font-bold leading-none text-accent tabular-nums">
+            <span className="t-num-l font-bold leading-none text-accent tabular-nums">
               {daily.streakDays}
             </span>
             {/*
               **1日目を「1日連続」と言わない。** まだ何も続いていない。
               「1日目」なら嘘にならず、始まったことは伝わる。
             */}
-            <span className="text-[13px] text-muted">
+            <span className="t-note text-muted">
               {daily.streakDays >= 2 ? '日連続' : '日目'}
             </span>
             {next && (
-              <span className="ml-auto text-[12px] text-muted">
+              <span className="ml-auto t-note text-muted">
                 次の節目まで あと{next - daily.streakDays}日
               </span>
             )}
@@ -111,8 +111,8 @@ export default function DailySheet({
               <li
                 key={stamp.id}
                 className={[
-                  'flex items-center gap-3 rounded-[var(--radius)] border px-3.5 py-3',
-                  stamp.done ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                  'flex items-center gap-3 rounded-[var(--radius)] px-3.5 py-3',
+                  stamp.done ? 'bg-accent-soft' : 'bg-sunken',
                 ].join(' ')}
               >
                 {/* 押せた時は色が変わるだけ。絵柄は変えない。 */}
@@ -124,12 +124,12 @@ export default function DailySheet({
                   <StampIcon id={stamp.id} size={28} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-[14px] font-semibold ${stamp.done ? 'text-accent' : ''}`}>
+                  <span className={`block t-body font-semibold ${stamp.done ? 'text-accent' : ''}`}>
                     {stamp.label}
                   </span>
-                  <span className="block text-[11px] leading-relaxed text-muted">{stamp.hint}</span>
+                  <span className="block t-note leading-relaxed text-muted">{stamp.hint}</span>
                 </span>
-                {stamp.done && <span className="shrink-0 text-[13px] font-bold text-accent">済</span>}
+                {stamp.done && <span className="shrink-0 t-note font-bold text-accent">済</span>}
               </li>
             ))}
           </ul>
@@ -142,8 +142,8 @@ export default function DailySheet({
           */}
           {(onOpenRunForm || onOpenForm) && (
             <div className="mt-5 border-t border-line pt-4">
-              <p className="text-[13px] font-medium">コーチに見てもらう</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+              <p className="t-note font-medium">コーチに見てもらう</p>
+              <p className="mt-0.5 t-note leading-relaxed text-muted">
                 スタンプとは別に、いつでも使えます
               </p>
             </div>
@@ -153,15 +153,15 @@ export default function DailySheet({
             <button
               type="button"
               onClick={onOpenRunForm}
-              className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-3.5 py-3 text-left active:opacity-70"
+              className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius)] bg-accent-soft px-3.5 py-3 text-left active:opacity-70"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-accent">走りを見てもらう</span>
-                <span className="block text-[11px] leading-relaxed text-muted">
+                <span className="block t-body font-semibold text-accent">走りを見てもらう</span>
+                <span className="block t-note leading-relaxed text-muted">
                   横から数秒撮った動画から、接地の位置やピッチを数字にします
                 </span>
               </span>
-              <span className="shrink-0 text-[13px] text-accent">›</span>
+              <span className="shrink-0 t-note text-accent">›</span>
             </button>
           )}
 
@@ -169,15 +169,15 @@ export default function DailySheet({
             <button
               type="button"
               onClick={onOpenForm}
-              className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius)] border border-line bg-bg px-3.5 py-3 text-left active:opacity-70"
+              className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius)] bg-sunken px-3.5 py-3 text-left active:opacity-70"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold">ストレッチ・筋トレを見てもらう</span>
-                <span className="block text-[11px] leading-relaxed text-muted">
+                <span className="block t-body font-semibold">ストレッチ・筋トレを見てもらう</span>
+                <span className="block t-note leading-relaxed text-muted">
                   カメラに映すと、その場で形を見ます
                 </span>
               </span>
-              <span className="shrink-0 text-[13px] text-muted">›</span>
+              <span className="shrink-0 t-note text-muted">›</span>
             </button>
           )}
 
@@ -189,26 +189,26 @@ export default function DailySheet({
           */}
           {(onSendImages || onSendFiles) && (
             <div className="mt-5 border-t border-line pt-4">
-              <p className="text-[13px] font-medium">走った記録を送る</p>
+              <p className="t-note font-medium">走った記録を送る</p>
               <div className="mt-2 flex gap-2">
                 {onSendImages && (
                   <button
                     type="button"
                     onClick={onSendImages}
-                    className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97]"
+                    className="min-w-0 flex-1 rounded-[14px] bg-sunken px-2 py-2.5 text-center active:scale-[0.97]"
                   >
-                    <span className="block text-[13px] font-semibold">記録の画像</span>
-                    <span className="block text-[11px] text-muted">歩数でも、時計の画面でも</span>
+                    <span className="block t-note font-semibold">記録の画像</span>
+                    <span className="block t-note text-muted">歩数でも、時計の画面でも</span>
                   </button>
                 )}
                 {onSendFiles && (
                   <button
                     type="button"
                     onClick={onSendFiles}
-                    className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97]"
+                    className="min-w-0 flex-1 rounded-[14px] bg-sunken px-2 py-2.5 text-center active:scale-[0.97]"
                   >
-                    <span className="block text-[13px] font-semibold">記録のファイル</span>
-                    <span className="block text-[11px] text-muted">時計やアプリの書き出し</span>
+                    <span className="block t-note font-semibold">記録のファイル</span>
+                    <span className="block t-note text-muted">時計やアプリの書き出し</span>
                   </button>
                 )}
               </div>
@@ -224,10 +224,10 @@ export default function DailySheet({
           */}
           <div className="mt-5 border-t border-line pt-4">
             <div className="flex items-baseline justify-between">
-              <p className="text-[13px] font-medium">今日 食べた量</p>
-              <p className="text-[15px] font-bold tabular-nums">
+              <p className="t-note font-medium">今日 食べた量</p>
+              <p className="t-body font-bold tabular-nums">
                 {(daily.intakeKcalToday ?? 0).toLocaleString('ja-JP')}
-                <span className="ml-0.5 text-[11px] font-medium text-muted">kcal</span>
+                <span className="ml-0.5 t-note font-medium text-muted">kcal</span>
               </p>
             </div>
             <div className="mt-2 flex gap-2">
@@ -237,14 +237,14 @@ export default function DailySheet({
                   type="button"
                   disabled={saving}
                   onClick={() => onAddIntake(meal.kcal)}
-                  className="min-w-0 flex-1 rounded-[14px] border border-line px-2 py-2.5 text-center active:scale-[0.97] disabled:opacity-40"
+                  className="min-w-0 flex-1 rounded-[14px] bg-sunken px-2 py-2.5 text-center active:scale-[0.97] disabled:opacity-40"
                 >
-                  <span className="block text-[13px] font-semibold">{meal.label}</span>
-                  <span className="block text-[11px] text-muted tabular-nums">＋{meal.kcal}</span>
+                  <span className="block t-note font-semibold">{meal.label}</span>
+                  <span className="block t-note text-muted tabular-nums">＋{meal.kcal}</span>
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            <p className="mt-2 t-note leading-relaxed text-muted">
               食べるたびに押してください。ざっくりで十分です。
               細かく伝えたい時は、コーチに話せば読み取ります。
             </p>
@@ -256,12 +256,12 @@ export default function DailySheet({
               「増えた減ったは気にしない。乗ることが習慣です」と既に出ている。
               ここでもう一度、長く言い直す必要は無い。
             */}
-            <p className="text-[13px] font-medium">体重をはかる</p>
+            <p className="t-note font-medium">体重をはかる</p>
             <div className="mt-2 flex gap-2">
               <label className="min-w-0 flex-1">
                 <span className="sr-only">体重(kg)</span>
                 <input
-                  className="w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                  className="w-full rounded-xl border border-transparent bg-sunken px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
                   placeholder="61.4"
@@ -274,7 +274,7 @@ export default function DailySheet({
                 <label className="min-w-0 flex-1">
                   <span className="sr-only">体脂肪率(%)</span>
                   <input
-                    className="w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                    className="w-full rounded-xl border border-transparent bg-sunken px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
                     value={fat}
                     onChange={(e) => setFat(e.target.value)}
                     placeholder="18.5 %"
@@ -292,7 +292,7 @@ export default function DailySheet({
                     fat.trim() === '' ? undefined : Math.round(fatValue * 10) / 10,
                   )
                 }
-                className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                className="shrink-0 rounded-full bg-accent px-5 py-2.5 t-body font-semibold text-[var(--accent-fg)] disabled:opacity-40"
               >
                 {saving ? '保存中' : '記録'}
               </button>
@@ -306,15 +306,15 @@ export default function DailySheet({
             {fatOpen ? (
               <>
                 {!fatOk && (
-                  <p className="mt-1.5 text-[11px] text-warn">体脂肪率は 3〜60% の範囲で入れてください。</p>
+                  <p className="mt-1.5 t-note text-warn">体脂肪率は 3〜60% の範囲で入れてください。</p>
                 )}
-                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{MEASURE_NOTE}</p>
+                <p className="mt-1.5 t-note leading-relaxed text-muted">{MEASURE_NOTE}</p>
               </>
             ) : (
               <button
                 type="button"
                 onClick={() => setFatOpen(true)}
-                className="mt-2.5 text-[12px] text-accent underline underline-offset-4"
+                className="mt-2.5 t-note text-accent underline underline-offset-4"
               >
                 体組成計の体脂肪率も入れる
               </button>

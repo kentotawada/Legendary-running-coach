@@ -42,13 +42,13 @@ export default function WeatherAsk({ onAllow }: { onAllow: (lat: number, lon: nu
   };
 
   return (
-    <div className="mt-6 rounded-[14px] border border-line bg-sunken px-3.5 py-3">
-      <p className="text-[13px] font-bold">暑さのぶん、ペースを調整しますか</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+    <div className="mt-6 rounded-[14px] bg-sunken px-3.5 py-3">
+      <p className="t-note font-bold">暑さのぶん、ペースを調整しますか</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">
         夏は、同じ心拍でも同じ速度は出ません。それを知らずに目標ペースで入ると、後半で潰れます。
         <strong className="font-semibold text-fg">走る前に「今日は何秒落とすか」</strong>を出せます。
       </p>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-1.5 t-note leading-relaxed text-muted">
         使うのは天気を引くためだけ。<strong className="font-semibold text-fg">約1km四方まで</strong>に
         丸めて持ちます。番地は持ちません。
       </p>
@@ -56,19 +56,19 @@ export default function WeatherAsk({ onAllow }: { onAllow: (lat: number, lon: nu
         type="button"
         onClick={ask}
         disabled={asking}
-        className="mt-2.5 rounded-full bg-accent px-4 py-2 text-[13px] font-bold text-[var(--accent-fg)] disabled:opacity-50"
+        className="mt-2.5 rounded-full bg-accent px-4 py-2 t-note font-bold text-[var(--accent-fg)] disabled:opacity-50"
       >
         {asking ? '確かめています…' : '場所を許可する'}
       </button>
       <button
         type="button"
         onClick={() => setHidden(true)}
-        className="ml-3 text-[12px] text-muted underline underline-offset-4"
+        className="ml-3 t-note text-muted underline underline-offset-4"
       >
         いまはしない
       </button>
       {failed && (
-        <p className="mt-2 text-[11px] text-muted">
+        <p className="mt-2 t-note text-muted">
           この端末では場所を取れませんでした。暑さの調整は使えませんが、他は変わりません。
         </p>
       )}
