@@ -253,6 +253,22 @@ describe('目標に合わせて基準が変わる', () => {
     expect(prompt).toContain('アスタリスクは画面に出ず');
   });
 
+  /**
+   * 画面とコーチが、同じ日に逆のことを言わないようにする。
+   *
+   * **「完全休養」と書いた真上に「イージー 10km」が残っていた。**
+   * 予定は記録から計算しているので、会話で休ませても、記録に書かないかぎり変わらない。
+   * 走らせない日ほど、記録に残さないと食い違いが表に出る。
+   */
+  it('走らせない日も、今日の予定として記録させる', () => {
+    const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
+
+    expect(prompt).toContain('set_today_plan');
+    expect(prompt).toContain('intensity: "rest"');
+    // 「メニューを出した時だけ」と読まれないように、休ませる場合を名指ししている。
+    expect(prompt).toMatch(/走らないでください.*必ず呼ぶ/s);
+  });
+
   it('画像からは、読み取れなかった項目を推測で埋めさせない', () => {
     const prompt = buildSystemInstruction(createDefaultProfile('u1', NOW.toISOString()), NOW);
 

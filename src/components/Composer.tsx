@@ -25,6 +25,15 @@ export interface ComposerApi {
 interface Props {
   onSend: (text: string, images: PreparedImage[]) => void;
   onError: (message: string) => void;
+  /**
+   * 今日やること。
+   *
+   * **帯をやめたので、ここが唯一の入口になる。**
+   * 画面の上に出しっぱなしにすると、走らない日でも「イージー 10km」が居座り、
+   * コーチが「今日は休んでください」と言っている真上で別のことを言いはじめる。
+   * 見たい時に開く形にすれば、食い違いは起きない。
+   */
+  onOpenToday?: () => void;
   /** 何を聞けばいいか分からない時の相談例。 */
   onOpenIdeas?: () => void;
   /** 走ったことを手で入れる画面を開く。**モデルを呼ばない道。** */
@@ -44,6 +53,7 @@ const EMPTY: Attached = emptyAttachments<File, PreparedImage>();
 export default function Composer({
   onSend,
   onError,
+  onOpenToday,
   onOpenIdeas,
   onQuickLog,
   onImportFiles,
@@ -420,7 +430,7 @@ export default function Composer({
           </button>
 
           {menuOpen && (
-            <div className="absolute bottom-[54px] left-0 z-20 w-[248px] overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+            <div className="absolute bottom-[54px] left-0 z-20 w-[min(296px,calc(100vw-56px))] overflow-hidden rounded-[14px] border border-line bg-elevated py-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
               {/*
                 **手で入れる道を、いちばん上に置く。**
 
@@ -429,6 +439,31 @@ export default function Composer({
                 どちらも持っていない人の道が、これまでチャットしか無かった。
                 打つ手間に加えて1往復ぶんの費用がかかる道が既定だったことになる。
               */}
+              {/*
+                **今日やること。ここでは、いちばん上。**
+                帯を外したので、ほかに開く道が無い。下に置くと見つからない。
+              */}
+              {onOpenToday && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenToday();
+                  }}
+                  className="flex w-full items-start gap-2.5 px-4 py-3 text-left active:bg-sunken"
+                >
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3a9 9 0 1 0 9 9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                  <span className="min-w-0">
+                    <span className="block t-body">今日やること</span>
+                    <span className="block t-note leading-snug text-muted">
+                      距離・ペースと、その理由
+                    </span>
+                  </span>
+                </button>
+              )}
               {onQuickLog && (
                 <button
                   type="button"
