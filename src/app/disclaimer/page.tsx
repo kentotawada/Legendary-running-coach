@@ -20,7 +20,7 @@ export default function DisclaimerPage() {
     >
       <Section title="すぐに運動をやめて、医療機関へ">
         <Callout tone="warn">
-          <p className="text-[15px] font-bold leading-[1.8]">次のような症状がある時は、すぐに運動をやめてください。</p>
+          <p className="t-body font-bold leading-[1.8]">次のような症状がある時は、すぐに運動をやめてください。</p>
           <List>
             <li>胸の痛み、胸がしめつけられる・圧迫される感じ</li>
             <li>いつもと違う息苦しさ</li>
@@ -28,7 +28,7 @@ export default function DisclaimerPage() {
             <li>めまい、ふらつき、意識が遠のく感じ</li>
             <li>冷や汗、吐き気</li>
           </List>
-          <p className="mt-3 text-[15px] font-bold leading-[1.8]">
+          <p className="mt-3 t-body font-bold leading-[1.8]">
             症状が強い時や、休んでもおさまらない時は、ためらわずに 119 番に電話してください。
           </p>
         </Callout>

@@ -138,8 +138,8 @@ export function BarChart({
 
   return (
     <div>
-      <p className="mb-1 flex items-baseline gap-1.5 text-[0.8em] text-muted">
-        <span className="text-[1.25em] font-bold tabular-nums text-fg">{bars[active]?.value ?? 0}</span>
+      <p className="mb-1 flex items-baseline gap-1.5 t-note text-muted">
+        <span className="t-title font-bold tabular-nums text-fg">{bars[active]?.value ?? 0}</span>
         <span>{unit}</span>
         <span>／ {bars[active]?.label}</span>
       </p>
@@ -274,11 +274,11 @@ export function LineChart({
 
   return (
     <div>
-      <p className="mb-1 flex items-baseline gap-1.5 text-[0.8em] text-muted">
-        <span className="text-[1.25em] font-bold text-fg">{points[active].display}</span>
+      <p className="mb-1 flex items-baseline gap-1.5 t-note text-muted">
+        <span className="t-title font-bold text-fg">{points[active].display}</span>
         <span>／ {points[active].label}</span>
         {/* 反転した軸は誤読のもと。グラフの中ではなく、外に言い切って置く。 */}
-        {axisNote && <span className="ml-auto text-[0.92em]">{axisNote}</span>}
+        {axisNote && <span className="ml-auto t-body">{axisNote}</span>}
       </p>
       <svg
         viewBox={`0 0 ${WIDTH} ${PLOT_HEIGHT + AXIS_HEIGHT}`}

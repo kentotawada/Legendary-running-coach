@@ -90,9 +90,9 @@ export default async function AdminPage() {
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <div className="mx-auto max-w-[960px] px-4 pb-16 pt-6">
-        <p className="text-[13px] font-bold tracking-[0.12em] text-muted">RUNCOACH</p>
-        <h1 className="mt-1 text-[22px] font-bold">運営</h1>
-        <p className="mt-1 text-[12px] text-muted">直近{DAYS}日。1日の区切りはアプリと同じ深夜2時。</p>
+        <p className="t-note font-bold tracking-[0.12em] text-muted">RUNCOACH</p>
+        <h1 className="mt-1 t-title font-bold">運営</h1>
+        <p className="mt-1 t-note text-muted">直近{DAYS}日。1日の区切りはアプリと同じ深夜2時。</p>
 
         {countsError && (
           <Notice>
@@ -153,8 +153,8 @@ export default async function AdminPage() {
           開いて閉じた人が最初から居なかったことになる。
         */}
         <section className="mt-8">
-          <h2 className="text-[15px] font-bold">入口（直近{DAYS}日）</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+          <h2 className="t-body font-bold">入口（直近{DAYS}日）</h2>
+          <p className="mt-1 t-note leading-relaxed text-muted">
             <strong className="font-semibold text-fg">落ちている段が、いちばん直しがいのある所。</strong>
             開いたのに選ばない人が多いなら、コーチの並びか最初の言葉。
             選んだのに話さない人が多いなら、最初の1通を打つ手前で止まっている。
@@ -167,7 +167,7 @@ export default async function AdminPage() {
           </div>
 
           {totals.opens === 0 && (
-            <p className="mt-2 text-[12px] text-muted">
+            <p className="mt-2 t-note text-muted">
               まだ誰も開いていません（数えはじめた日より前に開いた人は、ここに出ません）。
             </p>
           )}
@@ -180,18 +180,18 @@ export default async function AdminPage() {
           打つ手が正反対（値段を付ける ↔ 予算を上げる）なので、必ず分ける。
         */}
         <section className="mt-8">
-          <h2 className="text-[15px] font-bold">今日の全体の残り</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+          <h2 className="t-body font-bold">今日の全体の残り</h2>
+          <p className="mt-1 t-note leading-relaxed text-muted">
             アプリ全体で1日に話せる回数（<span className="font-mono">DAILY_TURN_BUDGET</span>）。
             <strong className="font-semibold text-fg">
               ここを使い切ると、まだ一度も使っていない人まで全員止まります。
             </strong>
           </p>
 
-          <div className="mt-3 rounded-[16px] border border-line p-4">
-            <p className="text-[24px] font-bold tabular-nums">
+          <div className="mt-3 rounded-[16px] p-4">
+            <p className="t-num font-bold tabular-nums">
               {number(today?.turns ?? 0)}
-              <span className="text-[15px] font-medium text-muted"> / {number(budget)} 回</span>
+              <span className="t-body font-medium text-muted"> / {number(budget)} 回</span>
             </p>
             <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-sunken">
               <div
@@ -205,7 +205,7 @@ export default async function AdminPage() {
                 }}
               />
             </div>
-            <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
+            <p className="mt-2.5 t-note leading-relaxed text-muted">
               {totals.limitShared > 0 ? (
                 <strong className="font-semibold text-warn">
                   直近{DAYS}日で {number(totals.limitShared)} 回、全体の上限で止まっています。
@@ -219,8 +219,8 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-[15px] font-bold">続いているか（直近7日）</h2>
-          <p className="mt-1 text-[12px] text-muted">
+          <h2 className="t-body font-bold">続いているか（直近7日）</h2>
+          <p className="mt-1 t-note text-muted">
             <strong>初日の人数ではなく、3日目・7日目に何人残ったかが答え。</strong>
             20人来て3日目に2人なら、それが答え。3人でも1週間続けば、それは本物。
           </p>
@@ -246,7 +246,7 @@ export default async function AdminPage() {
               note={retention.aliveNow ? undefined : '火が消えています'}
             />
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          <p className="mt-2 t-note leading-relaxed text-muted">
             「延べの人数 ÷ いちばん多かった日」が、ひとりが平均して何日続けたかの目安。
             <strong>1.0 に近いなら、来た人がその日だけで去っています。</strong>
             誰が続けたかは追っていません。何人続いたかが分かれば足ります。
@@ -254,10 +254,10 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-[15px] font-bold">日ごと</h2>
-          <div className="mt-2 overflow-x-auto rounded-[14px] border border-line">
-            <table className="w-full min-w-[1120px] border-collapse text-[13px] tabular-nums">
-              <thead className="bg-sunken text-left text-[11px] text-muted">
+          <h2 className="t-body font-bold">日ごと</h2>
+          <div className="mt-2 overflow-x-auto rounded-[14px]">
+            <table className="w-full min-w-[1120px] border-collapse t-note tabular-nums">
+              <thead className="bg-sunken text-left t-note text-muted">
                 <tr>
                   {['日付', '開いた', '使い始めた', '1通目', '話した人', '回数', '呼び出し', '1通あたり', '送った量', '使い回し', '書いた量', '費用', '1人あたり', '取り込み', '通知', '本人の上限（ゲスト/会員/有料）', '全体の上限', '有料になった人'].map(
                     (label) => (
@@ -305,7 +305,7 @@ export default async function AdminPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          <p className="mt-2 t-note leading-relaxed text-muted">
             費用は 1ドル={USD_TO_JPY}円 と、環境変数 GEMINI_PRICE_PER_MTOK に入れた単価で計算した目安です。
             いま動いているのは <strong>{modelName()}</strong>（画像は <strong>{visionModelName()}</strong>）。
             <strong>入れてある単価が、このモデルのものか確かめてください。</strong>
@@ -323,14 +323,14 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-10">
-          <h2 className="text-[15px] font-bold">返答への評価</h2>
-          <p className="mt-1 text-[12px] text-muted">「良くない」の理由が、いちばんの改善の材料です。</p>
+          <h2 className="t-body font-bold">返答への評価</h2>
+          <p className="mt-1 t-note text-muted">「良くない」の理由が、いちばんの改善の材料です。</p>
           {feedback.error && <Notice>評価を読めませんでした（{feedback.error}）。schema.sql の「5.」を実行してください。</Notice>}
           <ul className="mt-3 space-y-2">
             {feedback.items.length === 0 && !feedback.error && <Empty>まだありません。</Empty>}
             {feedback.items.map((item, index) => (
-              <li key={`${item.at}-${index}`} className="rounded-[12px] border border-line px-3.5 py-3 text-[13px]">
-                <div className="flex items-center gap-2 text-[11px] text-muted">
+              <li key={`${item.at}-${index}`} className="rounded-[12px] px-3.5 py-3 t-note">
+                <div className="flex items-center gap-2 t-note text-muted">
                   <span className={item.payload.rating === 'bad' ? 'font-bold text-warn' : 'font-bold text-good'}>
                     {item.payload.rating === 'bad' ? '良くない' : '良い'}
                   </span>
@@ -349,13 +349,13 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-10">
-          <h2 className="text-[15px] font-bold">不具合</h2>
+          <h2 className="t-body font-bold">不具合</h2>
           {errors.error && <Notice>不具合の記録を読めませんでした（{errors.error}）。schema.sql の「5.」を実行してください。</Notice>}
           <ul className="mt-3 space-y-2">
             {errors.items.length === 0 && !errors.error && <Empty>記録された不具合はありません。</Empty>}
             {errors.items.map((item, index) => (
-              <li key={`${item.at}-${index}`} className="rounded-[12px] border border-line px-3.5 py-3 text-[12px]">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+              <li key={`${item.at}-${index}`} className="rounded-[12px] px-3.5 py-3 t-note">
+                <div className="flex flex-wrap items-center gap-2 t-note text-muted">
                   <span className="font-bold text-warn">{String(item.payload.where ?? '')}</span>
                   <span>{time(item.at)}</span>
                   {typeof item.payload.build === 'string' && <span>build {item.payload.build}</span>}
@@ -376,10 +376,10 @@ export default async function AdminPage() {
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-[14px] border border-line px-3.5 py-3">
-      <p className="text-[11px] text-muted">{label}</p>
-      <p className="mt-1 text-[22px] font-bold tabular-nums">{value}</p>
-      {note && <p className="mt-0.5 text-[11px] text-muted">{note}</p>}
+    <div className="rounded-[14px] px-3.5 py-3">
+      <p className="t-note text-muted">{label}</p>
+      <p className="mt-1 t-title font-bold tabular-nums">{value}</p>
+      {note && <p className="mt-0.5 t-note text-muted">{note}</p>}
     </div>
   );
 }
@@ -392,19 +392,19 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 function Funnel({ label, value, of }: { label: string; value: number; of: number }) {
   const share = of > 0 ? Math.round((value / of) * 100) : null;
   return (
-    <div className="rounded-[16px] border border-line p-3.5">
-      <p className="text-[11px] text-muted">{label}</p>
-      <p className="mt-1 text-[22px] font-bold tabular-nums">{value.toLocaleString('ja-JP')}</p>
-      <p className="mt-0.5 text-[11px] text-muted">{share === null ? '—' : `${share}%`}</p>
+    <div className="rounded-[16px] p-3.5">
+      <p className="t-note text-muted">{label}</p>
+      <p className="mt-1 t-title font-bold tabular-nums">{value.toLocaleString('ja-JP')}</p>
+      <p className="mt-0.5 t-note text-muted">{share === null ? '—' : `${share}%`}</p>
     </div>
   );
 }
 
 function Notice({ children, tone = 'warn' }: { children: React.ReactNode; tone?: 'warn' | 'muted' }) {
   const colors = tone === 'warn' ? 'border-[color:var(--warn)] bg-warn-soft text-warn' : 'border-line bg-sunken text-muted';
-  return <p className={`mt-4 rounded-[12px] border px-3.5 py-3 text-[12px] leading-relaxed ${colors}`}>{children}</p>;
+  return <p className={`mt-4 rounded-[12px] border px-3.5 py-3 t-note leading-relaxed ${colors}`}>{children}</p>;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <li className="rounded-[12px] bg-sunken px-3.5 py-3 text-[12px] text-muted">{children}</li>;
+  return <li className="rounded-[12px] bg-sunken px-3.5 py-3 t-note text-muted">{children}</li>;
 }

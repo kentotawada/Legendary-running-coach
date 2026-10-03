@@ -85,7 +85,7 @@ export default function PrivacyPage() {
           </li>
         </List>
         <Callout>
-          <p className="text-[14px] leading-[1.8]">
+          <p className="t-body leading-[1.8]">
             体に関する情報のうち、故障歴などは、個人情報保護法で特に慎重な扱いが求められる「要配慮個人情報」にあたることがあります。
             <strong>ご本人の同意をいただいた場合にだけ</strong>お預かりします。
           </p>
@@ -112,7 +112,7 @@ export default function PrivacyPage() {
           本サービスを使う際に、これらの事業者へ情報が送られることに同意していただきます。
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-[13px] leading-relaxed">
+          <table className="w-full min-w-[520px] border-collapse t-note leading-relaxed">
             <thead>
               <tr className="border-b border-line text-left text-muted">
                 <th className="py-2 pr-3 font-medium">事業者（国）</th>
@@ -219,7 +219,7 @@ export default function PrivacyPage() {
 
       <Section title="11. お問い合わせ">
         <p>{operator.contact}</p>
-        <p className="text-[13px] text-muted">
+        <p className="t-note text-muted">
           <Link href="/terms" className="underline underline-offset-4">
             利用規約
           </Link>

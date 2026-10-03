@@ -31,46 +31,41 @@ export default function TodayBand({
    */
   onLog?: () => void;
 }) {
-  // 走らない日は色を変える。**休む日を、失敗のように見せない。**
+  // 走らない日。**休む日を、失敗のように見せない。**
   const resting = !plan.running;
-  /** まだ記録が無い人。強度の札を出しても、何の強度なのか指すものが無い。 */
-  const starting = plan.source === 'start';
+  /*
+    強度を言う言葉。札では出さず、2行目に字で添える。
+
+    **見出しがすでに言っているなら、二度言わない。**
+    「イージー 10km」の下に「イージー」ともう一度出ると、画面の言葉が増えただけで
+    分かることは1つも増えない。まだ記録が無い人には、指すものが無いので出さない。
+  */
+  const intensity =
+    plan.source === 'start' || plan.headline.includes(INTENSITY_LABEL[plan.intensity])
+      ? ''
+      : INTENSITY_LABEL[plan.intensity];
+  const sub = [intensity, plan.summary ?? plan.why].filter(Boolean).join('・');
 
   return (
-    <div
-      className={[
-        'flex w-full items-center gap-2.5 border-b border-line px-4 py-2.5',
-        resting ? 'bg-sunken' : 'bg-accent-soft',
-      ].join(' ')}
-    >
+    <div className="flex w-full items-center gap-2.5 border-b border-line px-4 py-2.5">
       <button
         type="button"
         onClick={onOpen}
         aria-label="今日やることを開く"
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
-        {!starting && (
-          <span
-            className={[
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-              resting ? 'bg-bg text-muted' : 'bg-accent text-[var(--accent-fg)]',
-            ].join(' ')}
-          >
-            {INTENSITY_LABEL[plan.intensity]}
-          </span>
-        )}
-
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-[14px] font-bold ${resting ? '' : 'text-accent'}`}>
-            {plan.headline}
-          </span>
+          {/*
+            **見出しは色を持たない。** 強度の札も置かない。
+            見出しがすでに「イージー 10km」と言っているので、札は同じ言葉をもう一度出すだけで、
+            そのうえ橙の面を1つ増やす。橙は、押せるものに1つだけ残す。
+          */}
+          <span className="block truncate t-body font-bold">{plan.headline}</span>
           {/*
             **一行目だけで意味が通るようにする。** 補足は出るなら出す、で足りる。
             帯は2行までしか使わない。これ以上は本文を押し下げる。
           */}
-          <span className="block truncate text-[11px] leading-snug text-muted">
-            {plan.summary ?? plan.why}
-          </span>
+          <span className="block truncate t-note leading-snug text-muted">{sub}</span>
         </span>
 
         <svg
@@ -96,7 +91,14 @@ export default function TodayBand({
         <button
           type="button"
           onClick={onLog}
-          className="shrink-0 rounded-full border border-line bg-bg px-3 py-1.5 text-[12px] font-bold active:scale-[0.97]"
+          className={[
+            'shrink-0 rounded-full px-3.5 py-1.5 t-note font-bold active:scale-[0.97]',
+            /*
+              **この画面でいちばん押される口。** 橙はここに取っておく。
+              休む日は押す用事が無いので、色も引く。
+            */
+            resting ? 'bg-sunken' : 'bg-accent text-[var(--accent-fg)]',
+          ].join(' ')}
         >
           走った
         </button>

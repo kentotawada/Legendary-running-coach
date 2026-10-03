@@ -53,7 +53,7 @@ function savePick(id: SourceId) {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-[var(--radius)] border border-line px-4 py-3.5">{children}</div>;
+  return <div className="rounded-[var(--radius)] bg-sunken px-4 py-3.5">{children}</div>;
 }
 
 /**
@@ -79,8 +79,8 @@ function FileImport({
 
   return (
     <div className="mt-5 border-t border-line pt-4">
-      <p className="text-[13px] font-semibold">ファイルから取り込む</p>
-      <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+      <p className="t-note font-semibold">ファイルから取り込む</p>
+      <p className="mt-0.5 t-note leading-relaxed text-muted">
         連携を使わずに入れる道です。<strong className="font-semibold text-fg">過去の練習をまとめて</strong>
         入れる時にも使えます。Garmin Connect などから書き出したファイル（
         <strong className="font-semibold text-fg">FIT</strong>・TCX・GPX）を選んでください。
@@ -94,24 +94,24 @@ function FileImport({
         探させると必ず迷うので、入口と手順をここに置く。
       */}
       <div className="mt-2.5 rounded-[14px] bg-sunken px-3.5 py-3">
-        <p className="text-[12px] font-semibold">Garmin の記録を書き出す</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+        <p className="t-note font-semibold">Garmin の記録を書き出す</p>
+        <p className="mt-0.5 t-note leading-relaxed text-muted">
           <strong className="font-semibold text-fg">スマホの Garmin Connect アプリでは書き出せません。</strong>
           ブラウザ版から取り出します。
         </p>
         <ol className="mt-2 space-y-1.5">
           {GARMIN_EXPORT_STEPS.map((step, index) => (
             <li key={step.title} className="flex gap-2">
-              <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-[var(--accent-fg)]">
+              <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent t-note font-bold text-[var(--accent-fg)]">
                 {index + 1}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-medium leading-relaxed">{step.title}</span>
+                <span className="block t-note font-medium leading-relaxed">{step.title}</span>
                 {step.english && (
-                  <span className="mt-0.5 block text-[10px] text-muted">英語表示: {step.english}</span>
+                  <span className="mt-0.5 block t-note text-muted">英語表示: {step.english}</span>
                 )}
                 {step.detail && (
-                  <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{step.detail}</span>
+                  <span className="mt-0.5 block t-note leading-relaxed text-muted">{step.detail}</span>
                 )}
               </span>
             </li>
@@ -121,18 +121,18 @@ function FileImport({
           href={GARMIN_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2.5 inline-block rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+          className="mt-2.5 inline-block rounded-full bg-accent px-4 py-2 t-note font-semibold text-[var(--accent-fg)]"
         >
           Garmin Connect を開く
         </a>
-        <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+        <p className="mt-1.5 t-note leading-relaxed text-muted">
           ログインを求められたら、一度入れば次から続きます。
           Safari の共有 →「ホーム画面に追加」で、アイコンから直接開けるようになります。
         </p>
       </div>
 
       <label
-        className={`mt-2.5 inline-block cursor-pointer rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent ${
+        className={`mt-2.5 inline-block cursor-pointer rounded-full border border-[color:var(--accent)] px-4 py-2 t-note font-semibold text-accent ${
           busy ? 'opacity-40' : ''
         }`}
       >
@@ -169,16 +169,16 @@ function FileImport({
       */}
       {message && (
         <div className="mt-2">
-          <p className="text-[13px] leading-relaxed text-accent">{message.split('\n')[0]}</p>
+          <p className="t-note leading-relaxed text-accent">{message.split('\n')[0]}</p>
           {message.includes('\n') && (
-            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            <p className="mt-1 t-note leading-relaxed text-muted">
               {message.slice(message.indexOf('\n') + 1)}
             </p>
           )}
         </div>
       )}
 
-      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-1.5 t-note leading-relaxed text-muted">
         <strong className="font-semibold text-fg">FIT なら、上下動・接地時間・歩幅・左右バランス・パワーまで入ります。</strong>
         GPX / TCX には、そこまでは入っていません。同じ練習を二度入れても、重なりません。
       </p>
@@ -191,16 +191,16 @@ function StepList({ steps }: { steps: ConnectSource['steps'] }) {
     <ol className="mt-3 space-y-2.5">
       {steps.map((step, index) => (
         <li key={step.title} className="flex gap-2.5">
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-[var(--accent-fg)]">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent t-note font-bold text-[var(--accent-fg)]">
             {index + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-medium leading-relaxed">{step.title}</span>
+            <span className="block t-note font-medium leading-relaxed">{step.title}</span>
             {step.english && (
-              <span className="mt-0.5 block text-[11px] text-muted">英語表示: {step.english}</span>
+              <span className="mt-0.5 block t-note text-muted">英語表示: {step.english}</span>
             )}
             {step.detail && (
-              <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{step.detail}</span>
+              <span className="mt-0.5 block t-note leading-relaxed text-muted">{step.detail}</span>
             )}
           </span>
         </li>
@@ -251,27 +251,27 @@ function SourceGuide({
               onClick={() => onChoose(item.id)}
               aria-pressed={active}
               className={[
-                'flex items-center gap-2 rounded-[14px] border px-3 py-2.5 text-left transition active:scale-[0.98]',
-                active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                'flex items-center gap-2 rounded-[14px] px-3 py-2.5 text-left transition active:scale-[0.98]',
+                active ? 'bg-accent-soft' : 'bg-sunken',
               ].join(' ')}
             >
-              <span aria-hidden="true" className="shrink-0 text-[17px]">
+              <span aria-hidden="true" className="shrink-0 t-body">
                 {item.emoji}
               </span>
               <span className="min-w-0 flex-1">
                 <span
-                  className={`block truncate text-[13px] font-semibold ${active ? 'text-accent' : ''}`}
+                  className={`block truncate t-note font-semibold ${active ? 'text-accent' : ''}`}
                 >
                   {item.name}
                 </span>
                 {item.hint && (
-                  <span className="block truncate text-[10px] leading-tight text-muted">
+                  <span className="block truncate t-note leading-tight text-muted">
                     {item.hint}
                   </span>
                 )}
               </span>
               {detected.includes(item.id) && (
-                <span aria-label="記録が届いています" className="shrink-0 text-[12px] font-bold text-accent">
+                <span aria-label="記録が届いています" className="shrink-0 t-note font-bold text-accent">
                   ✓
                 </span>
               )}
@@ -284,12 +284,12 @@ function SourceGuide({
         <div className="mt-3">
           <Card>
             <div className="flex items-baseline gap-2">
-              <p className="min-w-0 flex-1 text-[14px] font-bold">{source.name}</p>
-              {done && <p className="shrink-0 text-[11px] font-semibold text-accent">もう届いています</p>}
+              <p className="min-w-0 flex-1 t-body font-bold">{source.name}</p>
+              {done && <p className="shrink-0 t-note font-semibold text-accent">もう届いています</p>}
             </div>
 
             {done && (
-              <p className="mt-1.5 text-[13px] leading-relaxed text-accent">
+              <p className="mt-1.5 t-note leading-relaxed text-accent">
                 {source.route === 'direct'
                   ? '✓ ①だけで終わりです。ほかに設定はありません。'
                   : `✓ ${source.name}から記録が届いています。設定は完了しています。`}
@@ -301,30 +301,30 @@ function SourceGuide({
               そこに辿り着けなかった人だけがスクリーンショットへ降りればいい。
             */}
             <div className="mt-3">
-              <p className="text-[12px] font-bold">
+              <p className="t-note font-bold">
                 記録ファイルで送る
                 <span className="ml-1.5 font-normal text-muted">いちばん詳しい</span>
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted">{source.exportHint}</p>
+              <p className="mt-1 t-note leading-relaxed text-muted">{source.exportHint}</p>
               {source.canExport !== 'none' && (
                 <>
                   {source.exportFormats && (
-                    <p className="mt-1 text-[11px] text-muted">
+                    <p className="mt-1 t-note text-muted">
                       形式: <strong className="font-semibold text-fg">{source.exportFormats}</strong>
                     </p>
                   )}
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted">{FORMAT_ORDER}</p>
+                  <p className="mt-1 t-note leading-relaxed text-muted">{FORMAT_ORDER}</p>
                 </>
               )}
             </div>
 
             {/* どこで詰まっても、ここへ降りれば必ず届く。 */}
             <div className="mt-3 border-t border-line pt-2.5">
-              <p className="text-[12px] font-bold">
+              <p className="t-note font-bold">
                 スクリーンショットで送る
                 <span className="ml-1.5 font-normal text-muted">どのアプリでも</span>
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted">
+              <p className="mt-1 t-note leading-relaxed text-muted">
                 入力欄の「＋」→「記録の画像を送る」。
                 距離・ペース・心拍・ピッチまで読み取ります。
                 {source.canExport === 'none' && (
@@ -339,7 +339,7 @@ function SourceGuide({
             {/* Strava 連携が使える環境でだけ出す。今は設定が無ければ出ない。 */}
             {available && source.route === 'link' && !done && (
               <details className="mt-3 border-t border-line pt-2.5">
-                <summary className="cursor-pointer text-[12px] font-bold">
+                <summary className="cursor-pointer t-note font-bold">
                   Strava につないで、書き出しをやめる
                 </summary>
                 <StepList steps={source.steps} />
@@ -347,12 +347,12 @@ function SourceGuide({
                   href={STRAVA_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 text-[13px] font-semibold text-accent"
+                  className="mt-3 inline-block rounded-full border border-[color:var(--accent)] px-4 py-2 t-note font-semibold text-accent"
                 >
                   Strava を開く
                 </a>
                 {source.caution && (
-                  <p className="mt-3 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
+                  <p className="mt-3 rounded-[12px] bg-sunken px-3 py-2 t-note leading-relaxed text-muted">
                     {source.caution}
                   </p>
                 )}
@@ -414,7 +414,7 @@ export default function ConnectSheet({
         onBack={onBack}
         backLabel={onBack ? 'カルテ' : undefined}
       >
-        <p className="text-[13px] leading-relaxed text-muted">
+        <p className="t-note leading-relaxed text-muted">
           使っている時計やアプリを選ぶと、
           <strong className="font-semibold text-fg">そこから記録を書き出す手順</strong>
           が出ます。書き出せないアプリでも、画面を撮って送れば読み取ります。
@@ -442,8 +442,8 @@ export default function ConnectSheet({
         />
 
         <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
-          <p className="text-[12px] font-semibold">スクリーンショットで送る時のコツ</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+          <p className="t-note font-semibold">スクリーンショットで送る時のコツ</p>
+          <p className="mt-1 t-note leading-relaxed text-muted">
             何枚も撮らなくて済む方法があります。Safari で開いた画面なら、
             スクリーンショットを撮った直後に左下の小さい画像を押し、上の
             <strong className="font-semibold text-fg">「フルページ」</strong>
@@ -465,7 +465,7 @@ export default function ConnectSheet({
       backLabel={onBack ? 'カルテ' : undefined}
     >
       {empty && (
-        <div className="mb-3 rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
+        <div className="mb-3 rounded-[var(--radius)] bg-accent-soft px-4 py-3 t-note leading-relaxed text-accent">
           Strava に練習が1件も見つかりませんでした。
           <strong className="font-semibold">下の②が、まだ残っているかもしれません。</strong>
         </div>
@@ -476,14 +476,14 @@ export default function ConnectSheet({
         「自分の設定は正しかった」を最初の一行で確定させる。
       */}
       {connected && done && source ? (
-        <p className="rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
+        <p className="rounded-[var(--radius)] bg-accent-soft px-4 py-3 t-note leading-relaxed text-accent">
           <strong className="font-bold">✓ 連携は完了しています。</strong>
           {source.route === 'direct'
             ? ' 走り終えた記録が、そのまま入ってきます。'
             : ` ${source.name}から、走り終えるたびに記録が届いています。`}
         </p>
       ) : (
-        <p className="text-[13px] leading-relaxed text-muted">
+        <p className="t-note leading-relaxed text-muted">
           つないでおくと、<strong className="font-semibold text-fg">走り終えた時点で記録が入っています。</strong>
           スクリーンショットを送る必要がなくなります。
           <span className="mt-1 block">
@@ -494,19 +494,19 @@ export default function ConnectSheet({
 
       {/* ① こちら側。押せば終わる、いちばん確実な一手を先に置く。 */}
       <div className="mt-4">
-        <p className="mb-1.5 text-[12px] font-bold text-muted">① このアプリと Strava</p>
+        <p className="mb-1.5 t-note font-bold text-muted">① このアプリと Strava</p>
         <Card>
           {connected ? (
             <>
-              <p className="text-[14px] font-semibold text-accent">
+              <p className="t-body font-semibold text-accent">
                 ✓ つながっています
                 {connection?.athleteName && (
-                  <span className="ml-1.5 text-[12px] font-normal text-muted">
+                  <span className="ml-1.5 t-note font-normal text-muted">
                     {connection.athleteName}
                   </span>
                 )}
               </p>
-              <p className="mt-0.5 text-[12px] text-muted">
+              <p className="mt-0.5 t-note text-muted">
                 {connection?.lastSyncedAt
                   ? `最終取り込み ${new Date(connection.lastSyncedAt).toLocaleString('ja-JP', {
                       month: 'numeric',
@@ -522,7 +522,7 @@ export default function ConnectSheet({
                 これまでは「開いた時に取り込む」だったので、開かなければ何も起きなかった。
                 いまは走り終えた時点で向こうから届く。下のボタンは、急ぐ時のためだけに残す。
               */}
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              <p className="mt-1.5 t-note leading-relaxed text-muted">
                 走り終えた記録は、
                 <strong className="font-semibold text-fg">アプリを開かなくても届きます。</strong>
                 通知を許可していれば、その場で一言お伝えします。
@@ -532,7 +532,7 @@ export default function ConnectSheet({
                   type="button"
                   onClick={onSync}
                   disabled={syncing}
-                  className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                  className="rounded-full bg-accent px-3.5 py-2 t-note font-semibold text-[var(--accent-fg)] disabled:opacity-40"
                 >
                   {syncing ? '取り込み中…' : '今すぐ取り込む'}
                 </button>
@@ -540,23 +540,23 @@ export default function ConnectSheet({
                   type="button"
                   onClick={onDisconnect}
                   disabled={syncing}
-                  className="text-[12px] text-muted underline underline-offset-4 disabled:opacity-40"
+                  className="t-note text-muted underline underline-offset-4 disabled:opacity-40"
                 >
                   連携を解除
                 </button>
               </div>
               {!usedFile && syncMessage && (
-                <p className="mt-1.5 whitespace-pre-line text-[12px] text-accent">{syncMessage}</p>
+                <p className="mt-1.5 whitespace-pre-line t-note text-accent">{syncMessage}</p>
               )}
             </>
           ) : (
             <>
-              <p className="text-[13px] leading-relaxed text-muted">
+              <p className="t-note leading-relaxed text-muted">
                 押すと Strava の許可画面が開きます。戻ってくれば、ここは終わりです（約20秒）。
               </p>
               <a
                 href="/api/strava/connect"
-                className="mt-2 inline-block rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-[var(--accent-fg)]"
+                className="mt-2 inline-block rounded-full bg-accent px-5 py-2.5 t-body font-semibold text-[var(--accent-fg)]"
               >
                 Strava とつなぐ
               </a>
@@ -567,7 +567,7 @@ export default function ConnectSheet({
 
       {/* ② 相手側。自分に関係のある1本だけを出すために、まず選んでもらう。 */}
       <div className="mt-4">
-        <p className="mb-1.5 text-[12px] font-bold text-muted">② いつも使っている時計・アプリ</p>
+        <p className="mb-1.5 t-note font-bold text-muted">② いつも使っている時計・アプリ</p>
 
         {/*
           **選ぶ前に、ぜんたいの見取り図を1つ置く。**
@@ -576,8 +576,8 @@ export default function ConnectSheet({
           **「自分のは、どのくらい手間か」が先に分かると、押しやすい。**
         */}
         <div className="mb-2.5 rounded-[14px] bg-sunken px-3.5 py-3">
-          <p className="text-[12px] font-semibold">つなぎ方は、だいたい3通りです</p>
-          <ul className="mt-1.5 space-y-1.5 text-[11px] leading-relaxed text-muted">
+          <p className="t-note font-semibold">つなぎ方は、だいたい3通りです</p>
+          <ul className="mt-1.5 space-y-1.5 t-note leading-relaxed text-muted">
             <li>
               <strong className="font-semibold text-fg">1回つなぐだけ（2〜3分）</strong>
               … Garmin・Nike・COROS・Polar・Suunto・Fitbit・adidas。
@@ -593,7 +593,7 @@ export default function ConnectSheet({
               iPhone の「ヘルスケア」だけを使っている人も、これがいちばん速いです
             </li>
           </ul>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          <p className="mt-2 t-note leading-relaxed text-muted">
             どれを選んでも、<strong className="font-semibold text-fg">つないだ後の記録から</strong>
             届きます。それより前の分は、画面を撮って送ってください。
           </p>
@@ -620,15 +620,15 @@ export default function ConnectSheet({
         「つながらなかったから使えない」で終わらせないため。
       */}
       <div className="mt-4 rounded-[14px] bg-sunken px-3.5 py-3">
-        <p className="text-[12px] font-semibold">スクリーンショットで送る時のコツ</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+        <p className="t-note font-semibold">スクリーンショットで送る時のコツ</p>
+        <p className="mt-1 t-note leading-relaxed text-muted">
           何枚も撮らなくて済む方法があります。Safari で開いた画面なら、
           スクリーンショットを撮った直後に左下の小さい画像を押し、上の
           <strong className="font-semibold text-fg">「フルページ」</strong>
           を選ぶと、<strong className="font-semibold text-fg">スクロールした先まで1枚（PDF）で保存できます。</strong>
           それをそのまま送れば、全部まとめて読み取ります。
         </p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+        <p className="mt-1.5 t-note leading-relaxed text-muted">
           アプリの画面は「フルページ」にできないことがあります。その時は今までどおり
           何枚かに分けて送ってください。縦に長い画像も、読める大きさに切り分けて扱います。
         </p>

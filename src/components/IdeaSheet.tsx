@@ -19,7 +19,7 @@ export default function IdeaSheet({ onPick, onClose }: Props) {
 
   return (
     <Sheet label="相談アイデア" title="コーチに聞いてみる" onClose={onClose}>
-      <p className="-mt-1 mb-3 text-[12px] leading-relaxed text-muted">タップすると入力欄に入ります。言葉を足してから送ってください。</p>
+      <p className="-mt-1 mb-3 t-note leading-relaxed text-muted">タップすると入力欄に入ります。言葉を足してから送ってください。</p>
 
           {IDEA_CATEGORIES.map((category) => {
             const open = openId === category.id;
@@ -31,12 +31,12 @@ export default function IdeaSheet({ onPick, onClose }: Props) {
                   aria-expanded={open}
                   className="flex w-full items-center gap-3 py-2 text-left"
                 >
-                  <span aria-hidden="true" className="text-lg">
+                  <span aria-hidden="true" className="t-title">
                     {category.emoji}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-semibold">{category.title}</span>
-                    <span className="block text-[12px] text-muted">{category.description}</span>
+                    <span className="block t-body font-semibold">{category.title}</span>
+                    <span className="block t-note text-muted">{category.description}</span>
                   </span>
                   <span aria-hidden="true" className={`text-muted transition ${open ? 'rotate-180' : ''}`}>
                     ⌄
@@ -50,7 +50,7 @@ export default function IdeaSheet({ onPick, onClose }: Props) {
                         <button
                           type="button"
                           onClick={() => onPick(question)}
-                          className="w-full rounded-[var(--radius)] border border-line bg-bg px-3.5 py-3 text-left text-[13px] leading-relaxed transition active:scale-[0.99]"
+                          className="w-full rounded-[var(--radius)] bg-sunken px-3.5 py-3 text-left t-note leading-relaxed transition active:scale-[0.99]"
                         >
                           {question}
                         </button>

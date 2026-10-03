@@ -58,7 +58,7 @@ function UserAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-full px-2.5 py-1.5 text-[0.76em] text-muted transition active:scale-95 hover:bg-sunken disabled:opacity-40"
+      className="rounded-full px-2.5 py-1.5 t-note text-muted transition active:scale-95 hover:bg-sunken disabled:opacity-40"
     >
       {label}
     </button>
@@ -86,7 +86,7 @@ function ImageStrip({
           type="button"
           onClick={() => onOpen?.(index)}
           aria-label={`送信した画像 ${index + 1} を拡大`}
-          className={`shrink-0 snap-start overflow-hidden rounded-[14px] border border-line transition active:scale-[0.97] ${
+          className={`shrink-0 snap-start overflow-hidden rounded-[14px] bg-sunken transition active:scale-[0.97] ${
             single ? 'max-w-[72%]' : ''
           }`}
         >
@@ -168,7 +168,7 @@ export default function MessageItem({
       <div className={`animate-rise ${failed ? 'opacity-55' : ''}`}>
         {hasImages && <ImageStrip previews={message.imagePreviews!} onOpen={onOpenImage} />}
         {!hasImages && message.attachmentCount ? (
-          <p className="mb-1.5 text-[0.8em] text-muted">
+          <p className="mb-1.5 t-note text-muted">
             スクリーンショット{message.attachmentCount}枚を送信
           </p>
         ) : null}
@@ -186,7 +186,7 @@ export default function MessageItem({
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="rounded-full px-3.5 py-2 text-[13px] text-muted"
+                className="rounded-full px-3.5 py-2 t-note text-muted"
               >
                 やめる
               </button>
@@ -197,13 +197,13 @@ export default function MessageItem({
                   setEditing(false);
                   onEdit?.(draft);
                 }}
-                className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                className="rounded-full bg-accent px-4 py-2 t-note font-semibold text-[var(--accent-fg)] disabled:opacity-40"
               >
                 送り直す
               </button>
             </div>
             {hasImages && (
-              <p className="mt-1 px-1.5 text-[0.74em] text-muted">
+              <p className="mt-1 px-1.5 t-note text-muted">
                 添付した{message.imagePreviews!.length}枚は、そのまま一緒に送ります
               </p>
             )}
@@ -216,7 +216,7 @@ export default function MessageItem({
               </div>
             )}
             <div className="chat-body mt-1 flex flex-wrap items-center justify-end gap-0.5">
-              {at && <time className="mr-auto text-[11px] tabular-nums text-muted">{at}</time>}
+              {at && <time className="mr-auto t-note tabular-nums text-muted">{at}</time>}
               {/*
                 **古い発言では、操作を畳んでおく。**
                 押せば出る。出しっぱなしにすると、会話の全域にボタンが散らばる。
@@ -263,8 +263,8 @@ export default function MessageItem({
     <div className="animate-rise">
       <div className="mb-1.5 flex items-center gap-2">
         <CoachAvatar character={coach} size={24} />
-        <span className="text-[12px] font-semibold text-muted">{coach.name}</span>
-        {at && <time className="text-[11px] tabular-nums text-muted">{at}</time>}
+        <span className="t-note font-semibold text-muted">{coach.name}</span>
+        {at && <time className="t-note tabular-nums text-muted">{at}</time>}
       </div>
 
       <div className="chat-body w-full break-words leading-[1.8]">
@@ -282,7 +282,7 @@ export default function MessageItem({
           type="button"
           onClick={() => setRevealed(true)}
           aria-label="この返事への操作を出す"
-          className="mt-1 rounded-full px-2 py-1 text-[13px] leading-none text-muted active:scale-95"
+          className="mt-1 rounded-full px-2 py-1 t-note leading-none text-muted active:scale-95"
         >
           …
         </button>

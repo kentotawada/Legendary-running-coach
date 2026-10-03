@@ -87,8 +87,8 @@ export default function InstallBanner() {
       </svg>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-bold">ホーム画面に追加しておくと、次から1タップです</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+        <p className="t-note font-bold">ホーム画面に追加しておくと、次から1タップです</p>
+        <p className="mt-0.5 t-note leading-relaxed text-muted">
           {platform === 'ios' ? (
             <>
               下の<strong className="font-semibold text-fg">共有ボタン</strong>（□に↑）→

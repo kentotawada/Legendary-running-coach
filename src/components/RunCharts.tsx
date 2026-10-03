@@ -179,11 +179,11 @@ interface Tick {
 function Stat({ value, unit, note }: { value: string; unit: string; note: string }) {
   return (
     <div className="min-w-0 flex-1 border-t border-line pt-1.5">
-      <p className="truncate text-[20px] font-bold leading-tight tabular-nums">
+      <p className="truncate t-title font-bold leading-tight tabular-nums">
         {value}
-        <span className="ml-1 text-[11px] font-medium text-muted">{unit}</span>
+        <span className="ml-1 t-note font-medium text-muted">{unit}</span>
       </p>
-      <p className="mt-0.5 text-[11px] text-muted">{note}</p>
+      <p className="mt-0.5 t-note text-muted">{note}</p>
     </div>
   );
 }
@@ -207,7 +207,7 @@ function XAxis({ ticks, caption }: { ticks: Tick[]; caption: string }) {
           />
         ))}
       </div>
-      <div className="relative mt-0.5 h-4 text-[10px] text-muted tabular-nums">
+      <div className="relative mt-0.5 h-4 t-note text-muted tabular-nums">
         {ticks.map((tick) => {
           // 端の文字は、はみ出さないよう内側へ寄せる。
           const edge = tick.ratio < 0.06 ? 'left' : tick.ratio > 0.94 ? 'right' : 'center';
@@ -228,7 +228,7 @@ function XAxis({ ticks, caption }: { ticks: Tick[]; caption: string }) {
           );
         })}
       </div>
-      <p className="mt-1.5 text-center text-[10px] text-muted">{caption}</p>
+      <p className="mt-1.5 text-center t-note text-muted">{caption}</p>
     </>
   );
 }
@@ -281,11 +281,11 @@ function Chart({
   return (
     <section className="mt-5 border-t border-line pt-4 first:mt-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="min-w-0 truncate text-[13px] font-semibold">{metric.label}</p>
+        <p className="min-w-0 truncate t-note font-semibold">{metric.label}</p>
         {current !== null && current !== undefined && (
-          <p className="shrink-0 text-[13px] font-bold tabular-nums" style={{ color: metric.color }}>
+          <p className="shrink-0 t-note font-bold tabular-nums" style={{ color: metric.color }}>
             {show(current)}
-            <span className="ml-0.5 text-[10px] font-medium text-muted">{metric.unit}</span>
+            <span className="ml-0.5 t-note font-medium text-muted">{metric.unit}</span>
           </p>
         )}
       </div>
@@ -308,7 +308,7 @@ function Chart({
           縦軸の文字。**SVG の外に置く。**
           中に入れると、横幅に合わせて引き伸ばされた時に字まで歪む。
         */}
-        <div className="relative w-9 shrink-0 text-[10px] text-muted tabular-nums" style={{ height: PLOT_HEIGHT }}>
+        <div className="relative w-9 shrink-0 t-note text-muted tabular-nums" style={{ height: PLOT_HEIGHT }}>
           {axis.ticks.map((value) => (
             <span
               key={value}
@@ -517,10 +517,10 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
 
   return (
     <div className="mt-5">
-      <p className="text-[13px] font-semibold">走っている間の推移</p>
+      <p className="t-note font-semibold">走っている間の推移</p>
 
       {/* 横軸の切り替え。時計の画面と同じ、横いっぱいの2つ割り。 */}
-      <div className="mt-2 flex overflow-hidden rounded-[10px] bg-sunken p-0.5 text-[12px]">
+      <div className="mt-2 flex overflow-hidden rounded-[10px] bg-sunken p-0.5 t-note">
         {(['time', 'distance'] as Axis[]).map((value) => (
           <button
             key={value}
@@ -541,7 +541,7 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         ))}
       </div>
 
-      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-1.5 t-note leading-relaxed text-muted">
         グラフを触ると、その地点の値が
         <strong className="font-semibold text-fg">すべての項目で</strong>揃って出ます。
         破線は平均です。
@@ -553,7 +553,7 @@ export default function RunCharts({ series }: { series: ActivitySeries }) {
         「グラフが出ない」ではなく「入れ直せば増える」と分かる形にする。
       */}
       {shown.length === 1 && (
-        <p className="mt-2 rounded-[12px] bg-sunken px-3 py-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 rounded-[12px] bg-sunken px-3 py-2 t-note leading-relaxed text-muted">
           この練習は<strong className="font-semibold text-fg">{shown[0].label}しか持っていません。</strong>
           取り込んだ時期によって、残っている項目が違います。
           <strong className="font-semibold text-fg">同じファイルをもう一度取り込むと、ほかの項目も入ります。</strong>

@@ -202,8 +202,8 @@ export default function MessageActions({
         />
       </ActionButton>
 
-      {copied && <span className="ml-1 text-[12px] text-muted">コピーしました</span>}
-      {thanked && <span className="ml-1 text-[12px] text-muted">ありがとうございます。直す材料にします</span>}
+      {copied && <span className="ml-1 t-note text-muted">コピーしました</span>}
+      {thanked && <span className="ml-1 t-note text-muted">ありがとうございます。直す材料にします</span>}
 
       {/*
         「良くない」の理由。**1回押せば終わる**ように候補を並べる。
@@ -212,7 +212,7 @@ export default function MessageActions({
       {askReason && (
         <div className="absolute bottom-11 left-0 z-20 w-[min(340px,calc(100vw-32px))] rounded-[14px] border border-line bg-elevated p-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold">どこが良くなかったですか？</p>
+            <p className="t-note font-semibold">どこが良くなかったですか？</p>
             <button
               type="button"
               onClick={() => setAskReason(false)}
@@ -232,7 +232,7 @@ export default function MessageActions({
                   setAskReason(false);
                   setThanked(true);
                 }}
-                className="rounded-full border border-line px-3 py-1.5 text-[12px] active:bg-sunken"
+                className="rounded-full px-3 py-1.5 t-note active:bg-sunken"
               >
                 {reason}
               </button>
@@ -254,12 +254,12 @@ export default function MessageActions({
               onChange={(event) => setOther(event.target.value)}
               placeholder="そのほか（自由に）"
               maxLength={300}
-              className="min-w-0 flex-1 rounded-[10px] border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-[color:var(--accent)]"
+              className="min-w-0 flex-1 rounded-[10px] border border-transparent bg-sunken px-2.5 py-1.5 t-note outline-none focus:border-[color:var(--accent)]"
             />
             <button
               type="submit"
               disabled={!other.trim()}
-              className="rounded-[10px] bg-accent px-3 text-[12px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+              className="rounded-[10px] bg-accent px-3 t-note font-semibold text-[var(--accent-fg)] disabled:opacity-40"
             >
               送る
             </button>
@@ -276,7 +276,7 @@ export default function MessageActions({
                 onToggleSpeak();
                 setMenuOpen(false);
               }}
-              className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken"
+              className="flex w-full items-center gap-2.5 px-4 py-3 text-left t-body active:bg-sunken"
             >
               <Icon path={<><path d="M11 5 6 9H3v6h3l5 4z" />{speaking ? <path d="M17 7v10" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7" />}</>} />
               {speaking ? '読み上げを止める' : '読み上げる'}
@@ -289,7 +289,7 @@ export default function MessageActions({
               onRegenerate();
               setMenuOpen(false);
             }}
-            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[14px] active:bg-sunken disabled:opacity-40"
+            className="flex w-full items-center gap-2.5 px-4 py-3 text-left t-body active:bg-sunken disabled:opacity-40"
           >
             <Icon path={<><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></>} />
             返答を作り直す

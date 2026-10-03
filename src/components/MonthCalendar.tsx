@@ -53,19 +53,19 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
           onClick={() => move(-1)}
           disabled={atFirst}
           aria-label="前の月"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line disabled:opacity-25"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-sunken disabled:opacity-25"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
-        <p className="text-[15px] font-bold tabular-nums">{month.label}</p>
+        <p className="t-body font-bold tabular-nums">{month.label}</p>
         <button
           type="button"
           onClick={() => move(1)}
           disabled={atLast}
           aria-label="次の月"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line disabled:opacity-25"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-sunken disabled:opacity-25"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m9 18 6-6-6-6" />
@@ -75,7 +75,7 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
 
       <div className="mt-3 grid grid-cols-7 gap-1 text-center">
         {WEEKDAYS.map((label) => (
-          <span key={label} className="text-[10px] text-muted">
+          <span key={label} className="t-note text-muted">
             {label}
           </span>
         ))}
@@ -93,7 +93,7 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
               aria-label={`${day.day}日${day.km > 0 ? ` ${day.km.toFixed(1)}km` : ' 記録なし'}`}
               aria-pressed={active}
               className={[
-                'relative aspect-square rounded-[9px] text-[11px] tabular-nums transition',
+                'relative aspect-square rounded-[9px] t-note tabular-nums transition',
                 day.inMonth ? '' : 'opacity-25',
                 active ? 'ring-2 ring-[color:var(--accent)]' : '',
                 day.isToday && !active ? 'ring-1 ring-[color:var(--fg-muted)]' : '',
@@ -126,11 +126,11 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
       {/* 押した日の中身。**押すまで出さない。** 枡の中に書くと読めない大きさになる。 */}
       {picked && (
         <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
-          <p className="text-[13px] font-bold">
+          <p className="t-note font-bold">
             {Number(picked.date.slice(5, 7))}月{picked.day}日
           </p>
           {picked.km > 0 || picked.minutes > 0 ? (
-            <p className="mt-1 text-[13px] tabular-nums">
+            <p className="mt-1 t-note tabular-nums">
               {picked.km > 0 && <span>{picked.km.toFixed(1)} km</span>}
               {picked.minutes > 0 && <span className="ml-2">{Math.round(picked.minutes)} 分</span>}
               {picked.kcal !== null && (
@@ -138,15 +138,15 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
               )}
             </p>
           ) : (
-            <p className="mt-1 text-[13px] text-muted">
+            <p className="mt-1 t-note text-muted">
               {picked.isFuture ? 'まだ来ていない日です' : '記録はありません'}
             </p>
           )}
           {picked.pain && (
-            <p className="mt-1 text-[12px] font-semibold text-warn">痛みを抱えていた日です</p>
+            <p className="mt-1 t-note font-semibold text-warn">痛みを抱えていた日です</p>
           )}
           {picked.weightKg !== undefined && (
-            <p className="mt-1 text-[12px] text-muted tabular-nums">
+            <p className="mt-1 t-note text-muted tabular-nums">
               体重 {picked.weightKg} kg
             </p>
           )}
@@ -171,12 +171,12 @@ export default function MonthCalendar({ profile }: { profile: RunnerProfile | nu
       </div>
 
       {month.kcal === null && month.km > 0 && (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 t-note leading-relaxed text-muted">
           体重を記録すると、消費カロリーの目安も出ます（スタンプの「体重をはかる」から）。
         </p>
       )}
       {month.kcal !== null && (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">{CALORIES_NOTE}</p>
+        <p className="mt-2 t-note leading-relaxed text-muted">{CALORIES_NOTE}</p>
       )}
     </div>
   );
@@ -192,13 +192,13 @@ function DayBalance({ profile, date }: { profile: RunnerProfile | null; date: st
   const energy = dayEnergy(profile, date);
   if (energy.burned === null) {
     const why = whyNoBasal(profile);
-    return why ? <p className="mt-2 text-[11px] leading-relaxed text-muted">{why}</p> : null;
+    return why ? <p className="mt-2 t-note leading-relaxed text-muted">{why}</p> : null;
   }
   return (
     <div className="mt-2.5 border-t border-line pt-2.5">
-      <p className="text-[12px] tabular-nums">
+      <p className="t-note tabular-nums">
         使った <strong className="font-semibold">{energy.burned.toLocaleString('ja-JP')}</strong>
-        <span className="text-[11px] text-muted">
+        <span className="t-note text-muted">
           {' '}
           kcal（基礎代謝 {energy.basal!.toLocaleString('ja-JP')} ＋ 生活{' '}
           {energy.living!.toLocaleString('ja-JP')}
@@ -207,35 +207,35 @@ function DayBalance({ profile, date }: { profile: RunnerProfile | null; date: st
       </p>
       {energy.intake !== null ? (
         <>
-          <p className="mt-1 text-[12px] tabular-nums">
+          <p className="mt-1 t-note tabular-nums">
             食べた <strong className="font-semibold">{energy.intake.toLocaleString('ja-JP')}</strong>
-            <span className="text-[11px] text-muted"> kcal</span>
+            <span className="t-note text-muted"> kcal</span>
           </p>
           {/* **足りない時だけ言う。** 余っている日を責めない。 */}
           {energy.balance !== null && energy.balance < 0 && (
-            <p className="mt-1 text-[11px] text-muted">
+            <p className="mt-1 t-note text-muted">
               {Math.abs(energy.balance).toLocaleString('ja-JP')} kcal 足りていません
             </p>
           )}
         </>
       ) : (
-        <p className="mt-1 text-[11px] text-muted">
+        <p className="mt-1 t-note text-muted">
           食べたものをコーチに話すと、ここに並びます。
         </p>
       )}
-      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{ENERGY_NOTE}</p>
+      <p className="mt-1.5 t-note leading-relaxed text-muted">{ENERGY_NOTE}</p>
     </div>
   );
 }
 
 function Tile({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
-    <div className="rounded-[14px] border border-line py-2.5">
-      <p className="text-[18px] font-bold tabular-nums">
+    <div className="rounded-[14px] py-2.5">
+      <p className="t-title font-bold tabular-nums">
         {value}
-        {unit && <span className="ml-0.5 text-[11px] font-medium text-muted">{unit}</span>}
+        {unit && <span className="ml-0.5 t-note font-medium text-muted">{unit}</span>}
       </p>
-      <p className="mt-0.5 text-[10px] text-muted">{label}</p>
+      <p className="mt-0.5 t-note text-muted">{label}</p>
     </div>
   );
 }

@@ -82,31 +82,28 @@ export default function TodaySheet({
     setPicked(picked?.date === day.date ? null : day);
   };
 
+  /*
+    見出しの下の1行。強度と、ペースの幅。
+
+    **見出しがすでに言っている言葉は、二度出さない。**
+    「イージー 10km」の上に「イージー」の札を置いても、分かることは1つも増えない。
+  */
+  const intensity =
+    plan.source === 'start' || plan.headline.includes(INTENSITY_LABEL[plan.intensity])
+      ? ''
+      : INTENSITY_LABEL[plan.intensity];
+  const sub = [intensity, plan.summary].filter(Boolean).join('・');
+
   return (
     <Sheet label="今日やること" title="今日やること" onClose={onClose}>
-      <div
-        className={[
-          'rounded-[16px] border px-4 py-3.5',
-          plan.running ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-sunken',
-        ].join(' ')}
-      >
-        <p className="flex items-center gap-2">
-          {/* まだ記録が無い人には、強度の札を出さない。指すものが無い。 */}
-          {plan.source !== 'start' && (
-            <span
-              className={[
-                'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                plan.running ? 'bg-accent text-[var(--accent-fg)]' : 'bg-bg text-muted',
-              ].join(' ')}
-            >
-              {INTENSITY_LABEL[plan.intensity]}
-            </span>
-          )}
-          {plan.summary && <span className="text-[12px] text-muted">{plan.summary}</span>}
-        </p>
-        <p className={`mt-1.5 text-[19px] font-bold leading-snug ${plan.running ? 'text-accent' : ''}`}>
-          {plan.headline}
-        </p>
+      {/*
+        見出しの置き場。**色の面にも、札にもしない。**
+        面を敷けば、下に続く「なぜ」も「やること」も同じ強さで主張しはじめ、
+        どれから読めばいいのか分からなくなる。いちばん大きい字が、いちばん先に読まれる。
+      */}
+      <div>
+        <p className="t-title font-bold leading-snug">{plan.headline}</p>
+        {sub && <p className="mt-1 t-note text-muted">{sub}</p>}
       </div>
 
       {/*
@@ -114,19 +111,19 @@ export default function TodaySheet({
       */}
       {shoe?.shoe && (
         <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
-          <p className="text-[11px] text-muted">今日の1足</p>
-          <p className="mt-0.5 text-[14px] font-bold">
+          <p className="t-note text-muted">今日の1足</p>
+          <p className="mt-0.5 t-body font-bold">
             {shoe.shoe.name}
-            <span className="ml-1.5 text-[11px] font-normal text-muted tabular-nums">
+            <span className="ml-1.5 t-note font-normal text-muted tabular-nums">
               {Math.round(shoe.shoe.km)}km
             </span>
           </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">{shoe.why}</p>
+          <p className="mt-1 t-note leading-relaxed text-muted">{shoe.why}</p>
           {shoe.caution && (
-            <p className="mt-1.5 text-[12px] leading-relaxed text-warn">{shoe.caution}</p>
+            <p className="mt-1.5 t-note leading-relaxed text-warn">{shoe.caution}</p>
           )}
           {shoe.suggestSecond && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{shoe.suggestSecond}</p>
+            <p className="mt-1.5 t-note leading-relaxed text-muted">{shoe.suggestSecond}</p>
           )}
         </div>
       )}
@@ -143,32 +140,32 @@ export default function TodaySheet({
           ].join(' ')}
         >
           <p
-            className={`text-[13px] font-bold ${plan.weather.level === 'severe' ? 'text-warn' : ''}`}
+            className={`t-note font-bold ${plan.weather.level === 'severe' ? 'text-warn' : ''}`}
           >
             {plan.weather.headline}
           </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">{plan.weather.detail}</p>
+          <p className="mt-1 t-note leading-relaxed text-muted">{plan.weather.detail}</p>
         </div>
       )}
 
       {/* **理由を、手順より先に置く。** 納得していない手順は、途中で止まる。 */}
       <div className="mt-4">
-        <p className="text-[13px] font-bold">なぜ今日これなのか</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">{plan.why}</p>
+        <p className="t-note font-bold">なぜ今日これなのか</p>
+        <p className="mt-1 t-note leading-relaxed text-muted">{plan.why}</p>
       </div>
 
       <div className="mt-5">
-        <p className="text-[13px] font-bold">やること</p>
+        <p className="t-note font-bold">やること</p>
         <ol className="mt-2 space-y-2">
           {plan.steps.map((step, index) => (
             <li key={`${step.label}-${index}`} className="flex gap-2.5">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken text-[11px] font-bold tabular-nums text-muted">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunken t-note font-bold tabular-nums text-muted">
                 {index + 1}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold">{step.label}</span>
+                <span className="block t-note font-semibold">{step.label}</span>
                 {step.detail && (
-                  <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
+                  <span className="mt-0.5 block t-note leading-relaxed text-muted">
                     {step.detail}
                   </span>
                 )}
@@ -203,12 +200,12 @@ export default function TodaySheet({
 
           {picked && !moving && (
             <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
-              <p className="text-[13px] font-bold">{describe(picked)}</p>
+              <p className="t-note font-bold">{describe(picked)}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setMoving(true)}
-                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                  className="rounded-full bg-bg px-3.5 py-2 t-note font-semibold active:scale-[0.98]"
                 >
                   別の日に移す
                 </button>
@@ -217,14 +214,14 @@ export default function TodaySheet({
                   onClick={() =>
                     ask(`${describe(picked)}は、予定があって走れません。この週をどう組み替えますか。`)
                   }
-                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                  className="rounded-full bg-bg px-3.5 py-2 t-note font-semibold active:scale-[0.98]"
                 >
                   この日は走れない
                 </button>
                 <button
                   type="button"
                   onClick={() => ask(`${describe(picked)}の中身を変えたいです。`)}
-                  className="rounded-full border border-line bg-bg px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+                  className="rounded-full bg-bg px-3.5 py-2 t-note font-semibold active:scale-[0.98]"
                 >
                   中身を変える
                 </button>
@@ -232,7 +229,7 @@ export default function TodaySheet({
               <button
                 type="button"
                 onClick={() => setPicked(null)}
-                className="mt-2 text-[12px] text-muted underline underline-offset-4"
+                className="mt-2 t-note text-muted underline underline-offset-4"
               >
                 やめる
               </button>
@@ -243,7 +240,7 @@ export default function TodaySheet({
             <button
               type="button"
               onClick={() => setMoving(false)}
-              className="mt-2 text-[12px] text-muted underline underline-offset-4"
+              className="mt-2 t-note text-muted underline underline-offset-4"
             >
               やめる
             </button>
@@ -253,12 +250,12 @@ export default function TodaySheet({
 
       {plan.alternatives.length > 0 && (
         <div className="mt-5">
-          <p className="text-[13px] font-bold">できない日のために</p>
+          <p className="t-note font-bold">できない日のために</p>
           <ul className="mt-2 space-y-1.5">
             {plan.alternatives.map((alternative) => (
               <li
                 key={alternative.when}
-                className="rounded-[12px] bg-sunken px-3 py-2 text-[12px] leading-relaxed"
+                className="rounded-[12px] bg-sunken px-3 py-2 t-note leading-relaxed"
               >
                 <strong className="font-semibold">{alternative.when}</strong>
                 <span className="text-muted"> … {alternative.what}</span>
@@ -273,7 +270,7 @@ export default function TodaySheet({
         押せば会話になり、その場で組み直せる。崩せる予定だけが、続く。
       */}
       <div className="mt-6">
-        <p className="text-[13px] font-bold">合わないときは、言ってください</p>
+        <p className="t-note font-bold">合わないときは、言ってください</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(plan.source === 'start'
             ? [
@@ -292,13 +289,13 @@ export default function TodaySheet({
               key={chip.label}
               type="button"
               onClick={() => ask(chip.message)}
-              className="rounded-full border border-line px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]"
+              className="rounded-full bg-sunken px-3.5 py-2 t-note font-semibold active:scale-[0.98]"
             >
               {chip.label}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 t-note leading-relaxed text-muted">
           押すと、そのままコーチに相談できます。
           <strong className="font-semibold text-fg">決めたことは、その場で変えられます。</strong>
         </p>

@@ -18,8 +18,8 @@ import { FIGURE_VIEWBOX, figureArt } from './FigureArt';
 export default function ComebackPanel({ plan }: { plan: ComebackPlan }) {
   return (
     <div className="mt-6 border-t border-line pt-4">
-      <p className="text-[13px] font-bold">走れない間の、やること</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">{plan.note}</p>
+      <p className="t-note font-bold">走れない間の、やること</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">{plan.note}</p>
 
       <ul className="mt-3 space-y-2">
         {plan.instead.map((item) => {
@@ -40,14 +40,14 @@ export default function ComebackPanel({ plan }: { plan: ComebackPlan }) {
                 </svg>
               )}
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold">{item.label}</span>
+                <span className="block t-note font-semibold">{item.label}</span>
                 {item.detail && (
-                  <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
+                  <span className="mt-0.5 block t-note leading-relaxed text-muted">
                     {item.detail}
                   </span>
                 )}
                 {figure && !item.detail && (
-                  <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
+                  <span className="mt-0.5 block t-note leading-relaxed text-muted">
                     {figure.dose}
                   </span>
                 )}
@@ -61,21 +61,21 @@ export default function ComebackPanel({ plan }: { plan: ComebackPlan }) {
         **日数で戻さない。** 「2週間で戻れます」は誰にも言えない。
         段ごとの条件だけを置く。
       */}
-      <p className="mt-5 text-[13px] font-bold">走りに戻るまで</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+      <p className="mt-5 t-note font-bold">走りに戻るまで</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">
         日数では決めません。
         <strong className="font-semibold text-fg">痛みが出なければ、次の段へ。</strong>
       </p>
       <ol className="mt-2 space-y-2">
         {plan.stages.map((stage) => (
           <li key={stage.step} className="flex gap-2.5">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold tabular-nums text-[var(--accent-fg)]">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent t-note font-bold tabular-nums text-[var(--accent-fg)]">
               {stage.step}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{stage.title}</span>
-              <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">{stage.what}</span>
-              <span className="mt-0.5 block text-[11px] leading-relaxed text-accent">
+              <span className="block t-note font-semibold">{stage.title}</span>
+              <span className="mt-0.5 block t-note leading-relaxed text-muted">{stage.what}</span>
+              <span className="mt-0.5 block t-note leading-relaxed text-accent">
                 → {stage.next}
               </span>
             </span>
@@ -85,7 +85,7 @@ export default function ComebackPanel({ plan }: { plan: ComebackPlan }) {
 
       <ul className="mt-3 space-y-1">
         {LADDER_RULES.map((rule) => (
-          <li key={rule} className="text-[12px] leading-relaxed text-muted">
+          <li key={rule} className="t-note leading-relaxed text-muted">
             ・{rule}
           </li>
         ))}
@@ -93,15 +93,15 @@ export default function ComebackPanel({ plan }: { plan: ComebackPlan }) {
 
       {/* ここは短くはっきり。**受診を遠ざけない。** */}
       <div className="mt-5 rounded-[14px] border border-[color:var(--warn)] bg-warn-soft px-3.5 py-3">
-        <p className="text-[13px] font-bold text-warn">こうなったら、病院へ</p>
+        <p className="t-note font-bold text-warn">こうなったら、病院へ</p>
         <ul className="mt-1.5 space-y-1">
           {plan.seeDoctor.map((item) => (
-            <li key={item} className="text-[12px] leading-relaxed">
+            <li key={item} className="t-note leading-relaxed">
               ・{item}
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 t-note leading-relaxed text-muted">
           ここは医療行為ではありません。迷ったら、みてもらうほうが早く戻れます。
         </p>
       </div>

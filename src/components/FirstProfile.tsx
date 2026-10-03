@@ -37,8 +37,8 @@ export default function FirstProfile({
         <div className="flex items-center gap-3">
           <CoachAvatar character={coach} size={44} />
           <div className="min-w-0">
-            <p className="text-[17px] font-bold">あなたのことを教えてください</p>
-            <p className="mt-0.5 text-[12px] text-muted">
+            <p className="t-body font-bold">あなたのことを教えてください</p>
+            <p className="mt-0.5 t-note text-muted">
               全部あとから変えられます。空のままでも始められます。
             </p>
           </div>

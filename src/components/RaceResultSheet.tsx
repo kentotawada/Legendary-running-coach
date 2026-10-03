@@ -125,11 +125,11 @@ export default function RaceResultSheet({
     >
       <div
         className={[
-          'rounded-[16px] border px-4 py-3.5',
-          best ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-sunken',
+          'rounded-[16px] px-4 py-3.5',
+          best ? 'bg-accent-soft' : 'bg-sunken',
         ].join(' ')}
       >
-        <p className="flex items-center gap-2 text-[11px]">
+        <p className="flex items-center gap-2 t-note">
           <span className="rounded-full bg-bg px-2 py-0.5 font-bold text-muted">
             {km ? distanceLabel(km) : '完走'}
           </span>
@@ -140,10 +140,10 @@ export default function RaceResultSheet({
             </span>
           )}
         </p>
-        <p className={`mt-1.5 text-[32px] font-bold leading-none tabular-nums ${best ? 'text-accent' : ''}`}>
+        <p className={`mt-1.5 t-num-l font-bold leading-none tabular-nums ${best ? 'text-accent' : ''}`}>
           {raceTime(result.finishSec)}
         </p>
-        <p className="mt-1.5 text-[12px] text-muted tabular-nums">
+        <p className="mt-1.5 t-note text-muted tabular-nums">
           {avgPaceSec ? `1kmあたり ${formatPace(avgPaceSec)}` : ''}
           {result.timing === 'net' ? ' ・ ネットタイム' : result.timing === 'gross' ? ' ・ グロスタイム' : ''}
         </p>
@@ -156,17 +156,17 @@ export default function RaceResultSheet({
       {fade && (
         <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
           <div className="flex items-baseline justify-between">
-            <p className="text-[13px] font-bold">
+            <p className="t-note font-bold">
               {fade.negative ? '後半のほうが速い' : '後半の落ち'}
             </p>
             <p
-              className={`text-[18px] font-bold tabular-nums ${fade.negative ? 'text-accent' : ''}`}
+              className={`t-title font-bold tabular-nums ${fade.negative ? 'text-accent' : ''}`}
             >
               {fade.percent > 0 ? '+' : ''}
               {fade.percent}%
             </p>
           </div>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted tabular-nums">
+          <p className="mt-1 t-note leading-relaxed text-muted tabular-nums">
             前半 {formatPace(fade.firstHalfPaceSec)} → 後半 {formatPace(fade.secondHalfPaceSec)}
             （1kmあたり {fade.deltaSec > 0 ? '+' : ''}
             {fade.deltaSec}秒）
@@ -177,11 +177,11 @@ export default function RaceResultSheet({
       {/* 区間ごとの通過。**累積のままでは、どこで落ちたか読めない。** */}
       {segments.length > 1 && (
         <div className="mt-5">
-          <p className="text-[13px] font-bold">区間ごとのペース</p>
+          <p className="t-note font-bold">区間ごとのペース</p>
           <ul className="mt-2 space-y-1.5">
             {segments.map((segment) => (
               <li key={segment.toKm} className="flex items-center gap-2">
-                <span className="w-[52px] shrink-0 text-[11px] text-muted tabular-nums">
+                <span className="w-[52px] shrink-0 t-note text-muted tabular-nums">
                   {Math.round(segment.fromKm)}–{Math.round(segment.toKm)}
                 </span>
                 <span className="h-5 min-w-0 flex-1 overflow-hidden rounded-[4px] bg-bg">
@@ -190,13 +190,13 @@ export default function RaceResultSheet({
                     style={{ width: `${barWidth(segment.paceSec)}%` }}
                   />
                 </span>
-                <span className="w-[62px] shrink-0 text-right text-[11px] font-semibold tabular-nums">
+                <span className="w-[62px] shrink-0 text-right t-note font-semibold tabular-nums">
                   {formatPace(segment.paceSec)}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+          <p className="mt-1.5 t-note leading-relaxed text-muted">
             棒が長いほど、その区間は遅く走っています。いちばん速い区間を基準にした長さです。
           </p>
         </div>
@@ -229,7 +229,7 @@ export default function RaceResultSheet({
           type="button"
           onClick={() => void share()}
           disabled={sharing}
-          className="rounded-full bg-accent px-4 py-2.5 text-[13px] font-bold text-[var(--accent-fg)] active:scale-[0.98] disabled:opacity-40"
+          className="rounded-full bg-accent px-4 py-2.5 t-note font-bold text-[var(--accent-fg)] active:scale-[0.98] disabled:opacity-40"
         >
           {sharing ? '作っています…' : '画像にして渡す'}
         </button>
@@ -242,13 +242,13 @@ export default function RaceResultSheet({
                 (fade ? `後半は前半より ${fade.percent}% ${fade.negative ? '速い' : '遅い'}です。` : ''),
             );
           }}
-          className="rounded-full border border-line px-4 py-2.5 text-[13px] font-semibold active:scale-[0.98]"
+          className="rounded-full bg-sunken px-4 py-2.5 t-note font-semibold active:scale-[0.98]"
         >
           コーチに見てもらう
         </button>
       </div>
-      {shareNote && <p className="mt-2 text-[12px] text-muted">{shareNote}</p>}
-      <p className="mt-2 text-[11px] leading-relaxed text-muted">
+      {shareNote && <p className="mt-2 t-note text-muted">{shareNote}</p>}
+      <p className="mt-2 t-note leading-relaxed text-muted">
         画像に入るのは、大会名・距離・タイムと区間の形だけです。順位もゼッケンも入りません。
       </p>
     </Sheet>
@@ -258,9 +258,9 @@ export default function RaceResultSheet({
 function Fact({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded-[12px] bg-sunken px-3 py-2">
-      <p className="text-[10px] text-muted">{label}</p>
-      <p className="text-[15px] font-bold leading-tight tabular-nums">{value}</p>
-      {note && <p className="text-[10px] text-muted tabular-nums">{note}</p>}
+      <p className="t-note text-muted">{label}</p>
+      <p className="t-body font-bold leading-tight tabular-nums">{value}</p>
+      {note && <p className="t-note text-muted tabular-nums">{note}</p>}
     </div>
   );
 }

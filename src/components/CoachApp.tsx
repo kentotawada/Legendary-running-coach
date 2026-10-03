@@ -432,24 +432,24 @@ export default function CoachApp() {
           onClick={() => setCoachSheetOpen(true)}
           className="min-w-0 flex-1 text-left"
         >
-          <h1 className="truncate text-[16px] font-bold tracking-tight">{coach.name}</h1>
+          <h1 className="truncate t-body font-bold tracking-tight">{coach.name}</h1>
         </button>
         <button
           type="button"
           onClick={() => setReviewOpen(true)}
           aria-label="ふりかえりを開く"
-          className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full border border-line px-3"
+          className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full bg-sunken px-3"
         >
           {built && built.km > 0 ? (
             <>
-              <span className="text-[13px] font-bold leading-none tabular-nums">
+              <span className="t-note font-bold leading-none tabular-nums">
                 {built.km.toLocaleString()}
-                <span className="ml-0.5 text-[9px] font-medium text-muted">km</span>
+                <span className="ml-0.5 t-note font-medium text-muted">km</span>
               </span>
-              <span className="mt-[3px] text-[9px] leading-none text-muted">ふりかえり</span>
+              <span className="mt-[3px] t-note leading-none text-muted">ふりかえり</span>
             </>
           ) : (
-            <span className="text-[12px] font-medium leading-none">ふりかえり</span>
+            <span className="t-note font-medium leading-none">ふりかえり</span>
           )}
         </button>
         {/*
@@ -461,7 +461,7 @@ export default function CoachApp() {
           type="button"
           onClick={() => setCalendarOpen(true)}
           aria-label="カレンダーを開く"
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-line"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-sunken"
         >
           <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="16" rx="3" />
@@ -474,7 +474,7 @@ export default function CoachApp() {
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="flex h-[38px] shrink-0 items-center rounded-full border border-line px-3.5 text-[12px] font-medium"
+          className="flex h-[38px] shrink-0 items-center rounded-full bg-sunken px-3.5 t-note font-medium"
         >
           カルテ
         </button>
@@ -550,7 +550,7 @@ export default function CoachApp() {
       {showInstall && <InstallBanner />}
 
       {activePains.length > 0 && (
-        <div className="border-b border-line bg-warn-soft px-4 py-2.5 text-[13px] leading-relaxed text-warn">
+        <div className="border-b border-line bg-warn-soft px-4 py-2.5 t-note leading-relaxed text-warn">
           <strong className="font-semibold">いまは走らない期間です。</strong>{' '}
           {activePains.map((p) => p.site).join('・')}が回復するまで、走る以外の方法で一緒に強くなりましょう。
         </div>
@@ -578,7 +578,7 @@ export default function CoachApp() {
           控えから帯が出ている時は、画面はもう用を成している。
         */}
         {!ready && !stale && (
-          <p className="pt-10 text-center text-[13px] text-muted">コーチを呼んでいます…</p>
+          <p className="pt-10 text-center t-note text-muted">コーチを呼んでいます…</p>
         )}
 
         {/*
@@ -631,29 +631,29 @@ export default function CoachApp() {
         )}
 
         {busy && streamingText === null && (
-          <div className="flex items-center gap-2 text-[13px] text-muted">
+          <div className="flex items-center gap-2 t-note text-muted">
             <CoachAvatar character={coach} size={24} />
             <span className="animate-blink">考えています…</span>
           </div>
         )}
 
         {error && (
-          <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3.5 text-[13px] leading-relaxed text-warn">
+          <div className="rounded-[var(--radius)] border border-[color:var(--warn)] bg-warn-soft px-4 py-3.5 t-note leading-relaxed text-warn">
             <p>{error}</p>
             {canResend && (
               <button
                 type="button"
                 onClick={() => void resend()}
                 disabled={busy}
-                className="mt-2.5 rounded-full bg-[color:var(--warn)] px-4 py-2 text-[13px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                className="mt-2.5 rounded-full bg-[color:var(--warn)] px-4 py-2 t-note font-semibold text-[var(--accent-fg)] disabled:opacity-40"
               >
                 同じ内容をもう一度送る
               </button>
             )}
             {errorDetail && (
               <details className="mt-2">
-                <summary className="cursor-pointer text-[12px] opacity-80">エラーの詳細を表示</summary>
-                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-sunken px-3 py-2 text-[11px] leading-relaxed text-fg">
+                <summary className="cursor-pointer t-note opacity-80">エラーの詳細を表示</summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-sunken px-3 py-2 t-note leading-relaxed text-fg">
                   {errorDetail}
                 </pre>
               </details>
@@ -665,7 +665,7 @@ export default function CoachApp() {
       </main>
 
       {celebration && (
-        <div className="mx-4 mb-2 animate-rise rounded-[var(--radius)] border border-[color:var(--accent)] bg-accent-soft px-4 py-3 text-[13px] leading-relaxed text-accent">
+        <div className="mx-4 mb-2 animate-rise rounded-[var(--radius)] bg-accent-soft px-4 py-3 t-note leading-relaxed text-accent">
           {celebration}
         </div>
       )}
@@ -674,10 +674,10 @@ export default function CoachApp() {
         <button
           type="button"
           onClick={() => (needsDeviceGuide ? setConnectOpen(true) : clearSyncMessage())}
-          className={`mx-4 mb-2 animate-rise rounded-[var(--radius)] border px-4 py-2.5 text-left text-[13px] leading-relaxed ${
+          className={`mx-4 mb-2 animate-rise rounded-[var(--radius)] px-4 py-2.5 text-left t-note leading-relaxed ${
             needsDeviceGuide
-              ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
-              : 'border-line bg-sunken text-muted'
+              ? 'bg-accent text-[var(--accent-fg)]'
+              : 'bg-sunken text-muted'
           }`}
         >
           <span className="block whitespace-pre-line">{syncMessage}</span>

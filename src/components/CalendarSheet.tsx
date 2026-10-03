@@ -24,7 +24,7 @@ export default function CalendarSheet({
 }) {
   return (
     <Sheet label="カレンダー" title="カレンダー" onClose={onClose} onBack={onBack} backLabel={backLabel}>
-      <p className="mb-4 text-[12px] leading-relaxed text-muted">
+      <p className="mb-4 t-note leading-relaxed text-muted">
         走った日を塗っています。押すと、その日の中身が出ます。
         <br />
         <strong className="font-semibold text-fg">空いた日は、空いたまま置いてあります。</strong>

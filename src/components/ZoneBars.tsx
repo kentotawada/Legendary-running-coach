@@ -55,16 +55,16 @@ export default function ZoneBars({
 
   return (
     <div className="mt-5 border-t border-line pt-4">
-      <p className="text-[13px] font-semibold">心拍ゾーンの時間</p>
+      <p className="t-note font-semibold">心拍ゾーンの時間</p>
 
       <ul className="mt-2 space-y-2.5">
         {ordered.map((row) => {
           const index = rows.indexOf(row);
           return (
             <li key={row.zone.id}>
-              <p className="text-[12px]">
+              <p className="t-note">
                 <strong className="font-semibold">ゾーン{index + 1}</strong>
-                <span className="ml-2 text-[11px] text-muted">
+                <span className="ml-2 t-note text-muted">
                   {row.zone.range}bpm・{row.zone.name}
                 </span>
               </p>
@@ -78,10 +78,10 @@ export default function ZoneBars({
                     }}
                   />
                 </span>
-                <span className="w-14 shrink-0 text-right text-[12px] font-semibold tabular-nums">
+                <span className="w-14 shrink-0 text-right t-note font-semibold tabular-nums">
                   {clock(row.seconds)}
                 </span>
-                <span className="w-9 shrink-0 text-right text-[11px] text-muted tabular-nums">
+                <span className="w-9 shrink-0 text-right t-note text-muted tabular-nums">
                   {Math.round(row.ratio * 100)}%
                 </span>
               </div>
@@ -95,7 +95,7 @@ export default function ZoneBars({
         ゾーンの境目は、最大心拍やLTHRの持ち方で変わる。
         時計の画面と数字が合わない時、原因がここにあると分かるようにしておく。
       */}
-      {note && <p className="mt-2 text-[10px] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-2 t-note leading-relaxed text-muted">{note}</p>}
     </div>
   );
 }

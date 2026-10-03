@@ -125,12 +125,12 @@ export default function QuickLogSheet({
 
     return (
       <Sheet label="記録を入れました" title="入りました" onClose={onClose}>
-        <div className="rounded-[16px] border border-[color:var(--accent)] bg-accent-soft px-4 py-3.5">
-          <p className="text-[19px] font-bold leading-snug text-accent tabular-nums">
+        <div className="rounded-[16px] bg-accent-soft px-4 py-3.5">
+          <p className="t-title font-bold leading-snug text-accent tabular-nums">
             {logged?.distanceKm ?? km}km
             {logged?.durationMin ? ` ${clock((logged.durationMin ?? 0) * 60)}` : ''}
           </p>
-          <p className="mt-1 text-[12px] text-muted">
+          <p className="mt-1 t-note text-muted">
             {days[ago].label}
             {logged?.metrics?.avgPace ? ` ・ ${logged.metrics.avgPace}` : pace ? ` ・ ${pace}` : ''}
           </p>
@@ -138,17 +138,17 @@ export default function QuickLogSheet({
 
         {described ? (
           <div className="mt-3 rounded-[14px] bg-sunken px-3.5 py-3">
-            <p className="text-[13px] font-bold">{described.title}</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-muted">{described.detail}</p>
+            <p className="t-note font-bold">{described.title}</p>
+            <p className="mt-1 t-note leading-relaxed text-muted">{described.detail}</p>
           </div>
         ) : (
-          <p className="mt-3 text-[12px] leading-relaxed text-muted">
+          <p className="mt-3 t-note leading-relaxed text-muted">
             同じくらいの距離の記録がもう少し貯まると、過去の自分と比べたものが、ここに出ます。
           </p>
         )}
 
         {done.message && (
-          <p className="mt-3 text-[11px] leading-relaxed text-muted">{done.message}</p>
+          <p className="mt-3 t-note leading-relaxed text-muted">{done.message}</p>
         )}
 
         {/*
@@ -164,19 +164,19 @@ export default function QuickLogSheet({
                 `${days[ago].label}、${km}km を${seconds ? clock(seconds) : ''}で走りました。この練習をどう見ますか。`,
               );
             }}
-            className="rounded-full bg-accent px-4 py-2.5 text-[13px] font-bold text-[var(--accent-fg)] active:scale-[0.98]"
+            className="rounded-full bg-accent px-4 py-2.5 t-note font-bold text-[var(--accent-fg)] active:scale-[0.98]"
           >
             コーチに見てもらう
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-line px-4 py-2.5 text-[13px] font-semibold active:scale-[0.98]"
+            className="rounded-full bg-sunken px-4 py-2.5 t-note font-semibold active:scale-[0.98]"
           >
             閉じる
           </button>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 t-note leading-relaxed text-muted">
           記録を入れるだけなら、コーチは呼びません。
         </p>
       </Sheet>
@@ -193,10 +193,10 @@ export default function QuickLogSheet({
             type="button"
             onClick={() => setAgo(day.ago)}
             className={[
-              'rounded-full px-3.5 py-2 text-[13px] font-semibold active:scale-[0.98]',
+              'rounded-full px-3.5 py-2 t-note font-semibold active:scale-[0.98]',
               day.ago === ago
                 ? 'bg-accent text-[var(--accent-fg)]'
-                : 'border border-line text-muted',
+                : 'bg-sunken text-muted',
             ].join(' ')}
           >
             {day.label}
@@ -206,25 +206,25 @@ export default function QuickLogSheet({
 
       {/* 距離。**その人がいつも走る距離を札にする。** */}
       <div className="mt-5">
-        <p className="text-[13px] font-bold">距離</p>
+        <p className="t-note font-bold">距離</p>
         <div className="mt-2 flex items-center gap-3">
           <button
             type="button"
             onClick={() => pickKm(km - 0.1)}
             aria-label="距離を0.1km減らす"
-            className="h-11 w-11 shrink-0 rounded-full border border-line text-[20px] font-bold active:scale-[0.96]"
+            className="h-11 w-11 shrink-0 rounded-full bg-sunken t-title font-bold active:scale-[0.96]"
           >
             −
           </button>
-          <p className="min-w-0 flex-1 text-center text-[32px] font-bold leading-none tabular-nums">
+          <p className="min-w-0 flex-1 text-center t-num-l font-bold leading-none tabular-nums">
             {km.toFixed(1)}
-            <span className="ml-1 text-[14px] font-medium text-muted">km</span>
+            <span className="ml-1 t-body font-medium text-muted">km</span>
           </p>
           <button
             type="button"
             onClick={() => pickKm(km + 0.1)}
             aria-label="距離を0.1km増やす"
-            className="h-11 w-11 shrink-0 rounded-full border border-line text-[20px] font-bold active:scale-[0.96]"
+            className="h-11 w-11 shrink-0 rounded-full bg-sunken t-title font-bold active:scale-[0.96]"
           >
             ＋
           </button>
@@ -236,10 +236,10 @@ export default function QuickLogSheet({
               type="button"
               onClick={() => pickKm(choice)}
               className={[
-                'rounded-full px-3 py-1.5 text-[13px] font-semibold tabular-nums active:scale-[0.98]',
+                'rounded-full px-3 py-1.5 t-note font-semibold tabular-nums active:scale-[0.98]',
                 Math.abs(choice - km) < 0.05
                   ? 'bg-accent text-[var(--accent-fg)]'
-                  : 'border border-line text-muted',
+                  : 'bg-sunken text-muted',
               ].join(' ')}
             >
               {choice % 1 === 0 ? choice : choice.toFixed(1)}km
@@ -251,8 +251,8 @@ export default function QuickLogSheet({
       {/* 時間。**普段のペースから埋めてある。** */}
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
-          <p className="text-[13px] font-bold">時間</p>
-          {pace && <p className="text-[12px] text-muted tabular-nums">{pace}</p>}
+          <p className="t-note font-bold">時間</p>
+          {pace && <p className="t-note text-muted tabular-nums">{pace}</p>}
         </div>
 
         <div className="mt-2 flex items-center gap-2">
@@ -260,12 +260,12 @@ export default function QuickLogSheet({
             <button
               type="button"
               onClick={() => setTyping(seconds !== null ? clock(seconds) : '')}
-              className="min-w-0 flex-1 rounded-[14px] bg-sunken py-3 text-center text-[28px] font-bold leading-none tabular-nums active:scale-[0.99]"
+              className="min-w-0 flex-1 rounded-[14px] bg-sunken py-3 text-center t-num font-bold leading-none tabular-nums active:scale-[0.99]"
             >
               {seconds !== null ? (
                 clock(seconds)
               ) : (
-                <span className="text-[16px] font-medium text-muted">押して入れる</span>
+                <span className="t-body font-medium text-muted">押して入れる</span>
               )}
             </button>
           ) : (
@@ -281,7 +281,7 @@ export default function QuickLogSheet({
               }}
               placeholder="52:30"
               aria-label="かかった時間"
-              className="min-w-0 flex-1 rounded-[14px] bg-sunken py-3 text-center text-[28px] font-bold tabular-nums outline-none ring-2 ring-[color:var(--accent)]"
+              className="min-w-0 flex-1 rounded-[14px] bg-sunken py-3 text-center t-num font-bold tabular-nums outline-none ring-2 ring-[color:var(--accent)]"
             />
           )}
         </div>
@@ -298,7 +298,7 @@ export default function QuickLogSheet({
                 key={step.label}
                 type="button"
                 onClick={() => setSeconds(Math.max(0, (seconds ?? 0) + step.delta))}
-                className="rounded-full border border-line px-3 py-1.5 text-[13px] font-semibold tabular-nums active:scale-[0.98]"
+                className="rounded-full bg-sunken px-3 py-1.5 t-note font-semibold tabular-nums active:scale-[0.98]"
               >
                 {step.label}
               </button>
@@ -307,7 +307,7 @@ export default function QuickLogSheet({
               <button
                 type="button"
                 onClick={() => setSeconds(null)}
-                className="rounded-full px-3 py-1.5 text-[13px] text-muted underline underline-offset-4"
+                className="rounded-full px-3 py-1.5 t-note text-muted underline underline-offset-4"
               >
                 わからない
               </button>
@@ -315,14 +315,14 @@ export default function QuickLogSheet({
           </div>
         )}
         {/* **時間が無くても保存できる。** 距離だけでも、週の量としては意味がある。 */}
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        <p className="mt-2 t-note leading-relaxed text-muted">
           いつものペースから入れてあります。違っていれば直してください。
         </p>
       </div>
 
       {/* 種類。**選ばなくても保存できる。** */}
       <div className="mt-5">
-        <p className="text-[13px] font-bold">
+        <p className="t-note font-bold">
           種類 <span className="font-normal text-muted">（任意）</span>
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -332,10 +332,10 @@ export default function QuickLogSheet({
               type="button"
               onClick={() => setKind(kind === item.id ? undefined : item.id)}
               className={[
-                'rounded-full px-3 py-1.5 text-[13px] font-semibold active:scale-[0.98]',
+                'rounded-full px-3 py-1.5 t-note font-semibold active:scale-[0.98]',
                 kind === item.id
                   ? 'bg-accent text-[var(--accent-fg)]'
-                  : 'border border-line text-muted',
+                  : 'bg-sunken text-muted',
               ].join(' ')}
             >
               {item.label}
@@ -345,7 +345,7 @@ export default function QuickLogSheet({
       </div>
 
       {error && (
-        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-2.5 text-[13px] leading-relaxed text-warn">
+        <p className="mt-4 rounded-[12px] bg-warn-soft px-3.5 py-2.5 t-note leading-relaxed text-warn">
           {error}
         </p>
       )}
@@ -354,11 +354,11 @@ export default function QuickLogSheet({
         type="button"
         onClick={() => void save()}
         disabled={saving || km <= 0}
-        className="mt-5 w-full rounded-full bg-accent py-3.5 text-[15px] font-bold text-[var(--accent-fg)] active:scale-[0.99] disabled:opacity-40"
+        className="mt-5 w-full rounded-full bg-accent py-3.5 t-body font-bold text-[var(--accent-fg)] active:scale-[0.99] disabled:opacity-40"
       >
         {saving ? '入れています…' : '入れる'}
       </button>
-      <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
+      <p className="mt-2 text-center t-note leading-relaxed text-muted">
         コーチは呼びません。入れた直後に、過去の自分との比較が出ます。
       </p>
     </Sheet>

@@ -21,13 +21,13 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
   const alert = mix.verdict === 'grey' || mix.verdict === 'no-easy';
 
   return (
-    <div
-      className={[
-        'rounded-[16px] border px-4 py-3.5',
-        alert ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-sunken',
-      ].join(' ')}
-    >
-      <p className={`text-[15px] font-bold leading-snug ${alert ? 'text-accent' : ''}`}>
+    /*
+      **面はいつも静かにしておく。** 偏っている時に箱ごと色を変えると、
+      中の棒グラフも注記も同じ色の上に乗り、どこが知らせなのか分からなくなる。
+      知らせたいのは見出しの一行なので、色はその字だけに乗せる。
+    */
+    <div className="rounded-[16px] bg-sunken px-4 py-3.5">
+      <p className={`t-body font-bold leading-snug ${alert ? 'text-accent' : ''}`}>
         {mix.headline}
       </p>
 
@@ -38,7 +38,7 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
           .map((band) => (
             <div
               key={band.band}
-              className="flex items-center justify-center text-[10px] font-bold tabular-nums"
+              className="flex items-center justify-center t-note font-bold tabular-nums"
               style={{
                 width: `${band.percent}%`,
                 background: COLOR[band.band],
@@ -51,7 +51,7 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
         {mix.bands.map((band) => (
-          <span key={band.band} className="flex items-center gap-1 text-[11px] text-muted">
+          <span key={band.band} className="flex items-center gap-1 t-note text-muted">
             <span
               className="inline-block h-2 w-2 rounded-full"
               style={{ background: COLOR[band.band] }}
@@ -61,10 +61,10 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
         ))}
       </div>
 
-      <p className="mt-2 text-[12px] leading-relaxed text-muted">{mix.detail}</p>
+      <p className="mt-2 t-note leading-relaxed text-muted">{mix.detail}</p>
 
       {mix.next && (
-        <p className="mt-2.5 rounded-[10px] bg-bg px-3 py-2 text-[13px] font-bold leading-snug">
+        <p className="mt-2.5 rounded-[10px] bg-bg px-3 py-2 t-note font-bold leading-snug">
           {mix.next}
         </p>
       )}
@@ -75,10 +75,10 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
         「この数字は何を数えたのか」を確かめたくなった時にだけ要る。
       */}
       <details className="mt-2">
-        <summary className="cursor-pointer text-[11px] text-muted">
+        <summary className="cursor-pointer t-note text-muted">
           直近{WINDOW_DAYS}日 {mix.runs}本 / {mix.km}km
         </summary>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted tabular-nums">
+        <p className="mt-1 t-note leading-relaxed text-muted tabular-nums">
           {formatPace(mix.easyFromSec)} より遅ければ「ゆっくり」、{formatPace(mix.thresholdSec)}{' '}
           より速ければ「速い」。
           {mix.anchorFrom === 'performance' && mix.anchorRun
@@ -97,7 +97,7 @@ export default function MixCard({ mix, onAsk }: { mix: PaceMix; onAsk?: (message
                 'どう直せばいいですか。',
             )
           }
-          className="mt-3 rounded-full border border-line bg-bg px-4 py-2 text-[13px] font-semibold active:scale-[0.98]"
+          className="mt-3 rounded-full bg-bg px-4 py-2 t-note font-semibold active:scale-[0.98]"
         >
           どう直すか相談する
         </button>

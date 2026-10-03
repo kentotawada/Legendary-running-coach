@@ -76,7 +76,7 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
 
       {goal && (
         <p
-          className={`mt-2 rounded-[12px] px-3.5 py-2.5 text-[13px] font-semibold leading-relaxed ${
+          className={`mt-2 rounded-[12px] px-3.5 py-2.5 t-note font-semibold leading-relaxed ${
             goal.reaching ? 'bg-good-soft text-good' : 'bg-sunken text-fg'
           }`}
         >
@@ -120,12 +120,12 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
           }`}
         >
           <p
-            className={`text-[13px] font-bold ${change.kind === 'lean' ? 'text-warn' : ''}`}
+            className={`t-note font-bold ${change.kind === 'lean' ? 'text-warn' : ''}`}
           >
             {story.title}
           </p>
           <p
-            className={`mt-1 text-[12px] leading-relaxed ${
+            className={`mt-1 t-note leading-relaxed ${
               change.kind === 'lean' ? 'text-warn' : 'text-muted'
             }`}
           >
@@ -133,12 +133,12 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
           </p>
           {/* 内訳は、言葉より棒のほうが早い。 */}
           {change.kind !== 'flat' && (
-            <div className="mt-2.5 flex items-center gap-2 text-[11px] tabular-nums">
+            <div className="mt-2.5 flex items-center gap-2 t-note tabular-nums">
               <Bar label="脂肪" value={change.fatKg} />
               <Bar label="それ以外" value={change.leanKg} warn={change.leanKg < -0.3} />
             </div>
           )}
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">{MEASURE_NOTE}</p>
+          <p className="mt-2 t-note leading-relaxed text-muted">{MEASURE_NOTE}</p>
         </div>
       )}
 
@@ -148,7 +148,7 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
         故障と貧血の入口になる。ここだけは、はっきり言う。
       */}
       {weight.ready && weight.tooFast && (
-        <p className="mt-2 rounded-[12px] bg-warn-soft px-3.5 py-2.5 text-[12px] leading-relaxed text-warn">
+        <p className="mt-2 rounded-[12px] bg-warn-soft px-3.5 py-2.5 t-note leading-relaxed text-warn">
           <strong className="font-semibold">いまの減り方は、走る人にとっては速すぎます。</strong>
           （1週あたり {Math.abs(weight.rawPerWeek)} kg）
           筋肉も一緒に落ちて、故障や貧血につながります。上の見込みは、
@@ -164,11 +164,11 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
             fuel.level === 'low' ? 'bg-warn-soft' : 'bg-sunken'
           }`}
         >
-          <p className={`text-[13px] font-bold ${fuel.level === 'low' ? 'text-warn' : ''}`}>
+          <p className={`t-note font-bold ${fuel.level === 'low' ? 'text-warn' : ''}`}>
             {fuelSaid.title}
           </p>
           <p
-            className={`mt-1 text-[12px] leading-relaxed ${
+            className={`mt-1 t-note leading-relaxed ${
               fuel.level === 'low' ? 'text-warn' : 'text-muted'
             }`}
           >
@@ -180,10 +180,10 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
       {/* 但し書きは、読みたい人だけ。毎回読むものではない。 */}
       {anything && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-[11px] text-muted">
+          <summary className="cursor-pointer t-note text-muted">
             {HORIZON_WEEKS}週（約3か月）先の見込み
           </summary>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted">{OUTLOOK_NOTE}</p>
+          <p className="mt-1 t-note leading-relaxed text-muted">{OUTLOOK_NOTE}</p>
         </details>
       )}
     </div>
@@ -193,9 +193,9 @@ export default function Outlook({ profile }: { profile: RunnerProfile | null }) 
 /** 増減を1つ。**色で良し悪しを決めつけない。** 警告は、筋肉が落ちている時だけ。 */
 function Bar({ label, value, warn = false }: { label: string; value: number; warn?: boolean }) {
   return (
-    <span className="flex-1 rounded-[10px] border border-line px-2.5 py-1.5">
+    <span className="flex-1 rounded-[10px] px-2.5 py-1.5">
       <span className="block text-muted">{label}</span>
-      <span className={`block text-[14px] font-bold ${warn ? 'text-warn' : ''}`}>
+      <span className={`block t-body font-bold ${warn ? 'text-warn' : ''}`}>
         {value > 0 ? '+' : ''}
         {value} kg
       </span>
@@ -217,20 +217,20 @@ function Card({
   tone: 'good' | 'plain';
 }) {
   return (
-    <div className="rounded-[14px] border border-line px-3.5 py-3">
-      <p className="text-[11px] text-muted">{label}</p>
+    <div className="rounded-[14px] px-3.5 py-3">
+      <p className="t-note text-muted">{label}</p>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-[14px] tabular-nums text-muted">{now}</span>
+        <span className="t-body tabular-nums text-muted">{now}</span>
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M5 12h14M13 6l6 6-6 6" />
         </svg>
         <span
-          className={`text-[17px] font-bold tabular-nums ${tone === 'good' ? 'text-good' : ''}`}
+          className={`t-body font-bold tabular-nums ${tone === 'good' ? 'text-good' : ''}`}
         >
           {then}
         </span>
       </div>
-      {note && <p className="mt-1 text-[11px] leading-relaxed text-muted">{note}</p>}
+      {note && <p className="mt-1 t-note leading-relaxed text-muted">{note}</p>}
     </div>
   );
 }
@@ -239,8 +239,8 @@ function Card({
 function Waiting({ label, reason }: { label: string; reason: string }) {
   return (
     <div className="rounded-[14px] border border-dashed border-line px-3.5 py-3">
-      <p className="text-[11px] text-muted">{label}</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">{reason}</p>
+      <p className="t-note text-muted">{label}</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">{reason}</p>
     </div>
   );
 }

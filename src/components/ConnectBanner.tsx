@@ -41,17 +41,17 @@ export default function ConnectBanner({ onOpen }: Props) {
   return (
     <div className="flex items-center gap-3 border-b border-line bg-accent-soft px-4 py-2.5">
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-        <span className="block text-[13px] font-semibold leading-tight text-accent">
+        <span className="block t-note font-semibold leading-tight text-accent">
           ⌚️ 時計やアプリの記録を、自動で取り込めます
         </span>
-        <span className="mt-0.5 block text-[11px] leading-tight text-muted">
+        <span className="mt-0.5 block t-note leading-tight text-muted">
           Garmin・Apple Watch・Nike Run Club など。設定は最初の一度だけ
         </span>
       </button>
       <button
         type="button"
         onClick={onOpen}
-        className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-[12px] font-semibold text-[var(--accent-fg)]"
+        className="shrink-0 rounded-full bg-accent px-3.5 py-2 t-note font-semibold text-[var(--accent-fg)]"
       >
         つなぐ
       </button>
@@ -59,7 +59,7 @@ export default function ConnectBanner({ onOpen }: Props) {
         type="button"
         onClick={dismiss}
         aria-label="この案内を閉じる"
-        className="-mr-1 shrink-0 px-1 text-[15px] leading-none text-muted"
+        className="-mr-1 shrink-0 px-1 t-body leading-none text-muted"
       >
         ×
       </button>

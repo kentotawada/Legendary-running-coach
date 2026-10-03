@@ -45,7 +45,7 @@ export default function CommercePage() {
     >
       {info.incomplete && (
         <Callout>
-          <p className="text-[14px] leading-[1.8]">
+          <p className="t-body leading-[1.8]">
             <strong>この表記はまだ完成していません。</strong>
             環境変数 LEGAL_OPERATOR_NAME / LEGAL_ADDRESS / LEGAL_CONTACT_EMAIL / LEGAL_PRICE_TEXT
             を設定してください。すべて埋まるまで、有料プランの申し込みは受け付けません。
@@ -55,7 +55,7 @@ export default function CommercePage() {
 
       <Section title="表記事項">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px] leading-relaxed">
+          <table className="w-full border-collapse t-note leading-relaxed">
             <tbody className="align-top">
               {rows.map(([label, value]) => (
                 <tr key={label} className="border-b border-line">
@@ -66,7 +66,7 @@ export default function CommercePage() {
             </tbody>
           </table>
         </div>
-        <p className="text-[13px] text-muted">
+        <p className="t-note text-muted">
           <Link href="/terms" className="underline underline-offset-4">
             利用規約
           </Link>

@@ -77,7 +77,7 @@ function Group({
   if (!when) return null;
   return (
     <section className="mt-5 first:mt-1">
-      <h3 className="mb-0.5 text-[11px] font-bold tracking-[0.14em] text-muted">{title}</h3>
+      <h3 className="mb-0.5 t-note font-bold tracking-[0.14em] text-muted">{title}</h3>
       <dl className="divide-y divide-[color:var(--border)]">{children}</dl>
     </section>
   );
@@ -86,8 +86,8 @@ function Group({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3 py-2">
-      <dt className="w-24 shrink-0 text-[13px] text-muted">{label}</dt>
-      <dd className="flex-1 text-[14px] leading-relaxed">{children}</dd>
+      <dt className="w-24 shrink-0 t-note text-muted">{label}</dt>
+      <dd className="flex-1 t-body leading-relaxed">{children}</dd>
     </div>
   );
 }
@@ -137,27 +137,27 @@ function ActivityRow({
   ].filter((value): value is string => Boolean(value));
 
   const body = (
-    <span className="block rounded-[12px] border border-line bg-bg px-3 py-2">
+    <span className="block rounded-[12px] bg-sunken px-3 py-2">
       {/*
         **絵文字を印に使わない。** 端末ごとに絵柄も色も変わるうえ、
         種目の名前（ラン／補強）はすぐ右に文字で出ている。印は要らなかった。
       */}
       <span className="flex items-center gap-2">
-        <span className="shrink-0 text-[12px] font-semibold tabular-nums">
+        <span className="shrink-0 t-note font-semibold tabular-nums">
           {shortDate(activity.date)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] text-muted">
+        <span className="min-w-0 flex-1 truncate t-note text-muted">
           {activity.session ?? TYPE_LABEL[activity.type] ?? activity.type}
         </span>
         {openable && (
-          <span className="shrink-0 text-[11px] font-semibold text-accent">
+          <span className="shrink-0 t-note font-semibold text-accent">
             区間{activity.laps!.length} ›
           </span>
         )}
       </span>
 
       {numbers.length > 0 && (
-        <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[13px] tabular-nums">
+        <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 t-note tabular-nums">
           {numbers.map((value, index) => (
             <span key={value} className={index === 0 ? 'font-bold' : ''}>
               {value}
@@ -168,7 +168,7 @@ function ActivityRow({
 
       {/* 本人の言葉は、数値と同じ見た目にしない。時計に測れない情報なので、別の行に。 */}
       {activity.felt && (
-        <span className="mt-1 block border-l-2 border-line pl-2 text-[11px] leading-relaxed text-muted">
+        <span className="mt-1 block border-l-2 border-line pl-2 t-note leading-relaxed text-muted">
           {activity.felt}
         </span>
       )}
@@ -267,7 +267,7 @@ export default function ProfileSheet({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="shrink-0 rounded-full border border-line px-3.5 py-1.5 text-[13px] font-medium"
+            className="shrink-0 rounded-full bg-sunken px-3.5 py-1.5 t-note font-medium"
           >
             編集
           </button>
@@ -286,7 +286,7 @@ export default function ProfileSheet({
               onCancel={() => setEditing(false)}
             />
           ) : !profile ? (
-            <p className="py-6 text-center text-[14px] text-muted">まだ何も記録されていません。</p>
+            <p className="py-6 text-center t-body text-muted">まだ何も記録されていません。</p>
           ) : (
             <>
             <Group title="あなたのこと">
@@ -295,7 +295,7 @@ export default function ProfileSheet({
                     <CoachAvatar character={findCharacter(profile.characterId)} size={26} />
                     <span>
                       {findCharacter(profile.characterId).name}
-                      <span className="ml-1.5 text-[12px] text-muted">
+                      <span className="ml-1.5 t-note text-muted">
                         {findCharacter(profile.characterId).tagline}
                       </span>
                     </span>
@@ -319,14 +319,14 @@ export default function ProfileSheet({
                         目標から離して並べると、別の何かに見える。ここに小さく添える。
                       */}
                       {vdot !== undefined && (
-                        <span className="block text-[12px] text-muted">VDOT {vdot.toFixed(1)}（目標から計算した走力の目安）</span>
+                        <span className="block t-note text-muted">VDOT {vdot.toFixed(1)}（目標から計算した走力の目安）</span>
                       )}
                     </>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setEditing(true)}
-                      className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                      className="rounded-full bg-accent px-3.5 py-2 t-note font-semibold text-[var(--accent-fg)]"
                     >
                       目標を設定する
                     </button>
@@ -346,11 +346,11 @@ export default function ProfileSheet({
                         return (
                           <li key={race.id}>
                             <span className={isTarget ? 'font-medium' : undefined}>{race.name}</span>
-                            <span className="ml-1.5 text-[12px] text-muted">
+                            <span className="ml-1.5 t-note text-muted">
                               {race.priority}・{RACE_PRIORITY_LABEL[race.priority]}
                               {race.distance ? ` / ${race.distance}` : ''}
                             </span>
-                            <span className="block text-[12px] text-muted">
+                            <span className="block t-note text-muted">
                               {race.date}
                               {left === undefined
                                 ? ''
@@ -378,7 +378,7 @@ export default function ProfileSheet({
                         .filter(Boolean)
                         .join(' / ')}
                       {zones && zones.zones.length > 0 && (
-                        <span className="mt-1 block text-[12px] text-muted">{zones.basisLabel}</span>
+                        <span className="mt-1 block t-note text-muted">{zones.basisLabel}</span>
                       )}
                     </>
                   ) : (
@@ -439,7 +439,7 @@ export default function ProfileSheet({
                       {shoes.map(({ shoe, lifespan, remainingKm, ratio, level, weeksLeft }) => (
                         <li key={shoe.id}>
                           <span className="font-medium">{shoe.name}</span>
-                          <span className="ml-1.5 text-[12px] text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
+                          <span className="ml-1.5 t-note text-muted">{SHOE_ROLE_LABEL[shoe.role]}</span>
                           <span
                             aria-hidden="true"
                             className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-sunken"
@@ -451,7 +451,7 @@ export default function ProfileSheet({
                               style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
                             />
                           </span>
-                          <span className="mt-1 block text-[12px] text-muted tabular-nums">
+                          <span className="mt-1 block t-note text-muted tabular-nums">
                             {Math.round(shoe.km)} km / 目安 {lifespan.replace} km
                             {level === 'over'
                               ? `（${-remainingKm}km 超過）`
@@ -478,7 +478,7 @@ export default function ProfileSheet({
                           </li>
                         ))}
                     </ul>
-                    <span className="mt-1 block text-[12px] text-muted">
+                    <span className="mt-1 block t-note text-muted">
                       「合わなかった」ものは、商品を探す時に候補から外れます
                     </span>
                   </Row>
@@ -507,7 +507,7 @@ export default function ProfileSheet({
                   ) : (
                     <span className="text-muted">
                       まだありません。
-                      <span className="mt-0.5 block text-[11px]">
+                      <span className="mt-0.5 block t-note">
                         上の「記録を取り込む」から、時計のファイルを入れられます。
                       </span>
                     </span>
@@ -520,7 +520,7 @@ export default function ProfileSheet({
                       毎日見るものではない。開いたままだと、長い注釈で画面が埋まる。
                     */}
                     <details>
-                      <summary className="cursor-pointer text-[13px] text-muted">
+                      <summary className="cursor-pointer t-note text-muted">
                         {profile.phaseHistory.length}回の変化
                       </summary>
                       <ul className="mt-1.5 space-y-1 text-muted">
@@ -540,9 +540,9 @@ export default function ProfileSheet({
                       <>
                         <span className="font-semibold text-accent">Strava と連携中</span>
                         {strava.athleteName && (
-                          <span className="ml-1.5 text-[12px] text-muted">{strava.athleteName}</span>
+                          <span className="ml-1.5 t-note text-muted">{strava.athleteName}</span>
                         )}
-                        <span className="mt-0.5 block text-[12px] text-muted">
+                        <span className="mt-0.5 block t-note text-muted">
                           {strava.lastSyncedAt
                             ? `最終取り込み ${new Date(strava.lastSyncedAt).toLocaleString('ja-JP', {
                                 month: 'numeric',
@@ -571,7 +571,7 @@ export default function ProfileSheet({
                     <button
                       type="button"
                       onClick={onOpenConnect}
-                      className="mt-2.5 block w-fit rounded-full border border-[color:var(--accent)] px-3.5 py-2 text-[13px] font-semibold text-accent"
+                      className="mt-2.5 block w-fit rounded-full border border-[color:var(--accent)] px-3.5 py-2 t-note font-semibold text-accent"
                     >
                       {strava ? '連携の設定を開く' : stravaAvailable ? '時計・アプリとつなぐ' : '記録を取り込む'}
                     </button>
@@ -584,7 +584,7 @@ export default function ProfileSheet({
                           iPhone では、<strong className="font-semibold text-fg">ホーム画面に追加</strong>
                           すると通知を受け取れます
                         </span>
-                        <span className="mt-1 block text-[12px] text-muted">
+                        <span className="mt-1 block t-note text-muted">
                           共有ボタン → 「ホーム画面に追加」→ 追加したアイコンから開く
                         </span>
                       </>
@@ -595,22 +595,22 @@ export default function ProfileSheet({
                         <span className={subscribed ? 'font-medium text-good' : 'text-muted'}>
                           {subscribed ? '受け取る設定になっています' : '靴の寿命や本番前に、こちらから声をかけます'}
                         </span>
-                        <span className="mt-0.5 block text-[12px] text-muted">
+                        <span className="mt-0.5 block t-note text-muted">
                           送るのは1日に1通まで。走れていない日を責めることはしません
                         </span>
                         <button
                           type="button"
                           onClick={() => void toggleNotifications()}
                           disabled={pushBusy}
-                          className={`mt-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40 ${
+                          className={`mt-1.5 rounded-full px-3.5 py-2 t-note font-semibold disabled:opacity-40 ${
                             subscribed
-                              ? 'border border-line text-fg'
+                              ? 'bg-sunken text-fg'
                               : 'bg-accent text-[var(--accent-fg)]'
                           }`}
                         >
                           {pushBusy ? '設定中…' : subscribed ? '通知を止める' : '通知を受け取る'}
                         </button>
-                        {pushNote && <span className="mt-1.5 block text-[12px] text-accent">{pushNote}</span>}
+                        {pushNote && <span className="mt-1.5 block t-note text-accent">{pushNote}</span>}
 
                         {/*
                           **朝が全員にとって良い時間とは限らない。**
@@ -619,10 +619,10 @@ export default function ProfileSheet({
                         */}
                         {subscribed && onChangeNotifyHour && (
                           <span className="mt-3 block">
-                            <span className="block text-[12px] text-muted">
+                            <span className="block t-note text-muted">
                               受け取る時刻
                               {/* ちょうどその時刻とは限らない。待たせないために先に言っておく。 */}
-                              <span className="ml-1 text-[11px]">（その1時間のうちに届きます）</span>
+                              <span className="ml-1 t-note">（その1時間のうちに届きます）</span>
                             </span>
                             <span className="mt-1 flex flex-wrap gap-1.5">
                               {NOTIFY_HOURS.map((hour) => {
@@ -634,9 +634,9 @@ export default function ProfileSheet({
                                     onClick={() => onChangeNotifyHour(hour)}
                                     aria-pressed={active}
                                     className={[
-                                      'min-w-[46px] rounded-[10px] border py-1.5 text-[13px] tabular-nums transition active:scale-[0.97]',
+                                      'min-w-[46px] rounded-[10px] py-1.5 t-note tabular-nums transition active:scale-[0.97]',
                                       active
-                                        ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                                        ? 'bg-accent font-semibold text-[var(--accent-fg)]'
                                         : 'border-line text-fg',
                                     ].join(' ')}
                                   >
@@ -662,11 +662,11 @@ export default function ProfileSheet({
                                     .then((result) => setPushNote(result.message))
                                     .finally(() => setTesting(false));
                                 }}
-                                className="rounded-full border border-line px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40"
+                                className="rounded-full bg-sunken px-3.5 py-2 t-note font-semibold disabled:opacity-40"
                               >
                                 {testing ? '送っています…' : 'いま1通送ってみる'}
                               </button>
-                              <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+                              <span className="mt-1 block t-note leading-relaxed text-muted">
                                 届かない時に、どこで止まっているかを確かめられます
                               </span>
                             </span>
@@ -685,7 +685,7 @@ export default function ProfileSheet({
                     {signedInAs ? (
                       <>
                         <span className="font-medium">{signedInAs}</span>
-                        <span className="block text-[12px] text-muted">
+                        <span className="block t-note text-muted">
                           どの端末から開いても同じ記録が表示されます
                         </span>
                       </>
@@ -695,7 +695,7 @@ export default function ProfileSheet({
                         <button
                           type="button"
                           onClick={onOpenAuth}
-                          className="mt-1.5 rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-[var(--accent-fg)]"
+                          className="mt-1.5 rounded-full bg-accent px-3.5 py-2 t-note font-semibold text-[var(--accent-fg)]"
                         >
                           ログインして引き継ぐ
                         </button>
@@ -712,9 +712,9 @@ export default function ProfileSheet({
                         onClick={() => onChangeFontSize(size.id)}
                         aria-pressed={fontSize === size.id}
                         className={[
-                          'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
+                          'min-w-[52px] rounded-[10px] py-1.5 t-note transition active:scale-[0.97]',
                           fontSize === size.id
-                            ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                            ? 'bg-accent font-semibold text-[var(--accent-fg)]'
                             : 'border-line text-fg',
                         ].join(' ')}
                       >
@@ -722,7 +722,7 @@ export default function ProfileSheet({
                       </button>
                     ))}
                   </div>
-                  <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
+                  <span className="mt-1.5 block t-note leading-relaxed text-muted">
                     {FONT_SIZES.find((size) => size.id === fontSize)?.hint}（この端末にのみ保存されます）
                   </span>
                 </Row>
@@ -739,9 +739,9 @@ export default function ProfileSheet({
                         onClick={() => onChangeTheme(item.id)}
                         aria-pressed={theme === item.id}
                         className={[
-                          'min-w-[52px] rounded-[10px] border py-1.5 text-[13px] transition active:scale-[0.97]',
+                          'min-w-[52px] rounded-[10px] py-1.5 t-note transition active:scale-[0.97]',
                           theme === item.id
-                            ? 'border-[color:var(--accent)] bg-accent-soft font-semibold text-accent'
+                            ? 'bg-accent font-semibold text-[var(--accent-fg)]'
                             : 'border-line text-fg',
                         ].join(' ')}
                       >
@@ -749,7 +749,7 @@ export default function ProfileSheet({
                       </button>
                     ))}
                   </div>
-                  <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">
+                  <span className="mt-1.5 block t-note leading-relaxed text-muted">
                     {THEMES.find((item) => item.id === theme)?.hint}（この端末にのみ保存されます）
                   </span>
                 </Row>
@@ -759,14 +759,14 @@ export default function ProfileSheet({
 
           {/* 名前は、ここに静かに置く。ヘッダーはコーチのための場所。 */}
           {!editing && (
-            <p className="mt-6 text-center text-[11px] font-bold tracking-[0.18em] text-muted">
+            <p className="mt-6 text-center t-note font-bold tracking-[0.18em] text-muted">
               RUNCOACH
             </p>
           )}
 
           {/* 同意した中身は、いつでも読み返せる場所に置く。 */}
           {!editing && (
-            <nav className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
+            <nav className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 t-note text-muted">
               <a href="/terms" target="_blank" rel="noopener" className="underline underline-offset-2">
                 利用規約
               </a>
@@ -784,7 +784,7 @@ export default function ProfileSheet({
             消えては困るものが、どこに置かれているのかを知る権利がある。
           */}
           {!editing && build && (
-            <p className="mt-2 rounded-xl bg-sunken px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            <p className="mt-2 rounded-xl bg-sunken px-3 py-2.5 t-note leading-relaxed text-muted">
               記録の保存先:{' '}
               {build.storage === 'supabase'
                 ? 'サーバー。ログインしていれば、機種を変えても残ります。'
@@ -798,7 +798,7 @@ export default function ProfileSheet({
             本番では出さない。切り分けが要る場所では、これまで通り見える。
           */}
           {!editing && build && build.environment !== 'production' && (
-            <div className="mt-2 rounded-xl border border-dashed border-line px-3 py-2.5 text-[11px] leading-relaxed text-muted">
+            <div className="mt-2 rounded-xl border border-dashed border-line px-3 py-2.5 t-note leading-relaxed text-muted">
               <p className="font-medium">開発用の表示</p>
               <p>
                 ビルド {build.commit} / {build.environment} / モデル {build.model}・画像 {build.visionModel}（思考{' '}
@@ -813,7 +813,7 @@ export default function ProfileSheet({
           <div className={`mt-6 border-t border-line pt-4 ${editing ? 'hidden' : ''}`}>
             {confirming ? (
               <div className="space-y-3">
-                <p className="text-[13px] text-muted">
+                <p className="t-note text-muted">
                   会話とカルテをすべて消去します。この操作は取り消せません。
                 </p>
                 <div className="flex gap-2">
@@ -824,14 +824,14 @@ export default function ProfileSheet({
                       onReset();
                       onClose();
                     }}
-                    className="flex-1 rounded-full bg-warn px-4 py-3 text-[14px] font-semibold text-[var(--accent-fg)]"
+                    className="flex-1 rounded-full bg-warn px-4 py-3 t-body font-semibold text-[var(--accent-fg)]"
                   >
                     すべて消去する
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirming(false)}
-                    className="flex-1 rounded-full border border-line px-4 py-3 text-[14px]"
+                    className="flex-1 rounded-full bg-sunken px-4 py-3 t-body"
                   >
                     やめる
                   </button>
@@ -841,7 +841,7 @@ export default function ProfileSheet({
               <button
                 type="button"
                 onClick={() => setConfirming(true)}
-                className="text-[13px] text-muted underline underline-offset-4"
+                className="t-note text-muted underline underline-offset-4"
               >
                 記録をすべて消去する
               </button>

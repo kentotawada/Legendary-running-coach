@@ -60,12 +60,12 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
     >
 
           {!auth.available ? (
-            <p className="text-[13px] leading-relaxed text-muted">
+            <p className="t-note leading-relaxed text-muted">
               ログイン機能は設定されていません。現在の記録はこの端末にのみ保存されています。
             </p>
           ) : auth.isAuthenticated ? (
             <>
-              <p className="text-[13px] leading-relaxed">
+              <p className="t-note leading-relaxed">
                 <span className="font-semibold">{auth.email ?? 'ログイン済み'}</span> でログインしています。
                 <span className="mt-1 block text-muted">
                   カルテと会話は、どの端末から開いても同じものが表示されます。
@@ -74,14 +74,14 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="mt-4 w-full rounded-full border border-line px-4 py-3 text-[14px]"
+                className="mt-4 w-full rounded-full bg-sunken px-4 py-3 t-body"
               >
                 ログアウト
               </button>
             </>
           ) : (
             <>
-              <p className="text-[13px] leading-relaxed">
+              <p className="t-note leading-relaxed">
                 いまの記録は<strong className="font-semibold">この端末にのみ</strong>保存されています。
                 <span className="mt-1 block text-muted">
                   ログインすると、これまでのカルテと会話がそのまま引き継がれ、
@@ -91,7 +91,7 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
 
               <a
                 href="/api/auth/google"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-line bg-bg px-4 py-3 text-[14px] font-semibold"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-bg px-4 py-3 t-body font-semibold"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
                   <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.8 18.9 23 15.9 23 12.3z" />
@@ -102,23 +102,23 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
                 Googleでログイン
               </a>
 
-              <div className="my-4 flex items-center gap-3 text-[12px] text-muted">
+              <div className="my-4 flex items-center gap-3 t-note text-muted">
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
                 または
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
               </div>
 
               {sent ? (
-                <div className="rounded-[var(--radius)] border border-[color:var(--good)] bg-good-soft px-4 py-3 text-[13px] leading-relaxed text-good">
+                <div className="rounded-[var(--radius)] border border-[color:var(--good)] bg-good-soft px-4 py-3 t-note leading-relaxed text-good">
                   <strong className="font-semibold">{email.trim()}</strong> にログイン用のリンクを送りました。
                   メールを開いてリンクをタップすると、ログインが完了します。
                 </div>
               ) : (
                 <>
-                  <label className="block text-[13px] font-medium" htmlFor="auth-email">
+                  <label className="block t-note font-medium" htmlFor="auth-email">
                     メールアドレスでログイン
                   </label>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                  <p className="mt-0.5 t-note leading-relaxed text-muted">
                     パスワードは要りません。届いたリンクをタップするだけです。
                   </p>
                   <div className="mt-2 flex gap-2">
@@ -130,13 +130,13 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
+                      className="min-w-0 flex-1 rounded-xl border border-transparent bg-sunken px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]"
                     />
                     <button
                       type="button"
                       disabled={!valid || sending}
                       onClick={() => void sendLink()}
-                      className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+                      className="shrink-0 rounded-full bg-accent px-5 py-2.5 t-body font-semibold text-[var(--accent-fg)] disabled:opacity-40"
                     >
                       {sending ? '送信中' : '送る'}
                     </button>
@@ -144,7 +144,7 @@ export default function AuthSheet({ auth, onClose, onBack, onSignedOut }: Props)
                 </>
               )}
 
-              {error && <p className="mt-3 text-[13px] leading-relaxed text-warn">{error}</p>}
+              {error && <p className="mt-3 t-note leading-relaxed text-warn">{error}</p>}
             </>
           )}
     </Sheet>

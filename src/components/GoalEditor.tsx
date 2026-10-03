@@ -81,11 +81,11 @@ function Field({
 }) {
   return (
     <label className="block py-2">
-      <span className="text-[13px] font-medium">
+      <span className="t-note font-medium">
         {label}
         {required !== undefined && (
           <span
-            className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+            className={`ml-1.5 rounded px-1.5 py-0.5 t-note font-bold ${
               required ? 'bg-accent-soft text-accent' : 'bg-sunken text-muted'
             }`}
           >
@@ -93,14 +93,14 @@ function Field({
           </span>
         )}
       </span>
-      {hint && <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{hint}</span>}
+      {hint && <span className="mt-0.5 block t-note leading-relaxed text-muted">{hint}</span>}
       <div className="mt-1.5">{children}</div>
     </label>
   );
 }
 
 const inputClass =
-  'w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]';
+  'w-full rounded-xl border border-transparent bg-sunken px-3 py-2.5 text-fg outline-none focus:border-[color:var(--accent)]';
 
 /**
  * 入力欄を複数抱える項目。
@@ -118,8 +118,8 @@ function Chapter({ title, note, children }: { title: string; note?: string; chil
   return (
     <section className="mt-6 first:mt-0">
       <div className="mb-1 border-b border-line pb-1.5">
-        <h3 className="text-[14px] font-bold">{title}</h3>
-        {note && <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{note}</p>}
+        <h3 className="t-body font-bold">{title}</h3>
+        {note && <p className="mt-0.5 t-note leading-relaxed text-muted">{note}</p>}
       </div>
       {children}
     </section>
@@ -137,11 +137,11 @@ function Section({
 }) {
   return (
     <div className="block py-2">
-      <span className="text-[13px] font-medium">
+      <span className="t-note font-medium">
         {label}
-        <span className="ml-1.5 rounded bg-sunken px-1.5 py-0.5 text-[10px] font-bold text-muted">任意</span>
+        <span className="ml-1.5 rounded bg-sunken px-1.5 py-0.5 t-note font-bold text-muted">任意</span>
       </span>
-      {hint && <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">{hint}</span>}
+      {hint && <span className="mt-0.5 block t-note leading-relaxed text-muted">{hint}</span>}
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -168,7 +168,7 @@ function splitDuration(value: string | undefined): { h: string; m: string; s: st
 }
 
 const timeSelectClass =
-  'w-full appearance-none rounded-xl border border-line bg-bg px-2 py-2.5 text-center text-fg outline-none focus:border-[color:var(--accent)]';
+  'w-full appearance-none rounded-xl border border-transparent bg-sunken px-2 py-2.5 text-center text-fg outline-none focus:border-[color:var(--accent)]';
 
 /**
  * タイムの入力。
@@ -221,7 +221,7 @@ function TimePicker({
               </option>
             ))}
           </select>
-          <span className="shrink-0 text-[12px] text-muted">{column.unit}</span>
+          <span className="shrink-0 t-note text-muted">{column.unit}</span>
         </div>
       ))}
     </div>
@@ -270,7 +270,7 @@ function RaceRow({
   const left = daysUntil(race.date);
 
   return (
-    <div className="rounded-[14px] border border-line bg-bg p-2.5">
+    <div className="rounded-[14px] bg-sunken p-2.5">
       <div className="flex gap-2">
         <input
           className={inputClass}
@@ -282,7 +282,7 @@ function RaceRow({
         <button
           type="button"
           onClick={onRemove}
-          className="shrink-0 rounded-xl border border-line px-3 text-[13px] text-muted active:scale-[0.97]"
+          className="shrink-0 rounded-xl bg-sunken px-3 t-note text-muted active:scale-[0.97]"
           aria-label={`${race.name || 'この大会'}を削除`}
         >
           削除
@@ -322,19 +322,19 @@ function RaceRow({
             type="button"
             onClick={() => onChange({ priority })}
             className={[
-              'rounded-full border px-3 py-1.5 text-[12px] transition active:scale-[0.97]',
+              'rounded-full px-3 py-1.5 t-note transition active:scale-[0.97]',
               race.priority === priority
-                ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
-                : 'border-line bg-bg text-muted',
+                ? 'bg-accent text-[var(--accent-fg)]'
+                : 'bg-sunken text-muted',
             ].join(' ')}
           >
             {priority}・{RACE_PRIORITY_LABEL[priority]}
           </button>
         ))}
       </div>
-      <p className="mt-1 text-[11px] leading-relaxed text-muted">{RACE_PRIORITY_HINT[race.priority]}</p>
+      <p className="mt-1 t-note leading-relaxed text-muted">{RACE_PRIORITY_HINT[race.priority]}</p>
 
-      <p className="mt-2.5 text-[11px] text-muted">この大会の目標タイム（任意）</p>
+      <p className="mt-2.5 t-note text-muted">この大会の目標タイム（任意）</p>
       <div className="mt-1">
         <TimePicker
           value={race.targetTime}
@@ -344,7 +344,7 @@ function RaceRow({
       </div>
 
       {left !== undefined && race.name.trim() && (
-        <p className="mt-1.5 text-[11px] text-muted">
+        <p className="mt-1.5 t-note text-muted">
           {left > 0 ? `本番まであと ${left} 日` : left === 0 ? '本番は今日です' : `${-left} 日前に終了`}
         </p>
       )}
@@ -494,19 +494,19 @@ export default function GoalEditor({
                 type="button"
                 onClick={() => setCharacterId(character.id)}
                 className={[
-                  'flex items-start gap-2.5 rounded-[14px] border p-2.5 text-left transition active:scale-[0.98]',
-                  active ? 'border-[color:var(--accent)] bg-accent-soft' : 'border-line bg-bg',
+                  'flex items-start gap-2.5 rounded-[14px] p-2.5 text-left transition active:scale-[0.98]',
+                  active ? 'bg-accent-soft' : 'bg-sunken',
                 ].join(' ')}
               >
                 <CoachAvatar character={character} size={34} />
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-[13px] font-bold ${active ? 'text-accent' : ''}`}>
+                  <span className={`block t-note font-bold ${active ? 'text-accent' : ''}`}>
                     {character.name}
-                    <span className="ml-1 align-middle text-[10px] font-normal text-muted">
+                    <span className="ml-1 align-middle t-note font-normal text-muted">
                       {GENDER_LABEL[character.gender]}
                     </span>
                     <span
-                      className="ml-1 rounded-full px-1.5 py-px align-middle text-[10px] font-bold"
+                      className="ml-1 rounded-full px-1.5 py-px align-middle t-note font-bold"
                       style={{
                         background: `${levelInfo(character.level).color}1f`,
                         color: levelInfo(character.level).color,
@@ -515,13 +515,13 @@ export default function GoalEditor({
                       {levelInfo(character.level).label}
                     </span>
                   </span>
-                  <span className="block text-[11px] leading-snug text-muted">{character.tagline}</span>
+                  <span className="block t-note leading-snug text-muted">{character.tagline}</span>
                 </span>
               </button>
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">{chosen.description}</p>
+        <p className="mt-2 t-note leading-relaxed text-muted">{chosen.description}</p>
       </Field>
       )}
 
@@ -566,9 +566,9 @@ export default function GoalEditor({
                 }
               }}
               className={[
-                'rounded-full border px-3.5 py-2 text-[13px] transition active:scale-[0.97]',
+                'rounded-full px-3.5 py-2 t-note transition active:scale-[0.97]',
                 kind === item.value
-                  ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
+                  ? 'bg-accent text-[var(--accent-fg)]'
                   : 'border-line bg-bg text-fg',
               ].join(' ')}
             >
@@ -612,21 +612,21 @@ export default function GoalEditor({
             )}
 
             {!timeIsValid && (
-              <span className="mt-1 block text-[12px] text-warn">
+              <span className="mt-1 block t-note text-warn">
                 目標タイムを選び直してください。
               </span>
             )}
           </Field>
 
           {derived && (
-            <div className="my-2 rounded-xl bg-sunken px-3 py-2.5 text-[12px] leading-relaxed text-muted">
+            <div className="my-2 rounded-xl bg-sunken px-3 py-2.5 t-note leading-relaxed text-muted">
               <p className="font-medium text-fg">この目標での基準ペース</p>
               <p>レースペース {derived.marathon} / 閾値走 {derived.threshold} / インターバル {derived.interval}</p>
               <p>イージー {derived.easyFrom} 〜 {derived.easyTo}</p>
               {vdot !== undefined && (
                 <p className="mt-1">
                   必要な VDOT ≒ <span className="font-semibold text-fg">{vdot.toFixed(1)}</span>
-                  <span className="block text-[11px]">目標タイムから自動計算される走力指標です</span>
+                  <span className="block t-note">目標タイムから自動計算される走力指標です</span>
                 </p>
               )}
             </div>
@@ -665,18 +665,18 @@ export default function GoalEditor({
           <button
             type="button"
             onClick={() => setRaces((current) => [...current, emptyRace()])}
-            className="w-full rounded-xl border border-dashed border-line py-2.5 text-[13px] text-muted active:scale-[0.99]"
+            className="w-full rounded-xl border border-dashed border-line py-2.5 t-note text-muted active:scale-[0.99]"
           >
             ＋ 大会を追加
           </button>
 
           {incompleteRace && (
-            <span className="block text-[12px] text-warn">
+            <span className="block t-note text-warn">
               「{incompleteRace.name.trim() || '名称未入力の大会'}」は、大会名と開催日の両方が必要です。
             </span>
           )}
           {badRaceTime && (
-            <span className="block text-[12px] text-warn">
+            <span className="block t-note text-warn">
               「{badRaceTime.name.trim() || '大会'}」の目標タイムを選び直してください。
             </span>
           )}
@@ -714,7 +714,7 @@ export default function GoalEditor({
       >
         <div className="flex gap-2">
           <label className="min-w-0 flex-1">
-            <span className="mb-1 block text-[11px] text-muted">身長(cm)</span>
+            <span className="mb-1 block t-note text-muted">身長(cm)</span>
             <input
               className={inputClass}
               value={heightCm}
@@ -724,7 +724,7 @@ export default function GoalEditor({
             />
           </label>
           <label className="min-w-0 flex-1">
-            <span className="mb-1 block text-[11px] text-muted">年齢</span>
+            <span className="mb-1 block t-note text-muted">年齢</span>
             <input
               className={inputClass}
               value={age}
@@ -745,10 +745,10 @@ export default function GoalEditor({
               onClick={() => setSex(sex === value ? '' : value)}
               aria-pressed={sex === value}
               className={[
-                'flex-1 rounded-full border px-4 py-2.5 text-[13px] font-medium transition',
+                'flex-1 rounded-full px-4 py-2.5 t-note font-medium transition',
                 sex === value
-                  ? 'border-[color:var(--accent)] bg-accent-soft text-accent'
-                  : 'border-line',
+                  ? 'bg-accent text-[var(--accent-fg)]'
+                  : 'bg-sunken',
               ].join(' ')}
             >
               {label}
@@ -756,7 +756,7 @@ export default function GoalEditor({
           ))}
         </div>
         {/* **身長を入れるいちばんの理由は、こちら。** */}
-        <span className="mt-2 block text-[11px] leading-relaxed text-muted">
+        <span className="mt-2 block t-note leading-relaxed text-muted">
           身長を入れると、減量の見込みを安全な下限（BMI 18.5）で止められます。
         </span>
       </Field>
@@ -774,7 +774,7 @@ export default function GoalEditor({
           inputMode="numeric"
         />
         {!maxHr.trim() && (
-          <span className="mt-1 block text-[11px] leading-relaxed text-warn">
+          <span className="mt-1 block t-note leading-relaxed text-warn">
             未設定でも保存できますが、心拍ゾーンの評価ができません。
           </span>
         )}
@@ -815,7 +815,7 @@ export default function GoalEditor({
         日によって変わるので、頭の列のスタンプから入れる。
         探し回らせないよう、ここにも行き先を書いておく。
       */}
-      <p className="mt-5 rounded-[12px] bg-sunken px-3.5 py-3 text-[11px] leading-relaxed text-muted">
+      <p className="mt-5 rounded-[12px] bg-sunken px-3.5 py-3 t-note leading-relaxed text-muted">
         <strong className="font-semibold text-fg">体重・体脂肪率・食べた量は、ここではありません。</strong>
         毎日変わるものなので、画面の上の「スタンプ」から入れてください。
         走った記録は、入力欄の「＋」から送れます。
@@ -826,7 +826,7 @@ export default function GoalEditor({
           type="button"
           onClick={submit}
           disabled={saving || !timeIsValid || !racesAreValid}
-          className="flex-1 rounded-full bg-accent px-4 py-3 text-[14px] font-semibold text-[var(--accent-fg)] disabled:opacity-40"
+          className="flex-1 rounded-full bg-accent px-4 py-3 t-body font-semibold text-[var(--accent-fg)] disabled:opacity-40"
         >
           {saving ? '保存しています…' : '保存する'}
         </button>
@@ -834,7 +834,7 @@ export default function GoalEditor({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 rounded-full border border-line px-4 py-3 text-[14px]"
+          className="flex-1 rounded-full bg-sunken px-4 py-3 t-body"
         >
           {cancelLabel}
         </button>

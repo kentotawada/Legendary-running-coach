@@ -24,7 +24,7 @@ export default function ConsentCheck({
           onChange={(event) => onChange(event.target.checked)}
           className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[color:var(--accent)]"
         />
-        <span className="text-[12px] leading-relaxed text-muted">
+        <span className="t-note leading-relaxed text-muted">
           <a href="/terms" target="_blank" rel="noopener" className={link}>
             利用規約
           </a>
@@ -41,7 +41,7 @@ export default function ConsentCheck({
         </span>
       </label>
       {/* 同意の横に、いちばん大事な一文を置く。規約を開かない人にも、これだけは届くように。 */}
-      <p className="mt-2 pl-[28px] text-[11px] leading-relaxed text-muted">
+      <p className="mt-2 pl-[28px] t-note leading-relaxed text-muted">
         医療の代わりにはなりません。胸の痛みや息苦しさがある時は、すぐに運動をやめて医療機関へ。
       </p>
     </div>
