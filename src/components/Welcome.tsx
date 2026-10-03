@@ -102,17 +102,15 @@ export default function Welcome({
           あなたに、専属のコーチを。
         </h1>
         <p className="mt-2.5 t-note leading-relaxed text-muted">
-          これから走ってみようかな、という人も。目標タイムがある人も。
-          記録を見て、その日その日で言葉をかけます。
-          <strong className="font-semibold text-fg">
-            痛みがある日は、誰を選んでも絶対に走らせません。
-          </strong>
+          その日の記録を見て、言葉をかけます。
+          <br />
+          <strong className="font-semibold text-fg">痛みがある日は、誰を選んでも走らせません。</strong>
         </p>
 
         <h2 className="mt-7 t-body font-bold">まず、誰に見てもらいますか</h2>
         <p className="mt-1 t-note leading-relaxed text-muted">
-          上の段ほど、求められることが軽いです。変わるのは話し方と求める量だけで、
-          安全のルールは全員同じ。あとからいつでも変えられます。
+          上の段ほど、求められることが軽いです。
+          <strong className="font-semibold text-fg">あとからいつでも変えられます。</strong>
         </p>
 
         {/*

@@ -45,12 +45,12 @@ export default function WeatherAsk({ onAllow }: { onAllow: (lat: number, lon: nu
     <div className="mt-6 rounded-[14px] bg-sunken px-3.5 py-3">
       <p className="t-note font-bold">暑さのぶん、ペースを調整しますか</p>
       <p className="mt-1 t-note leading-relaxed text-muted">
-        夏は、同じ心拍でも同じ速度は出ません。それを知らずに目標ペースで入ると、後半で潰れます。
-        <strong className="font-semibold text-fg">走る前に「今日は何秒落とすか」</strong>を出せます。
+        暑いと、同じ心拍でも速度は出ません。
+        <strong className="font-semibold text-fg">走る前に「何秒落とすか」</strong>を出します。
       </p>
       <p className="mt-1.5 t-note leading-relaxed text-muted">
-        使うのは天気を引くためだけ。<strong className="font-semibold text-fg">約1km四方まで</strong>に
-        丸めて持ちます。番地は持ちません。
+        天気を引くためだけに使います。位置は
+        <strong className="font-semibold text-fg">約1km四方</strong>に丸め、番地は持ちません。
       </p>
       <button
         type="button"

@@ -21,7 +21,7 @@ export default function ConditionRow({
   onPick: (condition: ConditionId) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-line px-4 py-2">
+    <div className="flex items-center gap-2 border-t border-line px-4 py-2">
       <span className="shrink-0 t-note text-muted">今日の体は？</span>
       <div className="flex min-w-0 flex-1 justify-end gap-1.5">
         {CONDITIONS.map((condition) => {

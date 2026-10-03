@@ -71,7 +71,7 @@ export default function InstallBanner() {
   if (!show) return null;
 
   return (
-    <div className="flex items-start gap-2.5 border-b border-line bg-sunken px-4 py-2.5">
+    <div className="flex items-start gap-2.5 border-t border-line px-4 py-2.5">
       <svg
         viewBox="0 0 24 24"
         className="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent"

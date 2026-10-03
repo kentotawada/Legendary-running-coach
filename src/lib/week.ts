@@ -281,10 +281,10 @@ export function weekPlan(profile: RunnerProfile, now: Date = new Date()): WeekPl
 
   const note =
     base <= 0
-      ? '記録が貯まるほど、ここは本人の走り方に寄っていきます。いまは置き方の形だけ。'
+      ? 'いまは形だけ。記録が貯まるほど、あなたの走り方に寄っていきます。'
       : workload?.level === 'high'
         ? `直近7日が急に増えています。この先7日は、いまの土台（週${base}km）と同じ量に戻します。`
-        : `直近4週は1週あたり${base}km。この先7日も、同じ量で組んでいます。増やすのは、ここが続いてからです。`;
+        : `直近4週は週${base}km。同じ量で組んでいます。増やすのは、続いてから。`;
 
   return { days, totalKm, baseKm: base, note };
 }

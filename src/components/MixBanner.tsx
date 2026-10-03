@@ -48,7 +48,7 @@ export default function MixBanner({ mix, onOpen }: { mix: PaceMix; onOpen: () =>
   };
 
   return (
-    <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
+    <div className="flex items-center gap-3 border-t border-line px-4 py-2.5">
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="block t-note font-semibold leading-tight">{mix.headline}</span>
         {/*

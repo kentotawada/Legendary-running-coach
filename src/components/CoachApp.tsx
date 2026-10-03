@@ -416,6 +416,60 @@ export default function CoachApp() {
     );
   }
 
+  /**
+   * 入力欄のすぐ上に出す、ただ1つの行。
+   *
+   * **ここは「次にあなたがすること」の置き場で、棚ではない。**
+   * 条件に合うものを全部出すと棚になる。合うものの中から、いちばん急ぐ1つだけを返す。
+   * 返すものが無い日は、会話と入力欄だけの画面になる。それでいい。
+   */
+  const ask = (() => {
+    // 走った直後の手応え。**今日しか思い出せないので、いちばん急ぐ。**
+    if (live && unrated)
+      return (
+        <FeltRow
+          activity={unrated}
+          onPick={(effort) => void updateProfile({ felt: { activityId: unrated.id, effort } })}
+        />
+      );
+
+    // 今朝の体。押すと、上の「今日やること」がその場で変わる。
+    if (askCondition)
+      return (
+        <ConditionRow
+          picked={condition}
+          onPick={(id) =>
+            void updateProfile({
+              condition: { fatigue: CONDITIONS.find((item) => item.id === id)?.fatigue ?? 2 },
+            })
+          }
+        />
+      );
+
+    // 練習の偏り。**他のどのアプリも言わないので、アプリの都合より先に出す。**
+    if (showMix && mix) return <MixBanner mix={mix} onOpen={() => setReviewOpen(true)} />;
+
+    // 記録が消えうること。失って困るものが出来てから言う。
+    if (showKeepRecords)
+      return (
+        <KeepRecordsBanner
+          activityCount={profile?.activities.length ?? 0}
+          onOpen={() => setAuthOpen(true)}
+        />
+      );
+
+    // つながっていない人に、入口が在ること。閉じれば二度と出ない。
+    if (showConnect) return <ConnectBanner onOpen={() => setConnectOpen(true)} />;
+
+    // きょうの記録。急がないので、ほかに言うことが無い日に出す。
+    if (!stale && daily) return <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />;
+
+    // ホーム画面への追加。iOS はこれが無いと通知が1通も届かない。
+    if (showInstall) return <InstallBanner />;
+
+    return null;
+  })();
+
   return (
     <div className="app-shell flex flex-col overflow-hidden bg-bg text-fg">
       <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-bg px-4 pb-3">
@@ -498,78 +552,15 @@ export default function CoachApp() {
       )}
 
       {/*
-        今朝の体の感じ。**時計に絶対できないこと。**
-        走ったあとの日は出さない（もう終わっているので、変えようがない）。
+        痛みだけは、ここに残す。
+        **今日やることより上に出す唯一のもの。** 走らない日だと言っているのに、
+        その知らせが会話の下にあったら、上の行だけ見て走りに行く人が出る。
       */}
-      {askCondition && (
-        <ConditionRow
-          picked={condition}
-          onPick={(id) =>
-            void updateProfile({
-              condition: { fatigue: CONDITIONS.find((item) => item.id === id)?.fatigue ?? 2 },
-            })
-          }
-        />
-      )}
-
-      {/*
-        走った直後にだけ出す1行。**押すだけで、時計が取れないものが残る。**
-      */}
-      {ready && !stale && unrated && (
-        <FeltRow
-          activity={unrated}
-          onPick={(effort) => void updateProfile({ felt: { activityId: unrated.id, effort } })}
-        />
-      )}
-
-      {/*
-        **聞く行は、同時にひとつまで。**
-        今日やることの下に「今日の体は？」「手応え」「きょうの記録」が
-        同時に積まれて、会話が画面の4割より下から始まっていた。
-        急ぐもの（走った直後の手応え → 今朝の体）を先に出し、
-        急がないもの（スタンプ）は、ほかに聞くことが無い日に出す。
-      */}
-      {!stale && daily && !unrated && !askCondition && (
-        <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />
-      )}
-
-      {/*
-        **ホーム画面に追加していない人には、通知が1通も届かない**（iOS は追加が条件）。
-        これまでは通知の設定の奥に案内があり、順番が逆になっていた。
-
-        ただし**案内は、同時にひとつまで。**
-        上に帯が4本並んだ時点で、肝心の会話が画面の外へ出てしまう。
-        急がないもの（これ）は、ほかに言うことが無い日まで待つ。
-      */}
-      {/*
-        **ここだけは、このアプリの都合ではない話。**
-        ほかの案内より先に出す。閉じたら、もう出さない。
-      */}
-      {showMix && mix && <MixBanner mix={mix} onOpen={() => setReviewOpen(true)} />}
-
-      {showInstall && <InstallBanner />}
-
       {activePains.length > 0 && (
         <div className="border-b border-line bg-warn-soft px-4 py-2.5 t-note leading-relaxed text-warn">
           <strong className="font-semibold">いまは走らない期間です。</strong>{' '}
           {activePains.map((p) => p.site).join('・')}が回復するまで、走る以外の方法で一緒に強くなりましょう。
         </div>
-      )}
-
-      {/*
-        未ログインで記録が積み上がっている人に、消える経路があることを知らせる。
-        **失って困るものが出来てから出す。** 初日に出すと、ただの登録の壁になる。
-      */}
-      {showKeepRecords && (
-        <KeepRecordsBanner
-          activityCount={profile?.activities.length ?? 0}
-          onOpen={() => setAuthOpen(true)}
-        />
-      )}
-
-      {/* つながっていない人にだけ、入口が在ることを知らせる。閉じれば二度と出ない。 */}
-      {showConnect && (
-        <ConnectBanner onOpen={() => setConnectOpen(true)} />
       )}
 
       <main className="scroll-area flex-1 space-y-6 overflow-y-auto px-4 py-5">
@@ -684,6 +675,19 @@ export default function CoachApp() {
           {needsDeviceGuide && <span className="mt-0.5 block font-semibold">つなぎ方を見る →</span>}
         </button>
       )}
+
+      {/*
+        聞くことと、知らせること。**会話の上ではなく、下に置く。**
+
+        上に積むと、積んだ数だけ会話が画面の外へ出る。帯が3本並んだ日には、
+        コーチの返事が画面の4割より下から始まっていた。ここなら何本あっても
+        会話は押されないし、指も目もすでにこの高さにある。
+
+        そして**出すのは、常にひとつだけ。** 2つ目からは明日でいい。
+        急ぐ順 — 走った手応え（今日しか思い出せない）→ 今朝の体（今日の予定が変わる）
+        → 練習の偏り（他のどのアプリも言わない）→ 記録が消える → 連携 → 記録 → ホーム画面追加。
+      */}
+      {ask}
 
       <footer className="safe-bottom border-t border-line bg-bg">
         <Composer
