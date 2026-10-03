@@ -319,7 +319,7 @@ export default function ProfileSheet({
                         目標から離して並べると、別の何かに見える。ここに小さく添える。
                       */}
                       {vdot !== undefined && (
-                        <span className="block t-note text-muted">VDOT {vdot.toFixed(1)}（目標から計算した走力の目安）</span>
+                        <span className="block t-note text-muted">VDOT {vdot.toFixed(1)}（目標からの走力の目安）</span>
                       )}
                     </>
                   ) : (

@@ -25,7 +25,7 @@ export default function DailyStrip({ daily, onOpen }: { daily: DailyStatus; onOp
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 border-b border-line bg-elevated px-4 py-2 text-left"
+      className="flex w-full items-center gap-3 border-t border-line px-4 py-2 text-left"
       aria-label="きょうの記録を開く"
     >
       <span className="flex gap-1.5">
