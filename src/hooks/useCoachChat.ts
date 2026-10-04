@@ -46,7 +46,13 @@ type ProfileUpdate = Partial<ProfileEdit> & {
   consent?: true;
   /** 走った直後の手応え。押すだけで入る（FeltRow）。 */
   felt?: { activityId: string; effort: number };
-  /** 今朝の体の感じ。押すだけで入る（ConditionRow）。 */
+  /**
+   * 今朝の体の感じ。
+   *
+   * **画面からは聞かなくなった。** コーチが挨拶で「今日の体の状態を教えてください」と
+   * 聞いているのに、その真下でアプリも同じことを聞いていた。同じ質問を2回する画面になる。
+   * いまはコーチが会話の中で log_condition に残す。ここは、その口だけ残してある。
+   */
   condition?: { fatigue: number };
 };
 import { MAX_FILE_BYTES, parseWorkoutFile } from '@/lib/workout-file';
