@@ -12,12 +12,10 @@ import DailyStrip from './DailyStrip';
 import TodaySheet from './TodaySheet';
 import QuickLogSheet from './QuickLogSheet';
 import FeltRow from './FeltRow';
-import ConditionRow from './ConditionRow';
 import InstallBanner from './InstallBanner';
 import MixBanner from './MixBanner';
 import { paceMix } from '@/lib/mix';
-import { CONDITIONS, hasRunHistory, todayFatigue, todayPlan } from '@/lib/today';
-import type { ConditionId } from '@/lib/today';
+import { hasRunHistory, todayPlan } from '@/lib/today';
 import { weekPlan } from '@/lib/week';
 import type { SessionKindId } from '@/lib/quicklog';
 import { comebackPlan } from '@/lib/comeback';
@@ -165,21 +163,6 @@ export default function CoachApp() {
   }, [profile]);
 
   /**
-   * 今朝の体の感じ。押していれば、その段階を返す。
-   * **押した瞬間に上の帯が変わる**ので、押したことが目に見える。
-   */
-  const condition = useMemo<ConditionId | null>(() => {
-    if (!profile) return null;
-    const fatigue = todayFatigue(profile);
-    if (fatigue === undefined) return null;
-    return (
-      CONDITIONS.reduce((best, item) =>
-        Math.abs(item.fatigue - fatigue) < Math.abs(best.fatigue - fatigue) ? item : best,
-      ).id ?? null
-    );
-  }, [profile]);
-
-  /**
    * 記録が1本でもあるか。
    *
    * **初日の人に、まだ意味を持たないものを出さない。**
@@ -201,14 +184,6 @@ export default function CoachApp() {
     今日やることだけが出ている画面のほうが、よほど役に立つ。
   */
   const live = ready && !stale;
-
-  /**
-   * 今朝の体の感じを聞くか。
-   * **下の「きょうの記録」と出し分けるので、条件に名前を付けておく。**
-   */
-  const askCondition = Boolean(
-    ready && !stale && started && today && !unrated && today.running,
-  );
 
   /*
     練習の形が偏っていること。**案内の中では、これをいちばん上に置く。**
@@ -429,19 +404,6 @@ export default function CoachApp() {
         <FeltRow
           activity={unrated}
           onPick={(effort) => void updateProfile({ felt: { activityId: unrated.id, effort } })}
-        />
-      );
-
-    // 今朝の体。押すと、上の「今日やること」がその場で変わる。
-    if (askCondition)
-      return (
-        <ConditionRow
-          picked={condition}
-          onPick={(id) =>
-            void updateProfile({
-              condition: { fatigue: CONDITIONS.find((item) => item.id === id)?.fatigue ?? 2 },
-            })
-          }
         />
       );
 
