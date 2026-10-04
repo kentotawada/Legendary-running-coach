@@ -8,7 +8,6 @@ import Composer, { type ComposerApi } from './Composer';
 import ProfileSheet from './ProfileSheet';
 import CoachProfileSheet from './CoachProfileSheet';
 import IdeaSheet from './IdeaSheet';
-import DailyStrip from './DailyStrip';
 import TodaySheet from './TodaySheet';
 import QuickLogSheet from './QuickLogSheet';
 import FeltRow from './FeltRow';
@@ -422,9 +421,6 @@ export default function CoachApp() {
     // つながっていない人に、入口が在ること。閉じれば二度と出ない。
     if (showConnect) return <ConnectBanner onOpen={() => setConnectOpen(true)} />;
 
-    // きょうの記録。急がないので、ほかに言うことが無い日に出す。
-    if (!stale && daily) return <DailyStrip daily={daily} onOpen={() => setDailyOpen(true)} />;
-
     // ホーム画面への追加。iOS はこれが無いと通知が1通も届かない。
     if (showInstall) return <InstallBanner />;
 
@@ -433,27 +429,59 @@ export default function CoachApp() {
 
   return (
     <div className="app-shell flex flex-col overflow-hidden bg-bg text-fg">
-      <header className="safe-top z-10 flex items-center gap-3 border-b border-line bg-bg px-4 pb-3">
+      {/*
+        頭の列。**ここに入る幅は、きっちり決まっている。**
+        390px の画面で、余白を引いた 358px しか無い。これまで名前と3つの口で
+        357px 使い切っていたので、4つ目を入れるには何かを譲るしかなかった。
+
+        譲ったのは、コーチの名前。**会話では、発言のたびに名前が出ている。**
+        同じ名前を頭にも置くのは、これまで消してきた重複と同じ形だった。
+        顔はそのまま残してあり、押せばこれまでどおり紹介の画面が開く。
+      */}
+      <header className="safe-top z-10 flex items-center gap-2 border-b border-line bg-bg px-4 pb-3 max-[359px]:gap-1 max-[359px]:px-2.5">
         <button
           type="button"
           onClick={() => setCoachSheetOpen(true)}
           aria-label={`${coach.name} のプロフィールを開く`}
-          className="shrink-0 transition active:scale-95"
+          className="flex flex-1 justify-start transition active:scale-95"
         >
           <CoachAvatar character={coach} size={36} />
         </button>
-        <button
-          type="button"
-          onClick={() => setCoachSheetOpen(true)}
-          className="min-w-0 flex-1 text-left"
-        >
-          <h1 className="truncate t-body font-bold tracking-tight">{coach.name}</h1>
-        </button>
+        {/*
+          きょうの記録。**入力欄の上の帯から、ここへ移した。**
+          毎日のことなので、会話の下で順番待ちをさせるより、常に同じ場所に在るほうがいい。
+
+          出す数字はひとつだけ。続いている人には**続いた日数**を（それがいちばん効く）、
+          まだ続いていない人には**今日の埋まり具合**を出す。
+          「1日連続」とは言わない。まだ何も続いていないのに続いたことにすると、
+          この数字そのものが信用されなくなる。
+        */}
+        {!stale && daily && (
+          <button
+            type="button"
+            onClick={() => setDailyOpen(true)}
+            aria-label="きょうの記録を開く"
+            className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full bg-sunken px-3 max-[359px]:px-2"
+          >
+            {daily.streakDays >= 2 ? (
+              <span className="t-note font-bold leading-none tabular-nums text-accent">
+                {daily.streakDays}
+                <span className="ml-0.5 t-note font-medium text-muted">日</span>
+              </span>
+            ) : (
+              <span className="t-note font-bold leading-none tabular-nums">
+                {daily.stamps.filter((stamp) => stamp.done).length}
+                <span className="text-muted">/{daily.stamps.length}</span>
+              </span>
+            )}
+            <span className="mt-[3px] t-note leading-none text-muted">きょう</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setReviewOpen(true)}
           aria-label="ふりかえりを開く"
-          className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full bg-sunken px-3"
+          className="flex h-[38px] shrink-0 flex-col items-center justify-center rounded-full bg-sunken px-3 max-[359px]:px-2"
         >
           {built && built.km > 0 ? (
             <>
@@ -489,7 +517,7 @@ export default function CoachApp() {
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="flex h-[38px] shrink-0 items-center rounded-full bg-sunken px-3.5 t-note font-medium"
+          className="flex h-[38px] shrink-0 items-center rounded-full bg-sunken px-3.5 t-note font-medium max-[359px]:px-2"
         >
           カルテ
         </button>
