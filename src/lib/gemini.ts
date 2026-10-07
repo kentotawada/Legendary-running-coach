@@ -140,9 +140,16 @@ function baseConfig(
   model: string,
   tools: FunctionDeclaration[],
 ): GenerateContentConfig {
+  /*
+    **サンプリングのパラメータは送らない。**
+
+    temperature / top_p / top_k は非推奨になった（Google AI Studio からの通知、2026-10）。
+    Gemini 3.6 Flash 以降は既定値に固定されるため、送っても効かない。
+    今後のモデルでは 400 INVALID_ARGUMENT で弾かれる。
+    thinking_budget も同様だが、こちらは thinkingLevel へ移行済み（下）。
+  */
   const config: GenerateContentConfig = {
     systemInstruction,
-    temperature: 0.8,
     tools: [{ functionDeclarations: tools }],
   };
 
