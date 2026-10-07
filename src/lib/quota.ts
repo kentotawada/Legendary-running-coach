@@ -114,8 +114,20 @@ export function planFor(
 }
 
 export function dailyBudget(env: NodeJS.ProcessEnv = process.env): number {
-  const value = Number(cleanEnv(env.DAILY_TURN_BUDGET));
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : DEFAULT_DAILY_BUDGET;
+  /*
+    **0 は「0」として扱う。**
+
+    ここは以前 `value > 0` だったので、止めるつもりで 0 を入れると、
+    無効な値とみなされて既定の 120 に戻っていた。
+    止めたいのに止まらない設定は、設定が無いより危ない。
+
+    ただし**空文字と 0 を混ぜない。** `Number('')` は 0 になるので、
+    先に文字列として空かどうかを見る。設定していない人まで止めてしまう。
+  */
+  const raw = cleanEnv(env.DAILY_TURN_BUDGET);
+  if (!raw) return DEFAULT_DAILY_BUDGET;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : DEFAULT_DAILY_BUDGET;
 }
 
 /**

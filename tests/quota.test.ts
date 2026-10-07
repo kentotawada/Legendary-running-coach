@@ -187,6 +187,8 @@ describe('アプリ全体の上限', () => {
     expect(dailyBudget(envOf({ DAILY_TURN_BUDGET: 'abc' }))).toBe(DEFAULT_DAILY_BUDGET);
     expect(dailyBudget(envOf({ DAILY_TURN_BUDGET: '-3' }))).toBe(DEFAULT_DAILY_BUDGET);
     expect(dailyBudget(envOf({ DAILY_TURN_BUDGET: '300' }))).toBe(300);
+    // **0 は止めるための値。** 既定に戻してしまうと、止めたつもりで動き続ける。
+    expect(dailyBudget(envOf({ DAILY_TURN_BUDGET: '0' }))).toBe(0);
   });
 });
 
